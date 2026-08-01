@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- 2x2 功能网格 -->
+  <rect x="5" y="5" width="17" height="17" rx="3" stroke="#d4af37" stroke-width="1.5"/>
+  <rect x="26" y="5" width="17" height="17" rx="3" stroke="#d4af37" stroke-width="1.5"/>
+  <rect x="5" y="26" width="17" height="17" rx="3" stroke="#d4af37" stroke-width="1.5"/>
+  <rect x="26" y="26" width="17" height="17" rx="3" stroke="#d4af37" stroke-width="1.5"/>
+  <!-- 激活标记 -->
+  <rect x="9" y="9" width="9" height="9" rx="2" fill="#d4af37" opacity="0.6"/>
+</svg>

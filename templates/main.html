@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金格Pi - 实训大厅</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home/css/style.css') }}">
+</head>
+<body class="panel-page">
+
+    <header>
+        <div class="logo">
+            <a href="{{ url_for('home.index') }}">金格<span>Pi</span></a>
+        </div>
+
+        <div class="account">
+            <img
+                src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ username or 'user' }}"
+                class="avatar"
+                alt="用户头像"
+            >
+            <div class="account-menu">
+                <span style="font-weight: bold;">&nbsp;{{ username }}</span>
+                <a href="{{ url_for('main') }}" class="menu-link">
+                    <img src="{{ url_for('static', filename='icons/panel.svg') }}" class="menu-icon" alt="">
+                    用户面板
+                </a>
+                <a href="{{ url_for('logout') }}" class="menu-link">
+                    <img src="{{ url_for('static', filename='icons/logout.svg') }}" class="menu-icon" alt="">
+                    退出登录
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="panel-main">
+        <div class="page-title">
+            <h2>模拟理财实训大厅</h2>
+            <p>零基础学习股票、基金，模拟交易零风险，轻松掌握理财知识</p>
+        </div>
+        <div class="panel-cards">
+            <div class="panel-card">
+                <img src="{{ url_for('static', filename='icons/wallet.svg') }}" class="panel-card-icon" alt="">
+                <h3>我的资金账户</h3>
+                <p>实时查看模拟总资产、可用现金、持仓盈亏与历史交易记录，清晰掌握个人资产变化。</p>
+                <a href="#" class="func-btn">查看资产</a>
+            </div>
+            <div class="panel-card">
+                <img src="{{ url_for('static', filename='icons/trade.svg') }}" class="panel-card-icon" alt="">
+                <h3>模拟交易中心</h3>
+                <p>自由买入、卖出股票与基金，完整复刻真实市场行情，沉浸式体验投资全过程。</p>
+                <a href="#" class="func-btn">前往交易</a>
+            </div>
+            <div class="panel-card">
+                <img src="{{ url_for('static', filename='icons/mbti.svg') }}" class="panel-card-icon" alt="">
+                <h3>投资性格MBTI测试</h3>
+                <p>完成专属金融性格测评，分析你的风险偏好，匹配适配你的理财规划方案。</p>
+                <a href="#" class="func-btn">开始测试</a>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
