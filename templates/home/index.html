@@ -1,56 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>金格Pi - 金融智能平台</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='home/css/style.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
+{% block title %}金格Pi - 金融智能平台{% endblock %}
 
-    <header>
-
-        <div class="logo">
-            金格<span>Pi</span>
-        </div>
-
-        <div class="account">
-            <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ username or 'guest' }}"
-                class="avatar"
-                alt="用户头像"
-            >
-
-            <div class="account-menu">
-                {% if is_login %}
-                <span style="font-weight: bold;">&nbsp;{{ username }}</span>
-                <a href="{{ url_for('main') }}" class="menu-link">
-                    <img src="{{ url_for('static', filename='icons/panel.svg') }}" class="menu-icon" alt="">
-                    用户面板
-                </a>
-                <a href="{{ url_for('logout') }}" class="menu-link">
-                    <img src="{{ url_for('static', filename='icons/logout.svg') }}" class="menu-icon" alt="">
-                    退出登录
-                </a>
-                {% else %}
-                <a href="#" data-modal="login" class="menu-link">
-                    <img src="{{ url_for('static', filename='icons/login.svg') }}" class="menu-icon" alt="">
-                    登录
-                </a>
-                <a href="#" data-modal="register" class="menu-link">
-                    <img src="{{ url_for('static', filename='icons/register.svg') }}" class="menu-icon" alt="">
-                    注册
-                </a>
-                {% endif %}
-            </div>
-        </div>
-
-    </header>
-
+{% block content %}
 <section class="hero">
 
 <div class="content">
@@ -106,63 +58,4 @@ MBTI<br>
 <section class="stats">
 <p>团队名称 联系方式</p>
 </section>
-
-{% if not is_login %}
-<div class="modal-overlay" id="loginModal" aria-hidden="true">
-    <div class="modal-box" role="dialog" aria-labelledby="loginTitle">
-        <button type="button" class="modal-close" data-close-modal aria-label="关闭">X</button>
-        <div class="modal-title">
-            <h2 id="loginTitle">用户登录</h2>
-            <p>模拟理财 · 零基础学习金融知识</p>
-        </div>
-        <div class="modal-tip modal-tip-error" id="loginError"></div>
-        <form id="loginForm">
-            <div class="modal-field">
-                <input type="text" id="loginUsername" placeholder="请输入账号" required>
-            </div>
-            <div class="modal-field">
-                <input type="password" id="loginPassword" placeholder="请输入密码" required>
-            </div>
-            <button type="submit" class="modal-btn modal-btn-primary">立即登录</button>
-            <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="register">前往注册</button>
-        </form>
-        <p class="modal-hint">测试账号：张三、李四、王五、赵六，统一密码 123456</p>
-    </div>
-</div>
-
-<div class="modal-overlay" id="registerModal" aria-hidden="true">
-    <div class="modal-box" role="dialog" aria-labelledby="registerTitle">
-        <button type="button" class="modal-close" data-close-modal aria-label="关闭">&times;</button>
-        <div class="modal-title">
-            <h2 id="registerTitle">新用户注册</h2>
-            <p>注册账号开启模拟理财实训</p>
-        </div>
-        <div class="modal-tip modal-tip-error" id="registerError"></div>
-        <div class="modal-tip modal-tip-success" id="registerSuccess"></div>
-        <form id="registerForm">
-            <div class="modal-field">
-                <input type="text" id="registerUsername" placeholder="设置账号名称" required>
-            </div>
-            <div class="modal-field">
-                <input type="password" id="registerPassword" placeholder="设置登录密码" required>
-            </div>
-            <div class="modal-field">
-                <input type="password" id="registerPassword2" placeholder="再次输入密码" required>
-            </div>
-            <button type="submit" class="modal-btn modal-btn-primary">完成注册</button>
-            <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="login">已有账号？返回登录</button>
-        </form>
-    </div>
-</div>
-{% endif %}
-
-<script>
-    window.HOME_CONFIG = {
-        openModal: {{ open_modal | tojson }},
-        isLogin: {{ is_login | tojson }}
-    };
-</script>
-<script src="{{ url_for('static', filename='home/js/main.js') }}"></script>
-
-</body>
-</html>
+{% endblock %}

@@ -12,6 +12,16 @@ app.permanent_session_lifetime = datetime.timedelta(hours=2)
 
 app.register_blueprint(home_bp)
 
+
+@app.context_processor
+def inject_user():
+    """所有模板共享登录状态与用户名，方便统一主题布局。"""
+    return {
+        "is_login": bool(session.get("is_login")),
+        "username": session.get("username", ""),
+    }
+
+
 # 登录校验装饰器
 def login_required(f):
     @wraps(f)
@@ -143,8 +153,26 @@ def login():
 @app.route('/main')
 @login_required
 def main():
-    username = session.get("username", "路人甲")
-    return render_template("main.html", username=username)
+    return render_template("main.html")
+
+
+@app.route('/mbti')
+@login_required
+def mbti():
+    return render_template("mbti.html")
+
+
+@app.route('/trade')
+@login_required
+def trade():
+    return render_template("trade.html")
+
+
+@app.route('/chat')
+@login_required
+def chat():
+    return render_template("chat.html")
+
 
 # 退出登录
 @app.route('/logout')
