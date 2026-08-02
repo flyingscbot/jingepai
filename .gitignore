@@ -6,7 +6,7 @@ venv/
 .venv/
 env/
 
-.vscode/
+.vscode
 .idea/
 
 .DS_Store
