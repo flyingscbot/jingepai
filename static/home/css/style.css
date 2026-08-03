@@ -723,9 +723,11 @@ nav a:hover::after{
     
         padding:16px 20px;
     
-        flex-direction:column;
+        flex-direction:row;
     
-        gap:16px;
+        justify-content:space-between;
+    
+        align-items:center;
     
         border-radius:0;
     
@@ -735,6 +737,10 @@ nav a:hover::after{
     .logo{
     
         font-size:30px;
+
+        align-self:flex-start;
+
+        margin-right:auto;
     
     }
     
