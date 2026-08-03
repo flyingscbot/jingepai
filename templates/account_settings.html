@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}金格Pi - 用户设置{% endblock %}
+
+{% block body_class %}panel-page{% endblock %}
+
+{% block content %}
+<main class="panel-main settings-main">
+    <div class="page-title">
+        <h2>用户设置</h2>
+        <p>管理你的公开资料与头像</p>
+    </div>
+
+    <section class="settings-card panel-card">
+        <div class="settings-row">
+            <div class="settings-label">
+                <h3>用户 ID</h3>
+                <p>系统分配的唯一标识，不可修改</p>
+            </div>
+            <div class="settings-control">
+                <code class="settings-id" id="userIdText">{{ user.id }}</code>
+                <button type="button" class="settings-btn-ghost" id="copyUserId">复制</button>
+            </div>
+        </div>
+
+        <div class="settings-row">
+            <div class="settings-label">
+                <h3>用户名</h3>
+                <p>登录账号，同时作为展示名称</p>
+            </div>
+            <div class="settings-control settings-control-stack">
+                <input type="text" id="usernameInput" class="settings-input" maxlength="32" value="{{ user.username }}" placeholder="输入用户名">
+                <button type="button" class="settings-btn" id="saveUsername">保存用户名</button>
+                <p class="settings-tip" id="usernameTip"></p>
+            </div>
+        </div>
+
+        <div class="settings-row">
+            <div class="settings-label">
+                <h3>头像设置</h3>
+                <p>支持 png / jpg / webp / svg，最大 5MB</p>
+            </div>
+            <div class="settings-control settings-avatar-block">
+                <img src="{{ avatar_src }}" alt="当前头像" class="settings-avatar-preview" id="avatarPreview">
+                <label class="settings-btn settings-btn-file">
+                    更换头像
+                    <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" hidden>
+                </label>
+                <p class="settings-tip" id="avatarTip"></p>
+            </div>
+        </div>
+
+        <div class="settings-row settings-row-last">
+            <div class="settings-label">
+                <h3>账户安全</h3>
+                <p>修改密码等安全选项</p>
+            </div>
+            <div class="settings-control">
+                <a href="{{ url_for('account_security') }}" class="settings-btn settings-btn-secondary">进入账户安全</a>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function tip(el, text, ok) {
+        if (!el) return;
+        el.textContent = text || "";
+        el.className = "settings-tip" + (text ? (ok ? " is-ok" : " is-err") : "");
+    }
+
+    var copyBtn = document.getElementById("copyUserId");
+    if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+            var text = document.getElementById("userIdText").textContent.trim();
+            navigator.clipboard.writeText(text).then(function () {
+                copyBtn.textContent = "已复制";
+                setTimeout(function () { copyBtn.textContent = "复制"; }, 1200);
+            });
+        });
+    }
+
+    var saveUsername = document.getElementById("saveUsername");
+    if (saveUsername) {
+        saveUsername.addEventListener("click", function () {
+            var tipEl = document.getElementById("usernameTip");
+            var username = document.getElementById("usernameInput").value.trim();
+            tip(tipEl, "保存中...");
+            fetch("/api/settings/username", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                tip(tipEl, data.message || "", !!data.success);
+                if (data.success && data.username) {
+                    document.getElementById("usernameInput").value = data.username;
+                }
+            })
+            .catch(function () { tip(tipEl, "网络错误", false); });
+        });
+    }
+
+    var avatarInput = document.getElementById("avatarInput");
+    if (avatarInput) {
+        avatarInput.addEventListener("change", function () {
+            var tipEl = document.getElementById("avatarTip");
+            var file = avatarInput.files && avatarInput.files[0];
+            if (!file) return;
+            var fd = new FormData();
+            fd.append("avatar", file);
+            tip(tipEl, "上传中...");
+            fetch("/api/settings/avatar", { method: "POST", body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                tip(tipEl, data.message || "", !!data.success);
+                if (data.success && data.avatar) {
+                    document.getElementById("avatarPreview").src = data.avatar;
+                    var headerAvatar = document.querySelector("header .avatar");
+                    if (headerAvatar) headerAvatar.src = data.avatar;
+                }
+            })
+            .catch(function () { tip(tipEl, "网络错误", false); })
+            .finally(function () { avatarInput.value = ""; });
+        });
+    }
+})();
+</script>
+{% endblock %}

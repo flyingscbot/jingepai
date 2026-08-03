@@ -1,217 +1,318 @@
-from flask import Flask, request, jsonify, session, redirect, url_for, render_template
+from flask import Flask, request, jsonify, session, redirect, url_for, render_template, send_from_directory, abort
 from functools import wraps
 import datetime
-import json
 import os
+import re
 
 from home import home_bp
+import user_db
+import mbti_ai
 
 app = Flask(__name__)
 app.secret_key = "train_2026_abc123"
 app.permanent_session_lifetime = datetime.timedelta(hours=2)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 上传最大 50MB
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 app.register_blueprint(home_bp)
+
+user_db.bootstrap()
+
+# 不显示功能 TAB 的页面
+_NO_TAB_ENDPOINTS = (
+    "home.index",
+    "main",
+    "account_settings",
+    "account_security",
+)
 
 
 @app.context_processor
 def inject_user():
-    """所有模板共享登录状态与用户名，方便统一主题布局。"""
+    user_id = session.get("user_id")
+    username = session.get("username", "")
     return {
         "is_login": bool(session.get("is_login")),
-        "username": session.get("username", ""),
+        "username": username,
+        "avatar": user_db.avatar_url(user_id, username or "guest"),
+        "show_float_nav": bool(
+            session.get("is_login") and request.endpoint not in _NO_TAB_ENDPOINTS
+        ),
     }
 
 
-# 登录校验装饰器
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('is_login'):
-            return redirect(url_for('home.index', modal='login'))
+        if not session.get("is_login"):
+            return redirect(url_for("home.index", modal="login"))
         return f(*args, **kwargs)
     return decorated_function
 
-DB_FILE = "user_db.json"
 
-
-def reset_user_db():
-    """
-    强制生成完整用户数据，每次运行覆盖写入。
-    用于初始化或重置数据库。
-    """
-    data = {
-        "user_list": [
-            {"id": 1, "username": "张三", "password": "123456", "role": "student"},
-            {"id": 2, "username": "李四", "password": "123456", "role": "student"},
-            {"id": 3, "username": "王五", "password": "123456", "role": "student"},
-            {"id": 4, "username": "赵六", "password": "123456", "role": "student"}
-        ]
-    }
-
-    try:
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            # ensure_ascii=False 保证中文正常显示，indent=4 保证格式美观
-            json.dump(data, f, indent=4, ensure_ascii=False)
-        print(f"✅ 数据库已重置并保存至: {os.path.abspath(DB_FILE)}")
-        return True
-    except Exception as e:
-        print(f"❌ 重置数据库失败: {e}")
-        return False
-
-
-def load_all_users():
-    """
-    读取所有用户列表。
-    具备自动容错机制：如果文件不存在或损坏，会自动尝试重置。
-    """
-    # 1. 检查文件是否存在
-    if not os.path.exists(DB_FILE):
-        print("⚠️ 检测到数据库文件不存在，正在自动初始化...")
-        if not reset_user_db():
-            return []
-
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-
-            # 2. 检查文件是否为空
-            if not content:
-                raise ValueError("数据库文件内容为空")
-
-            data = json.loads(content)
-
-            # 3. 验证数据结构
-            if isinstance(data, dict) and "user_list" in data:
-                user_list = data["user_list"]
-                if isinstance(user_list, list):
-                    return user_list
-                else:
-                    raise TypeError("'user_list' 字段不是列表类型")
-            else:
-                raise KeyError("JSON 结构中缺少 'user_list' 键")
-
-    except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
-        print(f"⚠️ 数据库文件损坏或格式错误: {e}")
-        print("🔄 正在尝试修复（重新生成数据库）...")
-        if reset_user_db():
-            # 修复成功后，递归调用自己重新读取最新数据
-            return load_all_users()
-        else:
-            return []
-    except Exception as e:
-        print(f"❌ 读取数据库时发生未知错误: {e}")
-        return []
-
-
-def get_user_by_name(username):
-    """
-    根据用户名查找用户。
-    返回用户字典，如果未找到则返回 None。
-    """
-    user_list = load_all_users()
-
-    # 调试信息：显示当前加载状态
-    if not user_list:
-        print("[DEBUG] 警告：用户列表为空，无法进行查询。")
+def _current_user():
+    user_id = session.get("user_id")
+    if not user_id:
         return None
-
-    # 遍历查找
-    for u in user_list:
-        # 使用 .get() 防止键不存在报错，并去除两端空格进行匹配
-        db_name = u.get("username", "")
-        if db_name.strip() == username.strip():
-            return u
-
-    # 未找到时的调试提示
-    all_names = [u.get("username", "Unknown") for u in user_list]
-    print(f"[DEBUG] 未找到用户 '{username}'。当前库中有: {all_names}")
-
-    return None
+    return user_db.get_user_by_id(user_id)
 
 
-@app.route('/login', methods=['GET', 'POST'])
+def _set_login_session(user: dict) -> None:
+    user_db.ensure_user_folder(user)
+    session["is_login"] = True
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+    session.permanent = True
+
+
+@app.route("/user_assets/<folder>/<path:filename>")
+def user_assets(folder, filename):
+    if not re.fullmatch(r"[0-9a-f]{32}", folder):
+        abort(404)
+    if ".." in filename or filename.startswith(("/", "\\")):
+        abort(404)
+    directory = os.path.join(user_db.USERS_DIR, folder)
+    if not os.path.isdir(directory):
+        abort(404)
+    return send_from_directory(directory, filename)
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return redirect(url_for('home.index', modal='login'))
+        return redirect(url_for("home.index", modal="login"))
     if not request.is_json:
         return jsonify({"success": False, "message": "请提交JSON数据"})
     data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
     if not username or not password:
         return jsonify({"success": False, "message": "账号密码不能为空"})
-    user = get_user_by_name(username)
-    if user and user["password"] == password:
-        session["is_login"] = True
-        session["username"] = username
-        session.permanent = True
-        return jsonify({"success": True, "message": "登录成功"})
-    else:
-        return jsonify({"success": False, "message": "用户名或密码错误"})
 
-# 主页
-@app.route('/main')
+    user = user_db.get_user_by_name(username)
+    if user and user_db.verify_password(user, password):
+        _set_login_session(user)
+        return jsonify({"success": True, "message": "登录成功"})
+    return jsonify({"success": False, "message": "用户名或密码错误"})
+
+
+@app.route("/main")
 @login_required
 def main():
     return render_template("main.html")
 
 
-@app.route('/mbti')
+@app.route("/account_settings")
+@login_required
+def account_settings():
+    user = _current_user()
+    if not user:
+        return redirect(url_for("logout"))
+    return render_template(
+        "account_settings.html",
+        user=user,
+        avatar_src=user_db.avatar_url(user["id"], user["username"]),
+    )
+
+
+@app.route("/account_security")
+@login_required
+def account_security():
+    user = _current_user()
+    if not user:
+        return redirect(url_for("logout"))
+    return render_template("account_security.html", user=user)
+
+
+@app.route("/api/settings/username", methods=["POST"])
+@login_required
+def api_update_username():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        updated = user_db.update_username(user["id"], data.get("username", ""))
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    session["username"] = updated["username"]
+    return jsonify({"success": True, "message": "用户名已更新", "username": updated["username"]})
+
+
+@app.route("/api/settings/avatar", methods=["POST"])
+@login_required
+def api_update_avatar():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    file = request.files.get("avatar")
+    try:
+        url = user_db.save_avatar_upload(user["id"], file)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "上传失败，请稍后重试"})
+    return jsonify({"success": True, "message": "头像已更新", "avatar": url})
+
+
+@app.route("/api/settings/password", methods=["POST"])
+@login_required
+def api_update_password():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        user_db.update_password(
+            user["id"],
+            data.get("old_password") or "",
+            data.get("new_password") or "",
+        )
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    return jsonify({"success": True, "message": "密码已更新"})
+
+
+@app.route("/mbti")
 @login_required
 def mbti():
-    return render_template("mbti.html")
+    user = _current_user()
+    if not user:
+        return redirect(url_for("logout"))
+    user_db.ensure_user_folder(user)
+    files = user_db.list_trade_files(user["id"])
+    return render_template("mbti.html", user=user, trade_files=files)
 
 
-@app.route('/trade')
+@app.route("/api/mbti/analyze", methods=["POST"])
+@login_required
+def api_mbti_analyze():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    names = data.get("names")
+    if names is None and data.get("name"):
+        names = [data.get("name")]
+    if not isinstance(names, list):
+        names = []
+    names = [str(n).strip() for n in names if str(n).strip()]
+    # 去重并保持顺序
+    seen = set()
+    unique_names = []
+    for n in names:
+        if n not in seen:
+            seen.add(n)
+            unique_names.append(n)
+    if not unique_names:
+        return jsonify({"success": False, "message": "请至少选择一个文件"})
+    try:
+        files = []
+        for name in unique_names:
+            filename, raw = user_db.read_trade_file(user["id"], name)
+            files.append((filename, raw))
+        result = mbti_ai.analyze_mbti_files(files)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "分析失败，请稍后重试"})
+    return jsonify({"success": True, "message": "分析完成", "result": result})
+
+
+@app.route("/trade")
 @login_required
 def trade():
-    return render_template("trade.html")
+    user = _current_user()
+    if not user:
+        return redirect(url_for("logout"))
+    user_db.ensure_user_folder(user)
+    files = user_db.list_trade_files(user["id"])
+    return render_template("trade.html", user=user, trade_files=files)
 
 
-@app.route('/chat')
+@app.route("/api/trade/upload", methods=["POST"])
+@login_required
+def api_trade_upload():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    file = request.files.get("file")
+    try:
+        item = user_db.save_trade_file(user["id"], file)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "上传失败，请稍后重试"})
+    return jsonify({"success": True, "message": "上传成功", "file": item})
+
+
+@app.route("/api/trade/delete", methods=["POST"])
+@login_required
+def api_trade_delete():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        user_db.delete_trade_file(user["id"], data.get("name") or "")
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "删除失败，请稍后重试"})
+    return jsonify({"success": True, "message": "已删除"})
+
+
+@app.route("/api/trade/download/<path:filename>")
+@login_required
+def api_trade_download(filename):
+    user = _current_user()
+    if not user:
+        abort(401)
+    try:
+        safe_name = user_db.safe_trade_filename(filename)
+    except ValueError:
+        abort(404)
+    directory = user_db.trade_dir(user["id"])
+    path = os.path.join(directory, safe_name)
+    if not os.path.isfile(path):
+        abort(404)
+    return send_from_directory(directory, safe_name, as_attachment=True)
+
+
+@app.route("/chat")
 @login_required
 def chat():
     return render_template("chat.html")
 
 
-# 退出登录
-@app.route('/logout')
+@app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for('home.index'))
+    return redirect(url_for("home.index"))
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register_page():
     if request.method == "GET":
-        return redirect(url_for('home.index', modal='register'))
+        return redirect(url_for("home.index", modal="register"))
 
-    # POST 处理注册提交
     if not request.is_json:
         return jsonify({"success": False, "message": "请提交JSON数据"})
     data = request.get_json()
-    un = data.get("username")
-    pw = data.get("password")
+    un = (data.get("username") or "").strip()
+    pw = data.get("password") or ""
     if not un or not pw:
         return jsonify({"success": False, "message": "账号密码不能为空"})
 
-    user_list = load_all_users()
-    for u in user_list:
-        if u["username"] == un:
-            return jsonify({"success": False, "message": "该账号已存在"})
+    try:
+        user_db.create_user(un, pw)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "注册失败，请稍后重试"})
 
-    new_id = max(item["id"] for item in user_list) + 1
-    new_user = {
-        "id": new_id,
-        "username": un,
-        "password": pw,
-        "role": "student"
-    }
-    user_list.append(new_user)
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump({"user_list": user_list}, f, indent=4, ensure_ascii=False)
     return jsonify({"success": True, "message": "注册成功"})
 
 
-if __name__ == '__main__':
-    app.run(host="127.0.0.1", port=1000, debug=True)
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=1000, debug=True, use_reloader=True)

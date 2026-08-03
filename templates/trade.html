@@ -5,10 +5,154 @@
 {% block body_class %}panel-page{% endblock %}
 
 {% block content %}
-<main class="panel-main">
+<main class="panel-main settings-main">
     <div class="page-title">
         <h2>我的交易数据</h2>
-        <p>内容即将上线，敬请期待</p>
+        <p>上传并管理你的交易相关文件</p>
     </div>
+
+    <section class="settings-card panel-card trade-card">
+        <div class="settings-row">
+            <div class="settings-label">
+                <h3>上传文件</h3>
+                <p>支持任意格式，单文件最大 50MB</p>
+            </div>
+            <div class="settings-control settings-control-stack">
+                <label class="settings-btn settings-btn-file">
+                    选择并上传
+                    <input type="file" id="tradeUploadInput" hidden>
+                </label>
+                <p class="settings-tip" id="tradeUploadTip"></p>
+            </div>
+        </div>
+
+        <div class="settings-row settings-row-last">
+            <div class="settings-label">
+                <h3>已上传文件</h3>
+                <p>可下载或删除你的文件</p>
+            </div>
+            <div class="settings-control settings-control-stack trade-file-panel">
+                <ul class="trade-file-list" id="tradeFileList">
+                    {% for f in trade_files %}
+                    <li class="trade-file-item" data-name="{{ f.name }}">
+                        <div class="trade-file-meta">
+                            <span class="trade-file-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <span class="trade-file-size">{{ (f.size / 1024) | round(1) }} KB</span>
+                        </div>
+                        <div class="trade-file-actions">
+                            <a class="settings-btn-ghost trade-action-btn" href="{{ url_for('api_trade_download', filename=f.name) }}">下载</a>
+                            <button type="button" class="settings-btn-ghost trade-action-btn trade-delete-btn" data-name="{{ f.name }}">删除</button>
+                        </div>
+                    </li>
+                    {% else %}
+                    <li class="trade-file-empty" id="tradeEmptyHint">暂无文件，请先上传</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function tip(el, text, ok) {
+        if (!el) return;
+        el.textContent = text || "";
+        el.className = "settings-tip" + (text ? (ok ? " is-ok" : " is-err") : "");
+    }
+
+    function formatSize(size) {
+        if (size < 1024) return size + " B";
+        return (size / 1024).toFixed(1) + " KB";
+    }
+
+    function ensureEmptyHint() {
+        var list = document.getElementById("tradeFileList");
+        if (!list) return;
+        var items = list.querySelectorAll(".trade-file-item");
+        var empty = list.querySelector(".trade-file-empty");
+        if (items.length === 0) {
+            if (!empty) {
+                empty = document.createElement("li");
+                empty.className = "trade-file-empty";
+                empty.id = "tradeEmptyHint";
+                empty.textContent = "暂无文件，请先上传";
+                list.appendChild(empty);
+            }
+        } else if (empty) {
+            empty.remove();
+        }
+    }
+
+    function bindDelete(btn) {
+        btn.addEventListener("click", function () {
+            var name = btn.getAttribute("data-name");
+            if (!name || !confirm("确定删除「" + name + "」？")) return;
+            fetch("/api/trade/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    alert(data.message || "删除失败");
+                    return;
+                }
+                var item = btn.closest(".trade-file-item");
+                if (item) item.remove();
+                ensureEmptyHint();
+            })
+            .catch(function () { alert("网络错误"); });
+        });
+    }
+
+    document.querySelectorAll(".trade-delete-btn").forEach(bindDelete);
+
+    var input = document.getElementById("tradeUploadInput");
+    if (!input) return;
+    input.addEventListener("change", function () {
+        var tipEl = document.getElementById("tradeUploadTip");
+        var file = input.files && input.files[0];
+        if (!file) return;
+        var fd = new FormData();
+        fd.append("file", file);
+        tip(tipEl, "上传中...");
+        fetch("/api/trade/upload", { method: "POST", body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            tip(tipEl, data.message || "", !!data.success);
+            if (!data.success || !data.file) return;
+            var list = document.getElementById("tradeFileList");
+            var empty = list.querySelector(".trade-file-empty");
+            if (empty) empty.remove();
+            var li = document.createElement("li");
+            li.className = "trade-file-item";
+            li.setAttribute("data-name", data.file.name);
+            li.innerHTML =
+                '<div class="trade-file-meta">' +
+                    '<span class="trade-file-name"></span>' +
+                    '<span class="trade-file-size"></span>' +
+                "</div>" +
+                '<div class="trade-file-actions">' +
+                    '<a class="settings-btn-ghost trade-action-btn">下载</a>' +
+                    '<button type="button" class="settings-btn-ghost trade-action-btn trade-delete-btn">删除</button>' +
+                "</div>";
+            li.querySelector(".trade-file-name").textContent = data.file.name;
+            li.querySelector(".trade-file-name").title = data.file.name;
+            li.querySelector(".trade-file-size").textContent = formatSize(data.file.size);
+            var link = li.querySelector("a");
+            link.href = "/api/trade/download/" + encodeURIComponent(data.file.name);
+            var del = li.querySelector(".trade-delete-btn");
+            del.setAttribute("data-name", data.file.name);
+            bindDelete(del);
+            list.prepend(li);
+        })
+        .catch(function () { tip(tipEl, "网络错误", false); })
+        .finally(function () { input.value = ""; });
+    });
+})();
+</script>
 {% endblock %}

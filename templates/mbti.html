@@ -5,10 +5,213 @@
 {% block body_class %}panel-page{% endblock %}
 
 {% block content %}
-<main class="panel-main">
+<main class="panel-main settings-main">
     <div class="page-title">
         <h2>投资性格 MBTI 测试</h2>
-        <p>内容即将上线，敬请期待</p>
+        <p>从交易文件中多选资料，由 AI 分析投资性格</p>
     </div>
+
+    <section class="settings-card panel-card mbti-card">
+        <div class="settings-row mbti-picker-row">
+            <div class="settings-label">
+                <h3>选择分析文件</h3>
+                <p>来自「我的交易数据」· 支持搜索与多选</p>
+            </div>
+            <div class="settings-control settings-control-stack mbti-picker-wrap">
+                {% if trade_files %}
+                <div class="mbti-picker" id="mbtiPicker">
+                    <div class="mbti-picker-search">
+                        <input type="search" id="mbtiSearchInput" class="settings-input" placeholder="搜索文件名..." autocomplete="off">
+                    </div>
+                    <div class="mbti-picker-toolbar">
+                        <button type="button" class="mbti-picker-link" id="mbtiSelectAllVisible">全选当前结果</button>
+                        <button type="button" class="mbti-picker-link" id="mbtiClearSelected">清空已选</button>
+                        <span class="mbti-picker-count" id="mbtiSelectedCount">已选 0 个</span>
+                    </div>
+                    <ul class="mbti-picker-list" id="mbtiFileList" role="listbox" aria-multiselectable="true">
+                        {% for f in trade_files %}
+                        <li class="mbti-picker-item" role="option" aria-selected="false" data-name="{{ f.name }}" tabindex="0">
+                            <span class="mbti-picker-check" aria-hidden="true"></span>
+                            <span class="mbti-picker-item-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <span class="mbti-picker-item-size">{{ (f.size / 1024) | round(1) }} KB</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="mbti-picker-empty" id="mbtiSearchEmpty" hidden>没有匹配的文件</p>
+                </div>
+                {% else %}
+                <p class="mbti-file-name">暂无可用文件，请先到「我的交易数据」上传</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="settings-row settings-row-last">
+            <div class="settings-label">
+                <h3>开始分析</h3>
+                <p>将对已选文件一并调用 AI 接口</p>
+            </div>
+            <div class="settings-control settings-control-stack">
+                <button type="button" class="settings-btn" id="mbtiAnalyzeBtn"{% if not trade_files %} disabled{% endif %}>分析</button>
+                <p class="settings-tip" id="mbtiTip"></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="settings-card panel-card mbti-result-card" id="mbtiResultCard" hidden>
+        <div class="mbti-result-header">
+            <div>
+                <p class="mbti-result-label">分析结果</p>
+                <h3 class="mbti-result-type" id="mbtiType">—</h3>
+                <p class="mbti-result-title" id="mbtiTitle"></p>
+            </div>
+            <p class="mbti-result-source" id="mbtiSource"></p>
+        </div>
+        <p class="mbti-result-summary" id="mbtiSummary"></p>
+        <pre class="mbti-result-details" id="mbtiDetails"></pre>
+    </section>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var list = document.getElementById("mbtiFileList");
+    var searchInput = document.getElementById("mbtiSearchInput");
+    var countEl = document.getElementById("mbtiSelectedCount");
+    var emptyEl = document.getElementById("mbtiSearchEmpty");
+    var analyzeBtn = document.getElementById("mbtiAnalyzeBtn");
+    var tipEl = document.getElementById("mbtiTip");
+    var resultCard = document.getElementById("mbtiResultCard");
+    var selectAllBtn = document.getElementById("mbtiSelectAllVisible");
+    var clearBtn = document.getElementById("mbtiClearSelected");
+
+    function tip(text, ok) {
+        if (!tipEl) return;
+        tipEl.textContent = text || "";
+        tipEl.className = "settings-tip" + (text ? (ok ? " is-ok" : " is-err") : "");
+    }
+
+    function selectedNames() {
+        if (!list) return [];
+        return Array.prototype.map.call(
+            list.querySelectorAll('.mbti-picker-item[aria-selected="true"]'),
+            function (el) { return el.getAttribute("data-name"); }
+        ).filter(Boolean);
+    }
+
+    function updateCount() {
+        if (countEl) countEl.textContent = "已选 " + selectedNames().length + " 个";
+    }
+
+    function toggleItem(item) {
+        if (!item || item.hidden) return;
+        var on = item.getAttribute("aria-selected") === "true";
+        item.setAttribute("aria-selected", on ? "false" : "true");
+        item.classList.toggle("is-selected", !on);
+        tip("");
+        if (resultCard) resultCard.hidden = true;
+        updateCount();
+    }
+
+    function filterList(query) {
+        if (!list) return;
+        var q = (query || "").trim().toLowerCase();
+        var visible = 0;
+        Array.prototype.forEach.call(list.querySelectorAll(".mbti-picker-item"), function (item) {
+            var name = (item.getAttribute("data-name") || "").toLowerCase();
+            var show = !q || name.indexOf(q) !== -1;
+            item.hidden = !show;
+            if (show) visible += 1;
+        });
+        if (emptyEl) emptyEl.hidden = visible > 0;
+    }
+
+    if (list) {
+        list.addEventListener("click", function (e) {
+            var item = e.target.closest(".mbti-picker-item");
+            if (item) toggleItem(item);
+        });
+        list.addEventListener("keydown", function (e) {
+            if (e.key !== " " && e.key !== "Enter") return;
+            var item = e.target.closest(".mbti-picker-item");
+            if (!item) return;
+            e.preventDefault();
+            toggleItem(item);
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener("input", function () {
+            filterList(searchInput.value);
+        });
+    }
+
+    if (selectAllBtn && list) {
+        selectAllBtn.addEventListener("click", function () {
+            Array.prototype.forEach.call(list.querySelectorAll(".mbti-picker-item"), function (item) {
+                if (item.hidden) return;
+                item.setAttribute("aria-selected", "true");
+                item.classList.add("is-selected");
+            });
+            updateCount();
+        });
+    }
+
+    if (clearBtn && list) {
+        clearBtn.addEventListener("click", function () {
+            Array.prototype.forEach.call(list.querySelectorAll(".mbti-picker-item"), function (item) {
+                item.setAttribute("aria-selected", "false");
+                item.classList.remove("is-selected");
+            });
+            updateCount();
+        });
+    }
+
+    function showResult(data) {
+        resultCard.hidden = false;
+        document.getElementById("mbtiType").textContent = data.mbti || "—";
+        document.getElementById("mbtiTitle").textContent = data.title || "";
+        document.getElementById("mbtiSummary").textContent = data.summary || "";
+        document.getElementById("mbtiDetails").textContent = data.details || "";
+        document.getElementById("mbtiSource").textContent = data.source_file
+            ? ("来源：" + data.source_file)
+            : "";
+        resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener("click", function () {
+            var names = selectedNames();
+            if (!names.length) {
+                tip("请至少选择一个文件", false);
+                return;
+            }
+            analyzeBtn.disabled = true;
+            tip("分析中，请稍候...");
+            fetch("/api/mbti/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ names: names })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    tip(data.message || "分析失败", false);
+                    return;
+                }
+                tip(data.message || "分析完成", true);
+                showResult(data.result || {});
+            })
+            .catch(function () {
+                tip("请求异常，请检查服务是否启动", false);
+            })
+            .finally(function () {
+                analyzeBtn.disabled = false;
+            });
+        });
+    }
+
+    updateCount();
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}金格Pi - 账户安全{% endblock %}
+
+{% block body_class %}panel-page{% endblock %}
+
+{% block content %}
+<main class="panel-main settings-main">
+    <div class="page-title">
+        <h2>账户安全</h2>
+        <p>登录账号：{{ user.username }}</p>
+    </div>
+
+    <section class="settings-card panel-card">
+        <div class="settings-row settings-row-last">
+            <div class="settings-label">
+                <h3>修改密码</h3>
+                <p>修改后请使用新密码登录</p>
+            </div>
+            <div class="settings-control settings-control-stack">
+                <input type="password" id="oldPassword" class="settings-input" placeholder="当前密码" autocomplete="current-password">
+                <input type="password" id="newPassword" class="settings-input" placeholder="新密码（至少 6 位）" autocomplete="new-password">
+                <input type="password" id="newPassword2" class="settings-input" placeholder="再次输入新密码" autocomplete="new-password">
+                <div class="settings-actions">
+                    <button type="button" class="settings-btn" id="savePassword">保存密码</button>
+                    <a href="{{ url_for('account_settings') }}" class="settings-btn settings-btn-secondary">返回用户设置</a>
+                </div>
+                <p class="settings-tip" id="passwordTip"></p>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function tip(el, text, ok) {
+        if (!el) return;
+        el.textContent = text || "";
+        el.className = "settings-tip" + (text ? (ok ? " is-ok" : " is-err") : "");
+    }
+
+    var btn = document.getElementById("savePassword");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+        var tipEl = document.getElementById("passwordTip");
+        var oldPassword = document.getElementById("oldPassword").value;
+        var newPassword = document.getElementById("newPassword").value;
+        var newPassword2 = document.getElementById("newPassword2").value;
+        if (!oldPassword || !newPassword || !newPassword2) {
+            tip(tipEl, "请填写完整", false);
+            return;
+        }
+        if (newPassword !== newPassword2) {
+            tip(tipEl, "两次新密码不一致", false);
+            return;
+        }
+        tip(tipEl, "保存中...");
+        fetch("/api/settings/password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            tip(tipEl, data.message || "", !!data.success);
+            if (data.success) {
+                document.getElementById("oldPassword").value = "";
+                document.getElementById("newPassword").value = "";
+                document.getElementById("newPassword2").value = "";
+            }
+        })
+        .catch(function () { tip(tipEl, "网络错误", false); });
+    });
+})();
+</script>
+{% endblock %}

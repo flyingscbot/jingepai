@@ -17,7 +17,7 @@
             <a href="{{ url_for('home.index') }}">金格<span>Pi</span></a>
         </div>
 
-        {% if is_login and request.endpoint not in ('home.index', 'main') %}
+        {% if show_float_nav %}
         <nav class="float-nav" aria-label="功能导航">
             <a href="{{ url_for('trade') }}" class="float-nav-item{% if request.endpoint == 'trade' %} active{% endif %}">
                 <img src="{{ url_for('static', filename='icons/trade.svg') }}" alt="">
@@ -36,7 +36,7 @@
 
         <div class="account">
             <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ username or 'guest' }}"
+                src="{{ avatar }}"
                 class="avatar"
                 alt="用户头像"
             >
@@ -46,6 +46,10 @@
                 <a href="{{ url_for('main') }}" class="menu-link">
                     <img src="{{ url_for('static', filename='icons/panel.svg') }}" class="menu-icon" alt="">
                     用户面板
+                </a>
+                <a href="{{ url_for('account_settings') }}" class="menu-link">
+                    <img src="{{ url_for('static', filename='icons/settings.svg') }}" class="menu-icon" alt="">
+                    用户设置
                 </a>
                 <a href="{{ url_for('logout') }}" class="menu-link">
                     <img src="{{ url_for('static', filename='icons/logout.svg') }}" class="menu-icon" alt="">
@@ -90,7 +94,7 @@
                     <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="register">前往注册</button>
                 </div>
             </form>
-            <p class="modal-hint">测试账号：张三、李四、王五、赵六，统一密码 123456</p>
+            <p class="modal-hint">测试账号：llyp、李四、王五、赵六，统一密码 123456</p>
         </div>
     </div>
 
