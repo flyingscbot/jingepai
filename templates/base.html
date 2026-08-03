@@ -6,7 +6,7 @@
     <title>{% block title %}金格Pi{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='home/css/style.css') }}">
     {% block head %}{% endblock %}
 </head>
@@ -70,7 +70,11 @@
     {% if not is_login %}
     <div class="modal-overlay" id="loginModal" aria-hidden="true">
         <div class="modal-box" role="dialog" aria-labelledby="loginTitle">
-            <button type="button" class="modal-close" data-close-modal aria-label="关闭">X</button>
+            <button type="button" class="modal-close" data-close-modal aria-label="关闭">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+            </button>
             <div class="modal-title">
                 <h2 id="loginTitle">用户登录</h2>
                 <p>模拟理财 · 零基础学习金融知识</p>
@@ -92,7 +96,11 @@
 
     <div class="modal-overlay" id="registerModal" aria-hidden="true">
         <div class="modal-box" role="dialog" aria-labelledby="registerTitle">
-            <button type="button" class="modal-close" data-close-modal aria-label="关闭">X</button>
+            <button type="button" class="modal-close" data-close-modal aria-label="关闭">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+            </button>
             <div class="modal-title">
                 <h2 id="registerTitle">新用户注册</h2>
                 <p>注册账号开启更多功能</p>
