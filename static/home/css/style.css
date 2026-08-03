@@ -1443,13 +1443,15 @@ body.modal-open{
     padding:8px 18px;
     border-radius:999px;
     text-decoration:none;
-    color:#aaa;
+    color:#fff;
     transition:.25s;
 }
 
 /* 电脑 / 平板：只显示大文字 */
 .float-nav-item img{
     display:none;
+    /* img 无法继承 color，用滤镜上色 */
+    filter:brightness(0) invert(1);
 }
 
 .float-nav-item span{
@@ -1466,14 +1468,32 @@ body.modal-open{
 }
 
 .float-nav-item.active{
-    color:#fff;
-    background:rgba(255,255,255,.1);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+    color:#5b9cff;
+    background:rgba(91,156,255,.14);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(91,156,255,.85),
+        inset 0 1px 0 rgba(255,255,255,.12);
 }
 
-.float-nav-item.active img,
-.float-nav-item:hover img{
-    filter:drop-shadow(0 0 6px rgba(255,255,255,.25));
+/* 选中：图标改为亮蓝 */
+.float-nav-item.active img{
+    filter:brightness(0) saturate(100%) invert(58%) sepia(72%) saturate(1200%) hue-rotate(190deg) brightness(104%) contrast(101%);
+}
+
+.float-nav-item:hover:not(.active) img{
+    filter:brightness(0) invert(1);
+}
+
+.float-nav-item.active:hover{
+    color:#7eb2ff;
+    background:rgba(91,156,255,.2);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(126,178,255,.95),
+        inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.float-nav-item.active:hover img{
+    filter:brightness(0) saturate(100%) invert(65%) sepia(60%) saturate(1100%) hue-rotate(188deg) brightness(106%) contrast(101%);
 }
 
 body:has(.float-nav) .panel-main{
