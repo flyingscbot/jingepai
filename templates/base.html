@@ -17,6 +17,23 @@
             <a href="{{ url_for('home.index') }}">金格<span>Pi</span></a>
         </div>
 
+        {% if is_login and request.endpoint not in ('home.index', 'main') %}
+        <nav class="float-nav" aria-label="功能导航">
+            <a href="{{ url_for('trade') }}" class="float-nav-item{% if request.endpoint == 'trade' %} active{% endif %}">
+                <img src="{{ url_for('static', filename='icons/trade.svg') }}" alt="">
+                <span>我的交易数据</span>
+            </a>
+            <a href="{{ url_for('chat') }}" class="float-nav-item{% if request.endpoint == 'chat' %} active{% endif %}">
+                <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="">
+                <span>投资聊天室</span>
+            </a>
+            <a href="{{ url_for('mbti') }}" class="float-nav-item{% if request.endpoint == 'mbti' %} active{% endif %}">
+                <img src="{{ url_for('static', filename='icons/mbti.svg') }}" alt="">
+                <span>投资性格MBTI测试</span>
+            </a>
+        </nav>
+        {% endif %}
+
         <div class="account">
             <img
                 src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ username or 'guest' }}"
@@ -48,23 +65,6 @@
         </div>
     </header>
 
-    {% if is_login and request.endpoint not in ('home.index', 'main') %}
-    <nav class="float-nav" aria-label="功能导航">
-        <a href="{{ url_for('trade') }}" class="float-nav-item{% if request.endpoint == 'trade' %} active{% endif %}">
-            <img src="{{ url_for('static', filename='icons/wallet.svg') }}" alt="">
-            <span>我的交易数据</span>
-        </a>
-        <a href="{{ url_for('chat') }}" class="float-nav-item{% if request.endpoint == 'chat' %} active{% endif %}">
-            <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="">
-            <span>投资聊天室</span>
-        </a>
-        <a href="{{ url_for('mbti') }}" class="float-nav-item{% if request.endpoint == 'mbti' %} active{% endif %}">
-            <img src="{{ url_for('static', filename='icons/mbti.svg') }}" alt="">
-            <span>投资性格MBTI测试</span>
-        </a>
-    </nav>
-    {% endif %}
-
     {% block content %}{% endblock %}
 
     {% if not is_login %}
@@ -81,14 +81,14 @@
             </div>
             <div class="modal-tip modal-tip-error" id="loginError"></div>
             <form id="loginForm">
-                <div class="modal-field">
+                <div class="modal-field-group">
                     <input type="text" id="loginUsername" placeholder="请输入账号" required>
-                </div>
-                <div class="modal-field">
                     <input type="password" id="loginPassword" placeholder="请输入密码" required>
                 </div>
-                <button type="submit" class="modal-btn modal-btn-primary">立即登录</button>
-                <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="register">前往注册</button>
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-primary">立即登录</button>
+                    <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="register">前往注册</button>
+                </div>
             </form>
             <p class="modal-hint">测试账号：张三、李四、王五、赵六，统一密码 123456</p>
         </div>
@@ -108,17 +108,15 @@
             <div class="modal-tip modal-tip-error" id="registerError"></div>
             <div class="modal-tip modal-tip-success" id="registerSuccess"></div>
             <form id="registerForm">
-                <div class="modal-field">
+                <div class="modal-field-group">
                     <input type="text" id="registerUsername" placeholder="设置账号名称" required>
-                </div>
-                <div class="modal-field">
                     <input type="password" id="registerPassword" placeholder="设置登录密码" required>
-                </div>
-                <div class="modal-field">
                     <input type="password" id="registerPassword2" placeholder="再次输入密码" required>
                 </div>
-                <button type="submit" class="modal-btn modal-btn-primary">完成注册</button>
-                <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="login">已有账号？返回登录</button>
+                <div class="modal-actions">
+                    <button type="submit" class="modal-btn modal-btn-primary">完成注册</button>
+                    <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="login">返回登录</button>
+                </div>
             </form>
         </div>
     </div>
