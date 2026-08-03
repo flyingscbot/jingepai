@@ -936,15 +936,13 @@ button:hover{
     height:32px;
     margin:0;
     padding:0;
-    border:1.5px solid transparent;
+    border:var(--glass-border);
     border-radius:50%;
-    background-image:
-        linear-gradient(rgba(20,20,20,.85), rgba(20,20,20,.85)),
-        var(--gold-border);
-    background-origin:border-box;
-    background-clip:padding-box, border-box;
-    color:#aaa;
-    box-shadow:0 0 12px rgba(212,175,55,.12);
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(12px) saturate(160%);
+    -webkit-backdrop-filter:blur(12px) saturate(160%);
+    color:#bbb;
+    box-shadow:var(--glass-rim);
     cursor:pointer;
     transition:.25s;
 }
@@ -957,13 +955,12 @@ button:hover{
 
 .modal-close:hover{
     transform:rotate(90deg);
-    background-image:
-        linear-gradient(rgba(40,34,16,.9), rgba(40,34,16,.9)),
-        var(--gold-border);
-    background-origin:border-box;
-    background-clip:padding-box, border-box;
     color:#d4af37;
-    box-shadow:0 0 16px rgba(212,175,55,.2);
+    background:rgba(255,255,255,.1);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.5),
+        inset 0 -1px 0 rgba(248,229,140,.3),
+        0 0 14px rgba(212,175,55,.28);
 }
 
 .modal-title{
@@ -1027,51 +1024,37 @@ button:hover{
 }
 
 .modal-btn-primary{
-    border:1.5px solid transparent;
-    background-image:
-        linear-gradient(180deg, #f8e58c 0%, #d4af37 50%, #9a7b1a 100%),
-        var(--gold-border);
-    background-origin:border-box;
-    background-clip:padding-box, border-box;
+    border:var(--glass-border);
+    background:linear-gradient(180deg, #f8e58c 0%, #d4af37 50%, #9a7b1a 100%);
     color:#111;
     box-shadow:
-        0 8px 22px rgba(0,0,0,.3),
-        0 0 24px rgba(212,175,55,.35),
-        0 0 48px rgba(139,105,20,.15),
-        inset 0 1px 0 rgba(255,255,255,.4),
-        inset 0 -1px 0 rgba(139,105,20,.25);
+        var(--glass-rim),
+        0 8px 20px rgba(0,0,0,.28),
+        0 0 18px rgba(212,175,55,.28);
 }
 
 .modal-btn-primary:hover{
     transform:translateY(-2px);
     box-shadow:
-        0 12px 28px rgba(0,0,0,.35),
-        0 0 36px rgba(245,230,168,.45),
-        0 0 70px rgba(212,175,55,.25),
-        inset 0 1px 0 rgba(255,255,255,.5),
-        inset 0 -1px 0 rgba(139,105,20,.3);
+        var(--glass-rim),
+        0 12px 26px rgba(0,0,0,.32),
+        0 0 26px rgba(245,230,168,.35);
 }
 
 .modal-btn-secondary{
-    border:1.5px solid transparent;
-    background-image:
-        linear-gradient(rgba(20,18,10,.7), rgba(20,18,10,.7)),
-        var(--gold-border);
-    background-clip:padding-box, border-box;
-    background-origin:border-box;
+    border:var(--glass-border);
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(12px) saturate(160%);
+    -webkit-backdrop-filter:blur(12px) saturate(160%);
     color:var(--gold-light);
-    box-shadow:
-        0 0 18px rgba(212,175,55,.12);
+    box-shadow:var(--glass-rim);
 }
 
 .modal-btn-secondary:hover{
-    background-image:
-        linear-gradient(rgba(40,34,16,.82), rgba(40,34,16,.82)),
-        var(--gold-border);
-    background-clip:padding-box, border-box;
-    background-origin:border-box;
+    background:rgba(255,255,255,.1);
     box-shadow:
-        0 0 28px rgba(212,175,55,.2);
+        var(--glass-rim),
+        0 0 16px rgba(212,175,55,.22);
 }
 
 .modal-tip{
