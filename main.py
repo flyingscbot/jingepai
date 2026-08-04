@@ -7,6 +7,7 @@ import re
 from home import home_bp
 import user_db
 import mbti_ai
+import trade_history
 
 app = Flask(__name__)
 app.secret_key = "train_2026_abc123"
@@ -59,6 +60,7 @@ def _current_user():
 
 def _set_login_session(user: dict) -> None:
     user_db.ensure_user_folder(user)
+    trade_history.ensure_history_csv(user["id"])
     session["is_login"] = True
     session["user_id"] = user["id"]
     session["username"] = user["username"]
@@ -226,8 +228,18 @@ def trade():
     if not user:
         return redirect(url_for("logout"))
     user_db.ensure_user_folder(user)
+    trade_history.ensure_history_csv(user["id"])
     files = user_db.list_trade_files(user["id"])
-    return render_template("trade.html", user=user, trade_files=files)
+    now = datetime.datetime.now()
+    marked_dates = trade_history.list_dates_in_month(user["id"], now.year, now.month)
+    return render_template(
+        "trade.html",
+        user=user,
+        trade_files=files,
+        calendar_year=now.year,
+        calendar_month=now.month,
+        marked_dates=marked_dates,
+    )
 
 
 @app.route("/api/trade/upload", methods=["POST"])
@@ -277,6 +289,91 @@ def api_trade_download(filename):
     if not os.path.isfile(path):
         abort(404)
     return send_from_directory(directory, safe_name, as_attachment=True)
+
+
+@app.route("/api/trade/organize", methods=["POST"])
+@login_required
+def api_trade_organize():
+    """从已上传文件自动整理交易记录（AI API 预留），去重追加到 CSV。"""
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    try:
+        result = trade_history.organize_from_user_files(user["id"])
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "整理失败，请稍后重试"})
+    msg = f"整理完成：新增 {result['added']} 条，跳过重复 {result['skipped']} 条"
+    return jsonify({"success": True, "message": msg, **result})
+
+
+@app.route("/api/trade/history/dates")
+@login_required
+def api_trade_history_dates():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    try:
+        year = int(request.args.get("year") or 0)
+        month = int(request.args.get("month") or 0)
+        if year < 1970 or month < 1 or month > 12:
+            raise ValueError("年月无效")
+        dates = trade_history.list_dates_in_month(user["id"], year, month)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "获取失败"})
+    return jsonify({"success": True, "dates": dates})
+
+
+@app.route("/api/trade/history/by-date")
+@login_required
+def api_trade_history_by_date():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    date = (request.args.get("date") or "").strip()
+    try:
+        records = trade_history.list_records_by_date(user["id"], date)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "获取失败"})
+    return jsonify({"success": True, "date": date, "records": records})
+
+
+@app.route("/api/trade/history/add", methods=["POST"])
+@login_required
+def api_trade_history_add():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        rec = trade_history.add_record(user["id"], data)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "添加失败，请稍后重试"})
+    return jsonify({"success": True, "message": "已添加", "record": rec})
+
+
+@app.route("/api/trade/history/delete", methods=["POST"])
+@login_required
+def api_trade_history_delete():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        row_index = int(data.get("row_index"))
+        trade_history.delete_record_by_index(user["id"], row_index)
+    except (TypeError, ValueError) as e:
+        return jsonify({"success": False, "message": str(e) if str(e) else "参数无效"})
+    except Exception:
+        return jsonify({"success": False, "message": "删除失败，请稍后重试"})
+    return jsonify({"success": True, "message": "已删除"})
 
 
 @app.route("/chat")

@@ -2054,6 +2054,253 @@ a.settings-btn-secondary{
 }
 
 /* =========================
+   交易历史日历
+========================= */
+
+.trade-history-card{
+    margin-top:24px;
+}
+
+.trade-history-head{
+    margin-bottom:20px;
+}
+
+.trade-history-layout{
+    display:grid;
+    grid-template-columns:minmax(260px, 320px) 1fr;
+    gap:28px;
+    align-items:start;
+}
+
+.trade-calendar{
+    border-radius:var(--radius-control);
+    border:var(--glass-border);
+    background:rgba(0,0,0,.18);
+    padding:16px;
+}
+
+.trade-cal-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:14px;
+}
+
+.trade-cal-title{
+    color:#fff;
+    font-size:15px;
+    font-weight:600;
+}
+
+.trade-cal-nav-btn{
+    width:36px;
+    height:36px;
+    padding:0;
+    font-size:20px;
+    line-height:1;
+}
+
+.trade-cal-weekdays{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:4px;
+    margin-bottom:6px;
+}
+
+.trade-cal-weekdays span{
+    text-align:center;
+    color:#888;
+    font-size:12px;
+    padding:4px 0;
+}
+
+.trade-cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:4px;
+}
+
+.trade-cal-day{
+    appearance:none;
+    border:1px solid transparent;
+    background:transparent;
+    color:#ddd;
+    height:40px;
+    border-radius:var(--radius-control);
+    cursor:pointer;
+    font-size:13px;
+    position:relative;
+    transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.trade-cal-day:hover:not(:disabled){
+    background:rgba(240,185,11,.12);
+    color:#fff;
+}
+
+.trade-cal-day.is-empty{
+    cursor:default;
+    opacity:.35;
+}
+
+.trade-cal-day.has-records::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:5px;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:var(--gold-mid, #f0b90b);
+    transform:translateX(-50%);
+}
+
+.trade-cal-day.is-selected{
+    border-color:rgba(240,185,11,.55);
+    background:rgba(240,185,11,.18);
+    color:#fff;
+}
+
+.trade-day-panel{
+    min-width:0;
+}
+
+.trade-day-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+}
+
+.trade-day-header h4{
+    margin:0;
+    color:#fff;
+    font-size:16px;
+    font-weight:600;
+}
+
+.trade-add-form{
+    margin-bottom:16px;
+    padding:16px;
+    border-radius:var(--radius-control);
+    border:var(--glass-border);
+    background:rgba(0,0,0,.18);
+}
+
+.trade-add-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+}
+
+.trade-add-grid label{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    color:#aaa;
+    font-size:12px;
+}
+
+.trade-add-grid input,
+.trade-add-grid select{
+    height:40px;
+    border-radius:var(--radius-control);
+    border:var(--glass-border);
+    background:rgba(0,0,0,.28);
+    color:#fff;
+    padding:0 12px;
+    font-size:14px;
+    outline:none;
+}
+
+.trade-add-grid input:focus,
+.trade-add-grid select:focus{
+    border-color:rgba(240,185,11,.45);
+}
+
+.trade-add-actions{
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+}
+
+.trade-record-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.trade-record-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 16px;
+    border-radius:var(--radius-control);
+    border:var(--glass-border);
+    background:rgba(0,0,0,.18);
+}
+
+.trade-record-main{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.trade-record-line{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+    color:#fff;
+    font-size:14px;
+}
+
+.trade-record-action{
+    color:var(--gold-mid, #f0b90b);
+    font-weight:600;
+}
+
+.trade-record-code{
+    color:#ccc;
+    font-variant-numeric:tabular-nums;
+}
+
+.trade-record-name{
+    color:#fff;
+}
+
+.trade-record-sub{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 14px;
+    color:#888;
+    font-size:12px;
+}
+
+.trade-record-empty{
+    color:#888;
+    font-size:14px;
+    padding:8px 0;
+}
+
+@media screen and (max-width:900px){
+    .trade-history-layout{
+        grid-template-columns:1fr;
+    }
+
+    .trade-add-grid{
+        grid-template-columns:1fr;
+    }
+}
+
+/* =========================
    MBTI 分析
 ========================= */
 
