@@ -5,63 +5,65 @@
 {% block body_class %}panel-page{% endblock %}
 
 {% block content %}
-<main class="panel-main settings-main">
+<main class="panel-main settings-main mbti-test-main">
     <div class="page-title">
         <h2>投资性格 MBTI 测试</h2>
         <p>使用交易历史 CSV 中最近最多 {{ history_limit }} 条成交，由 AI 分析投资性格</p>
     </div>
 
-    <section class="settings-card panel-card mbti-card">
-        <div class="settings-row">
-            <div class="settings-label">
-                <h3>分析数据来源</h3>
+    <div class="mbti-test-layout">
+        <section class="settings-card panel-card mbti-card">
+            <div class="settings-row">
+                <div class="settings-label">
+                    <h3>分析数据来源</h3>
+                </div>
+                <div class="settings-control settings-control-stack">
+                    {% if history_total > 0 %}
+                    <p class="mbti-file-name">
+                        全库 {{ history_total }} 条，本次将输入最近
+                        <strong>{{ history_used }}</strong> 条
+                        {% if history_total > history_limit %}（上限 {{ history_limit }}）{% endif %}
+                    </p>
+                    {% else %}
+                    <p class="mbti-file-name">暂无交易历史，请先到「我的交易数据」整理或添加记录</p>
+                    {% endif %}
+                </div>
             </div>
-            <div class="settings-control settings-control-stack">
-                {% if history_total > 0 %}
-                <p class="mbti-file-name">
-                    全库 {{ history_total }} 条，本次将输入最近
-                    <strong>{{ history_used }}</strong> 条
-                    {% if history_total > history_limit %}（上限 {{ history_limit }}）{% endif %}
-                </p>
-                {% else %}
-                <p class="mbti-file-name">暂无交易历史，请先到「我的交易数据」整理或添加记录</p>
-                {% endif %}
-            </div>
-        </div>
 
-        <div class="settings-row">
-            <div class="settings-label">
-                <h3>性格类别</h3>
+            <div class="settings-row">
+                <div class="settings-label">
+                    <h3>性格类别</h3>
+                </div>
+                <div class="settings-control settings-control-stack">
+                    <p class="mbti-file-name">{{ mbti_types | join(' / ') }}</p>
+                </div>
             </div>
-            <div class="settings-control settings-control-stack">
-                <p class="mbti-file-name">{{ mbti_types | join(' / ') }}</p>
-            </div>
-        </div>
 
-        <div class="settings-row settings-row-last">
-            <div class="settings-label">
-                <h3>开始分析</h3>
-                <p>测试阶段走本地 Ollama；仅 AI 成功返回后写入 MBTI_log.csv</p>
+            <div class="settings-row settings-row-last">
+                <div class="settings-label">
+                    <h3>开始分析</h3>
+                    <p>测试阶段走本地 Ollama；仅 AI 成功返回后写入 MBTI_log.csv</p>
+                </div>
+                <div class="settings-control settings-control-stack">
+                    <button type="button" class="settings-btn" id="mbtiAnalyzeBtn"{% if history_total == 0 %} disabled{% endif %}>分析</button>
+                    <p class="settings-tip" id="mbtiTip"></p>
+                </div>
             </div>
-            <div class="settings-control settings-control-stack">
-                <button type="button" class="settings-btn" id="mbtiAnalyzeBtn"{% if history_total == 0 %} disabled{% endif %}>分析</button>
-                <p class="settings-tip" id="mbtiTip"></p>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <section class="settings-card panel-card mbti-result-card" id="mbtiResultCard" hidden>
-        <div class="mbti-result-header">
-            <div>
-                <p class="mbti-result-label">分析结果</p>
-                <h3 class="mbti-result-type" id="mbtiType">—</h3>
-                <p class="mbti-result-title" id="mbtiTitle"></p>
+        <section class="settings-card panel-card mbti-result-card is-empty" id="mbtiResultCard">
+            <div class="mbti-result-header">
+                <div>
+                    <p class="mbti-result-label">分析结果</p>
+                    <h3 class="mbti-result-type" id="mbtiType">—</h3>
+                    <p class="mbti-result-title" id="mbtiTitle"></p>
+                </div>
+                <p class="mbti-result-source" id="mbtiSource"></p>
             </div>
-            <p class="mbti-result-source" id="mbtiSource"></p>
-        </div>
-        <p class="mbti-result-summary" id="mbtiSummary"></p>
-        <pre class="mbti-result-details" id="mbtiDetails"></pre>
-    </section>
+            <p class="mbti-result-summary" id="mbtiSummary">点击左侧「分析」后，结果将显示在这里</p>
+            <pre class="mbti-result-details" id="mbtiDetails" hidden></pre>
+        </section>
+    </div>
 </main>
 {% endblock %}
 
@@ -71,6 +73,7 @@
     var analyzeBtn = document.getElementById("mbtiAnalyzeBtn");
     var tipEl = document.getElementById("mbtiTip");
     var resultCard = document.getElementById("mbtiResultCard");
+    var detailsEl = document.getElementById("mbtiDetails");
 
     function tip(text, ok) {
         if (!tipEl) return;
@@ -79,22 +82,35 @@
     }
 
     function showResult(data) {
-        resultCard.hidden = false;
+        if (!resultCard) return;
+        resultCard.classList.remove("is-empty");
         document.getElementById("mbtiType").textContent = data.mbti || "—";
         document.getElementById("mbtiTitle").textContent = data.title || "";
         document.getElementById("mbtiSummary").textContent = data.summary || "";
-        document.getElementById("mbtiDetails").textContent = data.details || "";
+        var details = data.details || "";
+        detailsEl.textContent = details;
+        detailsEl.hidden = !details;
         document.getElementById("mbtiSource").textContent = data.source_file
             ? ("来源：" + data.source_file)
             : "";
-        resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function resetResultPending() {
+        if (!resultCard) return;
+        resultCard.classList.add("is-empty");
+        document.getElementById("mbtiType").textContent = "—";
+        document.getElementById("mbtiTitle").textContent = "";
+        document.getElementById("mbtiSummary").textContent = "分析中，请稍候...";
+        detailsEl.textContent = "";
+        detailsEl.hidden = true;
+        document.getElementById("mbtiSource").textContent = "";
     }
 
     if (!analyzeBtn) return;
     analyzeBtn.addEventListener("click", function () {
         analyzeBtn.disabled = true;
         tip("分析中，请稍候...");
-        if (resultCard) resultCard.hidden = true;
+        resetResultPending();
         fetch("/api/mbti/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -104,6 +120,7 @@
         .then(function (data) {
             if (!data.success) {
                 tip(data.message || "分析失败", false);
+                document.getElementById("mbtiSummary").textContent = data.message || "分析失败";
                 return;
             }
             var result = data.result || {};
@@ -116,6 +133,7 @@
         })
         .catch(function () {
             tip("请求异常，请检查服务是否启动", false);
+            document.getElementById("mbtiSummary").textContent = "请求异常，请检查服务是否启动";
         })
         .finally(function () {
             analyzeBtn.disabled = {{ 'true' if history_total == 0 else 'false' }};

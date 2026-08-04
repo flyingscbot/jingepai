@@ -5,105 +5,102 @@
 {% block body_class %}panel-page{% endblock %}
 
 {% block content %}
-<main class="panel-main settings-main">
+<main class="panel-main settings-main my-mbti-main">
     <div class="page-title">
         <h2>我的 MBTI</h2>
-        <p>记录每次分析结果；射线上只展示你已出现过的类型</p>
     </div>
 
-    <section class="settings-card panel-card mbti-card">
-        <div class="settings-row settings-row-last">
-            <div class="settings-label">
-                <h3>当前类型</h3>
-                <p>来自 MBTI_log.csv 最近一次记录</p>
-            </div>
-            <div class="settings-control settings-control-stack">
-                {% if latest %}
-                <div class="my-mbti-current-row">
-                    {% if mbti_icons.get(latest.类型) %}
-                    <img class="my-mbti-current-icon" src="{{ mbti_icons[latest.类型] }}" alt="{{ latest.类型 }}" width="48" height="48">
+    <div class="my-mbti-layout{% if not show_ray %} is-solo{% endif %}">
+        <div class="my-mbti-side">
+            <section class="settings-card panel-card mbti-card my-mbti-current-card">
+                <div class="my-mbti-current-inner">
+                    <h3>当前类型</h3>
+                    {% if latest %}
+                    <div class="my-mbti-current-row">
+                        {% if mbti_icons.get(latest.类型) %}
+                        <img class="my-mbti-current-icon" src="{{ mbti_icons[latest.类型] }}" alt="{{ latest.类型 }}" width="48" height="48">
+                        {% endif %}
+                        <div>
+                            <p class="my-mbti-current">{{ latest.类型 }}</p>
+                            <p class="mbti-file-name">更新于 {{ latest.时间 }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="mbti-file-name">暂无记录，请先到「MBTI测试」完成分析</p>
                     {% endif %}
+                </div>
+            </section>
+
+            {% if points|length >= 1 %}
+            <section class="settings-card panel-card my-mbti-history-card">
+                <div class="my-mbti-wave-head">
                     <div>
-                        <p class="my-mbti-current">{{ latest.类型 }}</p>
-                        <p class="mbti-file-name">更新于 {{ latest.时间 }}</p>
+                        <h3>历史记录</h3>
                     </div>
+                    <p class="mbti-file-name">共 {{ points|length }} 条{% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}</p>
                 </div>
-                {% else %}
-                <p class="mbti-file-name">暂无记录，请先到「MBTI测试」完成分析</p>
-                {% endif %}
-            </div>
+                <ul class="my-mbti-timeline">
+                    {% for p in points|reverse %}
+                    <li class="my-mbti-timeline-item{% if p.changed and p.prev_type %} is-change{% endif %}{% if loop.first %} is-latest{% endif %}">
+                        {% if mbti_icons.get(p.类型) %}
+                        <img src="{{ mbti_icons[p.类型] }}" alt="" class="my-mbti-timeline-icon" width="22" height="22">
+                        {% endif %}
+                        <div class="my-mbti-timeline-main">
+                            <div class="my-mbti-timeline-line">
+                                <span class="my-mbti-timeline-type">{{ p.类型 }}</span>
+                                {% if loop.first %}
+                                <span class="my-mbti-change-tag is-soft">最新</span>
+                                {% endif %}
+                                {% if p.changed and p.prev_type %}
+                                <span class="my-mbti-change-tag">{{ p.prev_type }} → {{ p.类型 }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="my-mbti-timeline-sub">{{ p.时间 }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
         </div>
-    </section>
 
-    {% if show_ray %}
-    <section class="settings-card panel-card my-mbti-wave-card">
-        <div class="my-mbti-wave-head">
-            <div>
-                <p class="mbti-result-label">类型波动</p>
-                <h3>射线状态图</h3>
+        {% if show_ray %}
+        <section class="settings-card panel-card my-mbti-wave-card">
+            <div class="my-mbti-wave-head">
+                <div>
+                    <h3>射线状态图</h3>
+                </div>
+                <p class="mbti-file-name">
+                    已出现 {{ ray_types|length }} 类
+                    {% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}
+                </p>
             </div>
-            <p class="mbti-file-name">
-                已出现 {{ ray_types|length }} 类
-                {% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}
-            </p>
-        </div>
 
-        <div class="mbti-ray"
-             id="myMbtiRay"
-             data-points='{{ points | tojson }}'
-             data-types='{{ ray_types | tojson }}'>
-            <svg class="mbti-ray-arcs" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"></svg>
-            <div class="mbti-ray-track{% if ray_types|length == 1 %} is-single{% endif %}">
-                <div class="mbti-ray-line"></div>
-                <div class="mbti-ray-beam" id="mbtiRayBeam"></div>
-                {% for t in ray_types %}
-                <div class="mbti-ray-node is-owned{% if latest and t == latest.类型 %} is-current{% endif %}"
-                     data-type="{{ t }}"
-                     data-level="{{ loop.index0 }}">
-                    <div class="mbti-ray-node-icon">
-                        <img src="{{ mbti_icons[t] }}" alt="{{ t }}" width="28" height="28">
+            <div class="mbti-ray"
+                 id="myMbtiRay"
+                 data-points='{{ points | tojson }}'
+                 data-types='{{ ray_types | tojson }}'>
+                <svg class="mbti-ray-arcs" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"></svg>
+                <div class="mbti-ray-track{% if ray_types|length == 1 %} is-single{% endif %}">
+                    <div class="mbti-ray-line"></div>
+                    <div class="mbti-ray-beam" id="mbtiRayBeam"></div>
+                    {% for t in ray_types %}
+                    <div class="mbti-ray-node is-owned{% if latest and t == latest.类型 %} is-current{% endif %}"
+                         data-type="{{ t }}"
+                         data-level="{{ loop.index0 }}">
+                        <div class="mbti-ray-node-icon">
+                            <img src="{{ mbti_icons[t] }}" alt="{{ t }}" width="28" height="28">
+                        </div>
+                        <span class="mbti-ray-node-name">{{ t }}</span>
+                        <span class="mbti-ray-node-dot"></span>
                     </div>
-                    <span class="mbti-ray-node-name">{{ t }}</span>
-                    <span class="mbti-ray-node-dot"></span>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                <p class="mbti-ray-caption" id="mbtiRayCaption"></p>
             </div>
-            <p class="mbti-ray-caption" id="mbtiRayCaption"></p>
-        </div>
-    </section>
-    {% endif %}
-
-    {% if points|length >= 1 %}
-    <section class="settings-card panel-card">
-        <div class="my-mbti-wave-head">
-            <div>
-                <p class="mbti-result-label">历史记录</p>
-                <h3>MBTI_log</h3>
-            </div>
-            <p class="mbti-file-name">共 {{ points|length }} 条{% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}</p>
-        </div>
-        <ul class="my-mbti-timeline">
-            {% for p in points|reverse %}
-            <li class="my-mbti-timeline-item{% if p.changed and p.prev_type %} is-change{% endif %}{% if loop.first %} is-latest{% endif %}">
-                <div class="my-mbti-timeline-type">
-                    {% if mbti_icons.get(p.类型) %}
-                    <img src="{{ mbti_icons[p.类型] }}" alt="" class="my-mbti-timeline-icon" width="22" height="22">
-                    {% endif %}
-                    <span>{{ p.类型 }}</span>
-                </div>
-                <div class="my-mbti-timeline-meta">
-                    <span>{{ p.时间 }}</span>
-                    {% if p.changed and p.prev_type %}
-                    <span class="my-mbti-change-tag">{{ p.prev_type }} → {{ p.类型 }}</span>
-                    {% elif loop.first %}
-                    <span class="my-mbti-change-tag is-soft">最新</span>
-                    {% endif %}
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-    </section>
-    {% endif %}
+        </section>
+        {% endif %}
+    </div>
 </main>
 {% endblock %}
 

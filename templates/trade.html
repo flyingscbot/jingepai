@@ -5,60 +5,64 @@
 {% block body_class %}panel-page{% endblock %}
 
 {% block content %}
-<main class="panel-main settings-main">
+<main class="panel-main settings-main trade-main">
     <div class="page-title">
         <h2>我的交易数据</h2>
         <p>上传文件、自动整理记录，并按日期查看交易历史</p>
     </div>
 
-    <section class="settings-card panel-card trade-card">
-        <div class="settings-row">
-            <div class="settings-label">
-                <h3>上传文件</h3>
-                <p>支持任意格式，单文件最大 50MB</p>
-            </div>
-            <div class="settings-control settings-control-stack">
-                <label class="settings-btn settings-btn-file">
-                    选择并上传
-                    <input type="file" id="tradeUploadInput" hidden>
-                </label>
-                <p class="settings-tip" id="tradeUploadTip"></p>
-            </div>
-        </div>
+    <section class="settings-card panel-card trade-card trade-tools-card">
+        <div class="trade-tools-layout">
+            <div class="trade-tools-side">
+                <div class="trade-tool-block">
+                    <div class="settings-label">
+                        <h3>上传文件</h3>
+                        <p>支持任意格式，单文件最大 50MB</p>
+                    </div>
+                    <div class="settings-control settings-control-stack">
+                        <label class="settings-btn settings-btn-file">
+                            选择并上传
+                            <input type="file" id="tradeUploadInput" hidden>
+                        </label>
+                        <p class="settings-tip" id="tradeUploadTip"></p>
+                    </div>
+                </div>
 
-        <div class="settings-row">
-            <div class="settings-label">
-                <h3>已上传文件</h3>
-                <p>可下载或删除你的文件</p>
+                <div class="trade-tool-block">
+                    <div class="settings-label">
+                        <h3>自动整理记录</h3>
+                        <p>调用 AI 解析已上传文件，去重后写入交易历史 CSV</p>
+                    </div>
+                    <div class="settings-control settings-control-stack">
+                        <button type="button" class="settings-btn" id="tradeOrganizeBtn">自动整理记录</button>
+                        <p class="settings-tip" id="tradeOrganizeTip"></p>
+                    </div>
+                </div>
             </div>
-            <div class="settings-control settings-control-stack trade-file-panel">
-                <ul class="trade-file-list" id="tradeFileList">
-                    {% for f in trade_files %}
-                    <li class="trade-file-item" data-name="{{ f.name }}">
-                        <div class="trade-file-meta">
-                            <span class="trade-file-name" title="{{ f.name }}">{{ f.name }}</span>
-                            <span class="trade-file-size">{{ (f.size / 1024) | round(1) }} KB</span>
-                        </div>
-                        <div class="trade-file-actions">
-                            <a class="settings-btn-ghost trade-action-btn" href="{{ url_for('api_trade_download', filename=f.name) }}">下载</a>
-                            <button type="button" class="settings-btn-ghost trade-action-btn trade-delete-btn" data-name="{{ f.name }}">删除</button>
-                        </div>
-                    </li>
-                    {% else %}
-                    <li class="trade-file-empty" id="tradeEmptyHint">暂无文件，请先上传</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
 
-        <div class="settings-row settings-row-last">
-            <div class="settings-label">
-                <h3>自动整理记录</h3>
-                <p>调用 AI 解析已上传文件，去重后写入交易历史 CSV</p>
-            </div>
-            <div class="settings-control settings-control-stack">
-                <button type="button" class="settings-btn" id="tradeOrganizeBtn">自动整理记录</button>
-                <p class="settings-tip" id="tradeOrganizeTip"></p>
+            <div class="trade-tool-block trade-tool-files">
+                <div class="settings-label">
+                    <h3>已上传文件</h3>
+                    <p>可下载或删除你的文件</p>
+                </div>
+                <div class="settings-control settings-control-stack trade-file-panel">
+                    <ul class="trade-file-list" id="tradeFileList">
+                        {% for f in trade_files %}
+                        <li class="trade-file-item" data-name="{{ f.name }}">
+                            <div class="trade-file-meta">
+                                <span class="trade-file-name" title="{{ f.name }}">{{ f.name }}</span>
+                                <span class="trade-file-size">{{ (f.size / 1024) | round(1) }} KB</span>
+                            </div>
+                            <div class="trade-file-actions">
+                                <a class="settings-btn-ghost trade-action-btn" href="{{ url_for('api_trade_download', filename=f.name) }}">下载</a>
+                                <button type="button" class="settings-btn-ghost trade-action-btn trade-delete-btn" data-name="{{ f.name }}">删除</button>
+                            </div>
+                        </li>
+                        {% else %}
+                        <li class="trade-file-empty" id="tradeEmptyHint">暂无文件，请先上传</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
         </div>
     </section>
@@ -83,7 +87,9 @@
             <div class="trade-day-panel">
                 <div class="trade-day-header">
                     <h4 id="dayTitle">请选择日期</h4>
-                    <button type="button" class="settings-btn-ghost trade-action-btn" id="toggleAddForm" disabled>手动添加</button>
+                    <button type="button" class="settings-btn-ghost trade-icon-btn" id="toggleAddForm" title="手动添加" aria-label="手动添加" disabled>
+                        <img src="{{ url_for('static', filename='icons/add.svg') }}" alt="">
+                    </button>
                 </div>
 
                 <form class="trade-add-form" id="tradeAddForm" hidden>
@@ -112,8 +118,12 @@
                         <label>成交金额<input type="number" name="成交金额" required min="0" step="any"></label>
                     </div>
                     <div class="trade-add-actions">
-                        <button type="submit" class="settings-btn">保存记录</button>
-                        <button type="button" class="settings-btn-ghost" id="cancelAddForm">取消</button>
+                        <button type="submit" class="settings-btn trade-icon-btn trade-icon-btn-primary" title="保存记录" aria-label="保存记录">
+                            <img src="{{ url_for('static', filename='icons/check.svg') }}" alt="">
+                        </button>
+                        <button type="button" class="settings-btn-ghost trade-icon-btn" id="cancelAddForm" title="取消" aria-label="取消">
+                            <img src="{{ url_for('static', filename='icons/close.svg') }}" alt="">
+                        </button>
                     </div>
                     <p class="settings-tip" id="tradeAddTip"></p>
                 </form>
@@ -131,7 +141,9 @@
                 <h3>全部交易记录</h3>
                 <p>查看并编辑所有历史成交，共 <span id="tradeAllCount">0</span> 条</p>
             </div>
-            <button type="button" class="settings-btn-ghost trade-action-btn" id="tradeAllRefreshBtn">刷新</button>
+            <button type="button" class="settings-btn-ghost trade-icon-btn" id="tradeAllRefreshBtn" title="刷新" aria-label="刷新">
+                <img src="{{ url_for('static', filename='icons/refresh.svg') }}" alt="">
+            </button>
         </div>
 
         <form class="trade-add-form trade-edit-form" id="tradeEditForm" hidden>
@@ -161,8 +173,12 @@
                 <label>成交金额<input type="number" name="成交金额" id="editAmount" required min="0" step="any"></label>
             </div>
             <div class="trade-add-actions">
-                <button type="submit" class="settings-btn">保存修改</button>
-                <button type="button" class="settings-btn-ghost" id="cancelEditForm">取消</button>
+                <button type="submit" class="settings-btn trade-icon-btn trade-icon-btn-primary" title="保存修改" aria-label="保存修改">
+                    <img src="{{ url_for('static', filename='icons/check.svg') }}" alt="">
+                </button>
+                <button type="button" class="settings-btn-ghost trade-icon-btn" id="cancelEditForm" title="取消" aria-label="取消">
+                    <img src="{{ url_for('static', filename='icons/close.svg') }}" alt="">
+                </button>
             </div>
             <p class="settings-tip" id="tradeEditTip"></p>
         </form>
@@ -194,6 +210,17 @@
 {% block scripts %}
 <script>
 (function () {
+    var ICONS = {
+        edit: "{{ url_for('static', filename='icons/edit.svg') }}",
+        delete: "{{ url_for('static', filename='icons/delete.svg') }}"
+    };
+
+    function iconBtn(extraClass, iconKey, label) {
+        return '<button type="button" class="settings-btn-ghost trade-icon-btn ' + extraClass + '" title="' + label + '" aria-label="' + label + '">' +
+            '<img src="' + ICONS[iconKey] + '" alt="">' +
+            "</button>";
+    }
+
     function tip(el, text, ok) {
         if (!el) return;
         el.textContent = text || "";
@@ -465,8 +492,8 @@
                         "</div>" +
                     "</div>" +
                     '<div class="trade-record-actions">' +
-                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-rec-edit">编辑</button>' +
-                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-rec-del">删除</button>' +
+                        iconBtn("trade-rec-edit", "edit", "编辑") +
+                        iconBtn("trade-rec-del", "delete", "删除") +
                     "</div>";
                 li.querySelector(".trade-rec-edit").addEventListener("click", function () {
                     openEditForm(rec);
@@ -533,8 +560,8 @@
                     "<td>" + esc(rec["成交均价"]) + "</td>" +
                     "<td>" + esc(rec["成交金额"]) + "</td>" +
                     '<td class="trade-all-actions">' +
-                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-all-edit">编辑</button>' +
-                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-all-del">删除</button>' +
+                        iconBtn("trade-all-edit", "edit", "编辑") +
+                        iconBtn("trade-all-del", "delete", "删除") +
                     "</td>";
                 tr.querySelector(".trade-all-edit").addEventListener("click", function () {
                     openEditForm(rec);
