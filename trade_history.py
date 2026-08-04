@@ -31,7 +31,8 @@ CSV_HEADERS = [
 ]
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_TIME_RE = re.compile(r"^\d{2}:\d{2}(:\d{2})?$")
+_TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
+_TIME_HM_RE = re.compile(r"^\d{2}:\d{2}$")
 
 
 def history_path(user_id: str) -> str:
@@ -49,19 +50,30 @@ def ensure_history_csv(user_id: str) -> str:
     return path
 
 
+def normalize_time(value: str) -> str:
+    """统一为 HH:MM:SS；空则默认 00:00:00。"""
+    time_v = (value or "").strip()
+    if not time_v:
+        return "00:00:00"
+    if "." in time_v:
+        time_v = time_v.split(".", 1)[0]
+    if _TIME_HM_RE.match(time_v):
+        return time_v + ":00"
+    if _TIME_RE.match(time_v):
+        return time_v
+    raise ValueError("时间格式应为 HH:MM:SS")
+
+
 def normalize_record(raw: dict[str, Any]) -> dict[str, str]:
     """规范化一条交易记录。"""
     date = str(raw.get("成交日期") or raw.get("date") or "").strip()
-    time_v = str(raw.get("时间") or raw.get("time") or "").strip()
+    time_v = normalize_time(str(raw.get("时间") or raw.get("time") or "").strip())
     code = str(raw.get("证券代码") or raw.get("code") or "").strip()
     name = str(raw.get("证券名称") or raw.get("name") or "").strip()
     action = str(raw.get("操作") or raw.get("action") or "").strip()
     qty = str(raw.get("成交数量") or raw.get("quantity") or "").strip()
     price = str(raw.get("成交均价") or raw.get("price") or "").strip()
     amount = str(raw.get("成交金额") or raw.get("amount") or "").strip()
-
-    if time_v and len(time_v) == 5:
-        time_v = time_v + ":00"
 
     rec = {
         "成交日期": date,
@@ -80,8 +92,8 @@ def normalize_record(raw: dict[str, Any]) -> dict[str, str]:
 def validate_record(rec: dict[str, str]) -> None:
     if not _DATE_RE.match(rec["成交日期"]):
         raise ValueError("成交日期格式应为 YYYY-MM-DD")
-    if rec["时间"] and not _TIME_RE.match(rec["时间"]):
-        raise ValueError("时间格式应为 HH:MM 或 HH:MM:SS")
+    if not _TIME_RE.match(rec["时间"]):
+        raise ValueError("时间格式应为 HH:MM:SS")
     if not rec["证券代码"]:
         raise ValueError("证券代码不能为空")
     if not rec["证券名称"]:
@@ -123,6 +135,11 @@ def load_all_records(user_id: str) -> list[dict[str, str]]:
             rec = {h: (row.get(h) or "").strip() for h in CSV_HEADERS}
             if not any(rec.values()):
                 continue
+            # 旧数据若只有 HH:MM，读出时补秒
+            try:
+                rec["时间"] = normalize_time(rec.get("时间", ""))
+            except ValueError:
+                pass
             rows.append(rec)
     return rows
 
@@ -196,6 +213,40 @@ def list_dates_in_month(user_id: str, year: int, month: int) -> list[str]:
         }
     )
     return dates
+
+
+def latest_trade_date(user_id: str) -> str | None:
+    """返回最近一笔记录的成交日期；无记录则 None。"""
+    dates = sorted({r["成交日期"] for r in load_all_records(user_id) if r.get("成交日期")})
+    return dates[-1] if dates else None
+
+
+def list_all_records_indexed(user_id: str) -> list[dict[str, Any]]:
+    """全部记录（含 row_index），按日期时间倒序便于浏览。"""
+    rows = load_all_records(user_id)
+    indexed: list[dict[str, Any]] = []
+    for i, r in enumerate(rows):
+        item = dict(r)
+        item["row_index"] = i
+        indexed.append(item)
+    indexed.sort(key=lambda r: (r["成交日期"], r["时间"], r["证券代码"]), reverse=True)
+    return indexed
+
+
+def update_record_by_index(user_id: str, row_index: int, raw: dict[str, Any]) -> dict[str, str]:
+    """按全表行号更新一条记录（去重校验）。"""
+    rows = load_all_records(user_id)
+    if row_index < 0 or row_index >= len(rows):
+        raise ValueError("记录不存在")
+    rec = normalize_record(raw)
+    key = record_key(rec)
+    for i, r in enumerate(rows):
+        if i != row_index and record_key(r) == key:
+            raise ValueError("修改后的记录与已有记录重复")
+    rows[row_index] = rec
+    rows.sort(key=lambda r: (r["成交日期"], r["时间"], r["证券代码"]))
+    save_all_records(user_id, rows)
+    return rec
 
 
 def add_record(user_id: str, raw: dict[str, Any]) -> dict[str, str]:

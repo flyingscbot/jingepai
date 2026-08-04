@@ -231,14 +231,14 @@ def trade():
     trade_history.ensure_history_csv(user["id"])
     files = user_db.list_trade_files(user["id"])
     now = datetime.datetime.now()
-    marked_dates = trade_history.list_dates_in_month(user["id"], now.year, now.month)
+    latest_date = trade_history.latest_trade_date(user["id"])
     return render_template(
         "trade.html",
         user=user,
         trade_files=files,
         calendar_year=now.year,
         calendar_month=now.month,
-        marked_dates=marked_dates,
+        latest_trade_date=latest_date or "",
     )
 
 
@@ -341,6 +341,36 @@ def api_trade_history_by_date():
     except Exception:
         return jsonify({"success": False, "message": "获取失败"})
     return jsonify({"success": True, "date": date, "records": records})
+
+
+@app.route("/api/trade/history/all")
+@login_required
+def api_trade_history_all():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    try:
+        records = trade_history.list_all_records_indexed(user["id"])
+    except Exception:
+        return jsonify({"success": False, "message": "获取失败"})
+    return jsonify({"success": True, "records": records, "total": len(records)})
+
+
+@app.route("/api/trade/history/update", methods=["POST"])
+@login_required
+def api_trade_history_update():
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        row_index = int(data.get("row_index"))
+        rec = trade_history.update_record_by_index(user["id"], row_index, data)
+    except (TypeError, ValueError) as e:
+        return jsonify({"success": False, "message": str(e) if str(e) else "参数无效"})
+    except Exception:
+        return jsonify({"success": False, "message": "更新失败，请稍后重试"})
+    return jsonify({"success": True, "message": "已更新", "record": rec})
 
 
 @app.route("/api/trade/history/add", methods=["POST"])

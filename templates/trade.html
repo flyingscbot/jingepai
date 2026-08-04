@@ -8,7 +8,7 @@
 <main class="panel-main settings-main">
     <div class="page-title">
         <h2>我的交易数据</h2>
-        <p>上传文件、自动整理记录，并按日历查看交易历史</p>
+        <p>上传文件、自动整理记录，并按日期查看交易历史</p>
     </div>
 
     <section class="settings-card panel-card trade-card">
@@ -66,25 +66,18 @@
     <section class="settings-card panel-card trade-card trade-history-card">
         <div class="trade-history-head">
             <div class="settings-label">
-                <h3>交易历史日历</h3>
-                <p>点击某一天查看、删除或手动添加记录</p>
+                <h3>交易历史</h3>
+                <p>按日期查看当日记录；下方可浏览并编辑全部历史</p>
             </div>
         </div>
 
         <div class="trade-history-layout">
-            <div class="trade-calendar" id="tradeCalendar"
+            <div class="trade-calendar trade-calendar-native" id="tradeCalendar"
                  data-year="{{ calendar_year }}"
                  data-month="{{ calendar_month }}"
-                 data-marked='{{ marked_dates | tojson }}'>
-                <div class="trade-cal-nav">
-                    <button type="button" class="settings-btn-ghost trade-cal-nav-btn" id="calPrev" aria-label="上月">‹</button>
-                    <div class="trade-cal-title" id="calTitle"></div>
-                    <button type="button" class="settings-btn-ghost trade-cal-nav-btn" id="calNext" aria-label="下月">›</button>
-                </div>
-                <div class="trade-cal-weekdays">
-                    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
-                </div>
-                <div class="trade-cal-grid" id="calGrid"></div>
+                 data-latest="{{ latest_trade_date }}">
+                <label class="trade-cal-native-label" for="calNativeDate">选择日期</label>
+                <input type="date" id="calNativeDate" class="trade-cal-native-input" aria-label="选择日期">
             </div>
 
             <div class="trade-day-panel">
@@ -96,7 +89,16 @@
                 <form class="trade-add-form" id="tradeAddForm" hidden>
                     <div class="trade-add-grid">
                         <label>成交日期<input type="date" name="成交日期" id="addDate" required></label>
-                        <label>时间<input type="time" name="时间" step="1"></label>
+                        <label class="trade-time-label">时间
+                            <div class="trade-time-fields" id="addTimeFields">
+                                <input type="number" id="addHour" class="trade-time-part" min="0" max="23" step="1" inputmode="numeric" required aria-label="时" placeholder="时">
+                                <span class="trade-time-sep">:</span>
+                                <input type="number" id="addMinute" class="trade-time-part" min="0" max="59" step="1" inputmode="numeric" required aria-label="分" placeholder="分">
+                                <span class="trade-time-sep">:</span>
+                                <input type="number" id="addSecond" class="trade-time-part" min="0" max="59" step="1" inputmode="numeric" required aria-label="秒" placeholder="秒">
+                                <input type="hidden" name="时间" id="addTime" value="00:00:00">
+                            </div>
+                        </label>
                         <label>证券代码<input type="text" name="证券代码" required placeholder="如 600000"></label>
                         <label>证券名称<input type="text" name="证券名称" required placeholder="如 浦发银行"></label>
                         <label>操作
@@ -117,9 +119,73 @@
                 </form>
 
                 <ul class="trade-record-list" id="tradeRecordList">
-                    <li class="trade-record-empty">选择日历中的日期以查看记录</li>
+                    <li class="trade-record-empty">选择日期以查看记录</li>
                 </ul>
             </div>
+        </div>
+    </section>
+
+    <section class="settings-card panel-card trade-card trade-all-card">
+        <div class="trade-history-head trade-all-head">
+            <div class="settings-label">
+                <h3>全部交易记录</h3>
+                <p>查看并编辑所有历史成交，共 <span id="tradeAllCount">0</span> 条</p>
+            </div>
+            <button type="button" class="settings-btn-ghost trade-action-btn" id="tradeAllRefreshBtn">刷新</button>
+        </div>
+
+        <form class="trade-add-form trade-edit-form" id="tradeEditForm" hidden>
+            <input type="hidden" id="editRowIndex" value="">
+            <div class="trade-add-grid">
+                <label>成交日期<input type="date" name="成交日期" id="editDate" required></label>
+                <label class="trade-time-label">时间
+                    <div class="trade-time-fields">
+                        <input type="number" id="editHour" class="trade-time-part" min="0" max="23" step="1" inputmode="numeric" required aria-label="时" placeholder="时">
+                        <span class="trade-time-sep">:</span>
+                        <input type="number" id="editMinute" class="trade-time-part" min="0" max="59" step="1" inputmode="numeric" required aria-label="分" placeholder="分">
+                        <span class="trade-time-sep">:</span>
+                        <input type="number" id="editSecond" class="trade-time-part" min="0" max="59" step="1" inputmode="numeric" required aria-label="秒" placeholder="秒">
+                        <input type="hidden" name="时间" id="editTime" value="00:00:00">
+                    </div>
+                </label>
+                <label>证券代码<input type="text" name="证券代码" id="editCode" required></label>
+                <label>证券名称<input type="text" name="证券名称" id="editName" required></label>
+                <label>操作
+                    <select name="操作" id="editAction" required>
+                        <option value="买入">买入</option>
+                        <option value="卖出">卖出</option>
+                    </select>
+                </label>
+                <label>成交数量<input type="number" name="成交数量" id="editQty" required min="0" step="any"></label>
+                <label>成交均价<input type="number" name="成交均价" id="editPrice" required min="0" step="any"></label>
+                <label>成交金额<input type="number" name="成交金额" id="editAmount" required min="0" step="any"></label>
+            </div>
+            <div class="trade-add-actions">
+                <button type="submit" class="settings-btn">保存修改</button>
+                <button type="button" class="settings-btn-ghost" id="cancelEditForm">取消</button>
+            </div>
+            <p class="settings-tip" id="tradeEditTip"></p>
+        </form>
+
+        <div class="trade-all-table-wrap">
+            <table class="trade-all-table" id="tradeAllTable">
+                <thead>
+                    <tr>
+                        <th>成交日期</th>
+                        <th>时间</th>
+                        <th>操作</th>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>数量</th>
+                        <th>均价</th>
+                        <th>金额</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tradeAllBody">
+                    <tr class="trade-all-empty"><td colspan="9">加载中...</td></tr>
+                </tbody>
+            </table>
         </div>
     </section>
 </main>
@@ -140,6 +206,20 @@
     }
 
     function pad2(n) { return n < 10 ? "0" + n : String(n); }
+
+    function formatTimeWithSeconds(t) {
+        var s = String(t == null ? "" : t).trim();
+        if (!s) return "00:00:00";
+        if (s.indexOf(".") >= 0) s = s.split(".")[0];
+        if (/^\d{2}:\d{2}$/.test(s)) return s + ":00";
+        if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s;
+        return s;
+    }
+
+    function nowTimeWithSeconds() {
+        var d = new Date();
+        return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+    }
 
     function ensureEmptyHint() {
         var list = document.getElementById("tradeFileList");
@@ -239,103 +319,109 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 tip(tipEl, data.message || "", !!data.success);
-                if (data.success) {
-                    refreshMarkedDates().then(function () {
-                        renderCalendar();
-                        if (selectedDate) loadDayRecords(selectedDate);
-                    });
-                }
+                if (data.success && selectedDate) loadDayRecords(selectedDate);
+                if (data.success) loadAllRecords();
             })
             .catch(function () { tip(tipEl, "网络错误", false); })
             .finally(function () { organizeBtn.disabled = false; });
         });
     }
 
-    /* ---- 日历 + 当日记录 ---- */
+    /* ---- 原生日期选择 + 当日记录 ---- */
     var calRoot = document.getElementById("tradeCalendar");
     if (!calRoot) return;
 
-    var year = parseInt(calRoot.getAttribute("data-year"), 10);
-    var month = parseInt(calRoot.getAttribute("data-month"), 10);
-    var markedSet = {};
-    try {
-        (JSON.parse(calRoot.getAttribute("data-marked") || "[]") || []).forEach(function (d) {
-            markedSet[d] = true;
-        });
-    } catch (e) {}
-
+    var year = parseInt(calRoot.getAttribute("data-year"), 10) || new Date().getFullYear();
+    var month = parseInt(calRoot.getAttribute("data-month"), 10) || (new Date().getMonth() + 1);
     var selectedDate = null;
-    var calTitle = document.getElementById("calTitle");
-    var calGrid = document.getElementById("calGrid");
+    var calNativeDate = document.getElementById("calNativeDate");
     var dayTitle = document.getElementById("dayTitle");
     var recordList = document.getElementById("tradeRecordList");
     var toggleAdd = document.getElementById("toggleAddForm");
     var addForm = document.getElementById("tradeAddForm");
     var addDateInput = document.getElementById("addDate");
+    var addTimeInput = document.getElementById("addTime");
+    var addHour = document.getElementById("addHour");
+    var addMinute = document.getElementById("addMinute");
+    var addSecond = document.getElementById("addSecond");
     var addTip = document.getElementById("tradeAddTip");
 
-    function daysInMonth(y, m) {
-        return new Date(y, m, 0).getDate();
+    function clampInt(v, min, max) {
+        var n = parseInt(v, 10);
+        if (isNaN(n)) return min;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
     }
 
-    function mondayIndex(y, m) {
-        // JS: 0=Sun ... 转换为周一=0
-        var d = new Date(y, m - 1, 1).getDay();
-        return (d + 6) % 7;
+    function readTimeParts() {
+        return formatTimeWithSeconds(
+            pad2(clampInt(addHour && addHour.value, 0, 23)) + ":" +
+            pad2(clampInt(addMinute && addMinute.value, 0, 59)) + ":" +
+            pad2(clampInt(addSecond && addSecond.value, 0, 59))
+        );
     }
 
-    function dateKey(y, m, day) {
-        return y + "-" + pad2(m) + "-" + pad2(day);
+    function setTimeParts(timeStr) {
+        var t = formatTimeWithSeconds(timeStr).split(":");
+        if (addHour) addHour.value = t[0];
+        if (addMinute) addMinute.value = t[1];
+        if (addSecond) addSecond.value = t[2];
+        if (addTimeInput) addTimeInput.value = t.join(":");
     }
 
-    function renderCalendar() {
-        calTitle.textContent = year + "年" + month + "月";
-        calGrid.innerHTML = "";
-        var start = mondayIndex(year, month);
-        var total = daysInMonth(year, month);
-        var cells = start + total;
-        var rows = Math.ceil(cells / 7) * 7;
-        for (var i = 0; i < rows; i++) {
-            var dayNum = i - start + 1;
-            var cell = document.createElement("button");
-            cell.type = "button";
-            cell.className = "trade-cal-day";
-            if (dayNum < 1 || dayNum > total) {
-                cell.className += " is-empty";
-                cell.disabled = true;
-                cell.innerHTML = "<span></span>";
-            } else {
-                var key = dateKey(year, month, dayNum);
-                cell.textContent = String(dayNum);
-                cell.setAttribute("data-date", key);
-                if (markedSet[key]) cell.className += " has-records";
-                if (selectedDate === key) cell.className += " is-selected";
-                cell.addEventListener("click", onSelectDay);
-            }
-            calGrid.appendChild(cell);
-        }
+    function setEditTimeParts(timeStr) {
+        var t = formatTimeWithSeconds(timeStr).split(":");
+        var eh = document.getElementById("editHour");
+        var em = document.getElementById("editMinute");
+        var es = document.getElementById("editSecond");
+        var et = document.getElementById("editTime");
+        if (eh) eh.value = t[0];
+        if (em) em.value = t[1];
+        if (es) es.value = t[2];
+        if (et) et.value = t.join(":");
     }
 
-    function onSelectDay(ev) {
-        var btn = ev.currentTarget;
-        selectedDate = btn.getAttribute("data-date");
-        renderCalendar();
-        dayTitle.textContent = selectedDate + " 的交易记录";
-        toggleAdd.disabled = false;
-        if (addDateInput) addDateInput.value = selectedDate;
-        tip(addTip, "");
-        loadDayRecords(selectedDate);
+    function readEditTimeParts() {
+        return formatTimeWithSeconds(
+            pad2(clampInt(document.getElementById("editHour") && document.getElementById("editHour").value, 0, 23)) + ":" +
+            pad2(clampInt(document.getElementById("editMinute") && document.getElementById("editMinute").value, 0, 59)) + ":" +
+            pad2(clampInt(document.getElementById("editSecond") && document.getElementById("editSecond").value, 0, 59))
+        );
     }
 
-    function refreshMarkedDates() {
-        return fetch("/api/trade/history/dates?year=" + year + "&month=" + month)
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                markedSet = {};
-                if (data.success && data.dates) {
-                    data.dates.forEach(function (d) { markedSet[d] = true; });
-                }
-            });
+    function syncHiddenTime() {
+        if (!addTimeInput) return;
+        addTimeInput.value = readTimeParts();
+    }
+
+    [addHour, addMinute, addSecond].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener("change", syncHiddenTime);
+        el.addEventListener("blur", function () {
+            if (el === addHour) el.value = pad2(clampInt(el.value, 0, 23));
+            else el.value = pad2(clampInt(el.value, 0, 59));
+            syncHiddenTime();
+        });
+    });
+
+    function isCompact() {
+        return window.matchMedia && window.matchMedia("(max-width: 959px)").matches;
+    }
+
+    function scrollDayPanelIntoView() {
+        var panel = document.querySelector(".trade-day-panel");
+        if (!panel || !isCompact()) return;
+        requestAnimationFrame(function () {
+            panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    }
+
+    function actionClass(action) {
+        var a = String(action || "").trim();
+        if (a === "买入") return "is-buy";
+        if (a === "卖出") return "is-sell";
+        return "";
     }
 
     function esc(s) {
@@ -367,18 +453,24 @@
                 li.innerHTML =
                     '<div class="trade-record-main">' +
                         '<div class="trade-record-line">' +
-                            '<span class="trade-record-action">' + esc(rec["操作"]) + "</span>" +
+                            '<span class="trade-record-action ' + actionClass(rec["操作"]) + '">' + esc(rec["操作"]) + "</span>" +
                             '<span class="trade-record-code">' + esc(rec["证券代码"]) + "</span>" +
                             '<span class="trade-record-name">' + esc(rec["证券名称"]) + "</span>" +
                         "</div>" +
                         '<div class="trade-record-sub">' +
-                            '<span>' + esc(rec["时间"] || "--:--") + "</span>" +
+                            '<span>' + esc(formatTimeWithSeconds(rec["时间"])) + '</span>' +
                             '<span>数量 ' + esc(rec["成交数量"]) + '</span>' +
                             '<span>均价 ' + esc(rec["成交均价"]) + '</span>' +
                             '<span>金额 ' + esc(rec["成交金额"]) + '</span>' +
                         "</div>" +
                     "</div>" +
-                    '<button type="button" class="settings-btn-ghost trade-action-btn trade-rec-del">删除</button>';
+                    '<div class="trade-record-actions">' +
+                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-rec-edit">编辑</button>' +
+                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-rec-del">删除</button>' +
+                    "</div>";
+                li.querySelector(".trade-rec-edit").addEventListener("click", function () {
+                    openEditForm(rec);
+                });
                 li.querySelector(".trade-rec-del").addEventListener("click", function () {
                     if (!confirm("确定删除该条记录？")) return;
                     fetch("/api/trade/history/delete", {
@@ -392,10 +484,8 @@
                             alert(res.message || "删除失败");
                             return;
                         }
-                        refreshMarkedDates().then(function () {
-                            renderCalendar();
-                            loadDayRecords(date);
-                        });
+                        loadDayRecords(date);
+                        if (typeof loadAllRecords === "function") loadAllRecords();
                     })
                     .catch(function () { alert("网络错误"); });
                 });
@@ -407,22 +497,185 @@
         });
     }
 
-    document.getElementById("calPrev").addEventListener("click", function () {
-        month -= 1;
-        if (month < 1) { month = 12; year -= 1; }
-        refreshMarkedDates().then(renderCalendar);
+    /* ---- 全部交易记录 ---- */
+    var tradeAllBody = document.getElementById("tradeAllBody");
+    var tradeAllCount = document.getElementById("tradeAllCount");
+    var editForm = document.getElementById("tradeEditForm");
+    var editTip = document.getElementById("tradeEditTip");
+    var editRowIndex = document.getElementById("editRowIndex");
+
+    function loadAllRecords() {
+        if (!tradeAllBody) return;
+        tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">加载中...</td></tr>';
+        fetch("/api/trade/history/all")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.success) {
+                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">' + esc(data.message || "加载失败") + "</td></tr>";
+                return;
+            }
+            var records = data.records || [];
+            if (tradeAllCount) tradeAllCount.textContent = String(records.length);
+            if (!records.length) {
+                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">暂无交易记录</td></tr>';
+                return;
+            }
+            tradeAllBody.innerHTML = "";
+            records.forEach(function (rec) {
+                var tr = document.createElement("tr");
+                tr.innerHTML =
+                    "<td>" + esc(rec["成交日期"]) + "</td>" +
+                    "<td>" + esc(formatTimeWithSeconds(rec["时间"])) + "</td>" +
+                    '<td><span class="trade-record-action ' + actionClass(rec["操作"]) + '">' + esc(rec["操作"]) + "</span></td>" +
+                    "<td>" + esc(rec["证券代码"]) + "</td>" +
+                    "<td>" + esc(rec["证券名称"]) + "</td>" +
+                    "<td>" + esc(rec["成交数量"]) + "</td>" +
+                    "<td>" + esc(rec["成交均价"]) + "</td>" +
+                    "<td>" + esc(rec["成交金额"]) + "</td>" +
+                    '<td class="trade-all-actions">' +
+                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-all-edit">编辑</button>' +
+                        '<button type="button" class="settings-btn-ghost trade-action-btn trade-all-del">删除</button>' +
+                    "</td>";
+                tr.querySelector(".trade-all-edit").addEventListener("click", function () {
+                    openEditForm(rec);
+                });
+                tr.querySelector(".trade-all-del").addEventListener("click", function () {
+                    if (!confirm("确定删除该条记录？")) return;
+                    fetch("/api/trade/history/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ row_index: rec.row_index })
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (!res.success) {
+                            alert(res.message || "删除失败");
+                            return;
+                        }
+                        loadAllRecords();
+                        if (selectedDate) loadDayRecords(selectedDate);
+                    })
+                    .catch(function () { alert("网络错误"); });
+                });
+                tradeAllBody.appendChild(tr);
+            });
+        })
+        .catch(function () {
+            tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">网络错误</td></tr>';
+        });
+    }
+
+    function openEditForm(rec) {
+        if (!editForm) return;
+        editForm.hidden = false;
+        editRowIndex.value = String(rec.row_index);
+        document.getElementById("editDate").value = rec["成交日期"] || "";
+        setEditTimeParts(rec["时间"]);
+        document.getElementById("editCode").value = rec["证券代码"] || "";
+        document.getElementById("editName").value = rec["证券名称"] || "";
+        document.getElementById("editAction").value = rec["操作"] || "买入";
+        document.getElementById("editQty").value = rec["成交数量"] || "";
+        document.getElementById("editPrice").value = rec["成交均价"] || "";
+        document.getElementById("editAmount").value = rec["成交金额"] || "";
+        tip(editTip, "");
+        editForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    ["editHour", "editMinute", "editSecond"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("blur", function () {
+            if (id === "editHour") el.value = pad2(clampInt(el.value, 0, 23));
+            else el.value = pad2(clampInt(el.value, 0, 59));
+            var et = document.getElementById("editTime");
+            if (et) et.value = readEditTimeParts();
+        });
     });
-    document.getElementById("calNext").addEventListener("click", function () {
-        month += 1;
-        if (month > 12) { month = 1; year += 1; }
-        refreshMarkedDates().then(renderCalendar);
-    });
+
+    var refreshAllBtn = document.getElementById("tradeAllRefreshBtn");
+    if (refreshAllBtn) refreshAllBtn.addEventListener("click", loadAllRecords);
+
+    if (document.getElementById("cancelEditForm")) {
+        document.getElementById("cancelEditForm").addEventListener("click", function () {
+            editForm.hidden = true;
+            tip(editTip, "");
+        });
+    }
+
+    if (editForm) {
+        editForm.addEventListener("submit", function (ev) {
+            ev.preventDefault();
+            var et = document.getElementById("editTime");
+            if (et) et.value = readEditTimeParts();
+            var payload = {
+                row_index: parseInt(editRowIndex.value, 10),
+                "成交日期": document.getElementById("editDate").value,
+                "时间": readEditTimeParts(),
+                "证券代码": document.getElementById("editCode").value.trim(),
+                "证券名称": document.getElementById("editName").value.trim(),
+                "操作": document.getElementById("editAction").value,
+                "成交数量": document.getElementById("editQty").value,
+                "成交均价": document.getElementById("editPrice").value,
+                "成交金额": document.getElementById("editAmount").value
+            };
+            tip(editTip, "保存中...");
+            fetch("/api/trade/history/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                tip(editTip, data.message || "", !!data.success);
+                if (!data.success) return;
+                editForm.hidden = true;
+                loadAllRecords();
+                if (selectedDate) loadDayRecords(selectedDate);
+                if (calNativeDate && payload["成交日期"]) {
+                    calRoot.setAttribute("data-latest", payload["成交日期"]);
+                }
+            })
+            .catch(function () { tip(editTip, "网络错误", false); });
+        });
+    }
+
+    loadAllRecords();
+
+    function applySelectedDate(dateStr, opts) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || "")) return;
+        selectedDate = dateStr;
+        if (calNativeDate && calNativeDate.value !== dateStr) calNativeDate.value = dateStr;
+        dayTitle.textContent = selectedDate + " 的交易记录";
+        toggleAdd.disabled = false;
+        if (addDateInput) addDateInput.value = selectedDate;
+        tip(addTip, "");
+        loadDayRecords(selectedDate);
+        if (!opts || opts.scroll !== false) scrollDayPanelIntoView();
+    }
+
+    if (calNativeDate) {
+        var today = new Date();
+        var fallback = year + "-" + pad2(month) + "-" + pad2(today.getDate());
+        var dim = new Date(year, month, 0).getDate();
+        if (parseInt(fallback.slice(8), 10) > dim) {
+            fallback = year + "-" + pad2(month) + "-" + pad2(dim);
+        }
+        // 优先打开最近有成交记录的日期，避免误以为记录消失
+        var latest = (calRoot.getAttribute("data-latest") || "").trim();
+        var initial = /^\d{4}-\d{2}-\d{2}$/.test(latest) ? latest : fallback;
+        calNativeDate.value = initial;
+        calNativeDate.addEventListener("change", function () {
+            if (calNativeDate.value) applySelectedDate(calNativeDate.value);
+        });
+        applySelectedDate(initial, { scroll: false });
+    }
 
     toggleAdd.addEventListener("click", function () {
         if (!selectedDate) return;
         addForm.hidden = !addForm.hidden;
         if (!addForm.hidden) {
             addDateInput.value = selectedDate;
+            setTimeParts(nowTimeWithSeconds());
             tip(addTip, "");
         }
     });
@@ -434,12 +687,11 @@
 
     addForm.addEventListener("submit", function (ev) {
         ev.preventDefault();
+        syncHiddenTime();
         var fd = new FormData(addForm);
         var payload = {};
         fd.forEach(function (v, k) { payload[k] = String(v).trim(); });
-        if (payload["时间"] && payload["时间"].length === 5) {
-            payload["时间"] = payload["时间"] + ":00";
-        }
+        payload["时间"] = formatTimeWithSeconds(payload["时间"] || readTimeParts());
         tip(addTip, "保存中...");
         fetch("/api/trade/history/add", {
             method: "POST",
@@ -451,21 +703,13 @@
             tip(addTip, data.message || "", !!data.success);
             if (!data.success) return;
             addForm.reset();
+            setTimeParts("00:00:00");
             addForm.hidden = true;
-            selectedDate = payload["成交日期"];
-            year = parseInt(selectedDate.slice(0, 4), 10);
-            month = parseInt(selectedDate.slice(5, 7), 10);
-            refreshMarkedDates().then(function () {
-                renderCalendar();
-                dayTitle.textContent = selectedDate + " 的交易记录";
-                toggleAdd.disabled = false;
-                loadDayRecords(selectedDate);
-            });
+            applySelectedDate(payload["成交日期"]);
+            loadAllRecords();
         })
         .catch(function () { tip(addTip, "网络错误", false); });
     });
-
-    renderCalendar();
 })();
 </script>
 {% endblock %}
