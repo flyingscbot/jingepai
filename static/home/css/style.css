@@ -41,28 +41,42 @@
     --radius-control:16px;
     --radius-pill:999px;
     --radius-circle:50%;
+    /* 暗色按钮 / 玻璃按钮：与卡片同系灰半透明 */
+    --btn-dark:rgba(36,36,40,.32);
+    --btn-dark-mid:rgba(80,80,86,.12);
+    --btn-dark-hover:rgba(44,44,48,.42);
+    --btn-dark-deep:rgba(0,0,0,.14);
 }
 
 .gold-glass,
 .card,
 .account-menu,
 .modal-box,
-.float-nav,
 .panel-card{
     position:relative;
-    background:var(--glass-bg);
-    backdrop-filter:var(--glass-blur);
-    -webkit-backdrop-filter:var(--glass-blur);
+    isolation:isolate;
+    background:
+        linear-gradient(155deg, rgba(255,255,255,.12) 0%, rgba(80,80,86,.10) 38%, rgba(0,0,0,.14) 100%),
+        rgba(36,36,40,.32);
+    /* 模糊+畸变改到 ::before 玻璃层，避免文字被扭曲 */
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     border:var(--glass-border);
     box-shadow:var(--glass-rim), var(--glass-depth);
 }
 
-/* 深色液体遮罩（低浓度） */
+.gold-glass,
+.card,
+.modal-box,
+.panel-card{
+    overflow:hidden;
+}
+
+/* 玻璃折射层（跨浏览器：backdrop + CSS filter） */
 .gold-glass::before,
 .card::before,
 .account-menu::before,
 .modal-box::before,
-.float-nav::before,
 .panel-card::before{
     content:"";
     position:absolute;
@@ -70,21 +84,27 @@
     border-radius:inherit;
     pointer-events:none;
     z-index:0;
-    background:
-        radial-gradient(
-            120% 80% at var(--lg-x) var(--lg-y),
-            rgba(255,255,255,.06) 0%,
-            rgba(0,0,0,.03) 28%,
-            transparent 55%
-        ),
-        linear-gradient(
-            160deg,
-            rgba(0,0,0,.1) 0%,
-            rgba(0,0,0,.04) 42%,
-            rgba(18,14,6,.07) 100%
-        );
-    opacity:.32;
-    animation:liquid-sheen 14s ease-in-out infinite;
+    background:rgba(48,48,52,.06);
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:url(#glass-refract);
+    -webkit-filter:url(#glass-refract);
+    opacity:1;
+    animation:none;
+    transform:translateZ(0);
+}
+
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+    .gold-glass::before,
+    .card::before,
+    .account-menu::before,
+    .modal-box::before,
+    .panel-card::before{
+        background:
+            linear-gradient(155deg, rgba(255,255,255,.16), rgba(40,40,44,.5) 55%, rgba(0,0,0,.32));
+        filter:none;
+        -webkit-filter:none;
+    }
 }
 
 /* 边缘菲涅尔：玻璃亮边 + 深色内影 */
@@ -92,50 +112,40 @@
 .card::after,
 .account-menu::after,
 .modal-box::after,
-.float-nav::after,
 .panel-card::after{
     content:"";
     position:absolute;
     inset:0;
     border-radius:inherit;
     pointer-events:none;
-    z-index:0;
+    z-index:1;
     background:
-        radial-gradient(ellipse 90% 50% at 50% -12%, rgba(255,255,255,.08), transparent 55%),
-        radial-gradient(ellipse 80% 55% at 50% 120%, rgba(0,0,0,.12), transparent 55%);
+        radial-gradient(ellipse 95% 55% at 50% -18%, rgba(255,255,255,.18), transparent 58%),
+        radial-gradient(ellipse 85% 50% at 50% 118%, rgba(0,0,0,.16), transparent 55%);
     box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.28),
-        inset 0 -1px 0 rgba(0,0,0,.3),
-        inset 1px 0 0 rgba(255,255,255,.08),
+        inset 0 1px 0 rgba(255,255,255,.36),
+        inset 0 -1px 0 rgba(0,0,0,.32),
+        inset 1px 0 0 rgba(255,255,255,.12),
         inset -1px 0 0 rgba(0,0,0,.22),
-        inset 0 0 0 .5px rgba(255,255,255,.06);
-    opacity:.42;
+        inset 0 0 0 .5px rgba(255,255,255,.08);
+    opacity:.65;
 }
 
 .gold-glass > *,
 .card > *,
 .account-menu > *,
 .modal-box > *,
-.float-nav > *,
 .panel-card > *{
     position:relative;
-    z-index:1;
+    z-index:2;
 }
 
-@keyframes liquid-sheen{
-    0%, 100%{ opacity:.26; }
-    50%{ opacity:.38; }
-}
-
-@media (prefers-reduced-motion:reduce){
-    .gold-glass::before,
-    .card::before,
-    .account-menu::before,
-    .modal-box::before,
-    .float-nav::before,
-    .panel-card::before{
-        animation:none;
-    }
+.glass-refract-filter{
+    position:absolute;
+    width:0;
+    height:0;
+    overflow:hidden;
+    pointer-events:none;
 }
 
 
@@ -508,76 +518,22 @@ nav a:hover::after{
 
 
 
-/* 右侧卡片：动画与毛玻璃必须在同一元素上，父级 transform 会截断模糊 */
-
-
+/* 右侧卡片：玻璃层在 .card::before；浮动用 top，避免 transform 截断 backdrop-filter */
 .card-float{
-
     /* 仅作布局包裹，不做 transform */
-
 }
 
 
+/* 布局/动画/阴影；玻璃底与 ::before/#glass-refract 沿用顶部共享规则（同 .panel-card） */
 .card{
-
-
-    position:relative;
-
-
     width:390px;
-
-
     padding:35px;
-
-
     border-radius:var(--radius-panel);
-
-
-    background:
-        linear-gradient(
-            155deg,
-            rgba(255,255,255,.028) 0%,
-            rgba(255,255,255,.01) 45%,
-            rgba(0,0,0,.02) 100%
-        ),
-        rgba(255,255,255,.015);
-
-
-    backdrop-filter:var(--glass-blur);
-
-
-    -webkit-backdrop-filter:var(--glass-blur);
-
-
-    border:var(--glass-border);
-
-
     box-shadow:
         var(--glass-rim),
         var(--glass-depth),
         0 30px 80px rgba(0,0,0,.28);
-
-
     animation:float 5s infinite ease-in-out;
-
-
-}
-
-/* 大浮窗遮罩更淡，避免盖住透光 */
-.card::before{
-    opacity:.08;
-    background:
-        radial-gradient(
-            120% 80% at var(--lg-x) var(--lg-y),
-            rgba(255,255,255,.06) 0%,
-            transparent 50%
-        );
-}
-
-.card::after{
-    opacity:.2;
-    background:
-        radial-gradient(ellipse 90% 50% at 50% -12%, rgba(255,255,255,.08), transparent 55%);
 }
 
 
@@ -633,22 +589,10 @@ nav a:hover::after{
 
 
 
+/* 用 top 而非 transform：父级 transform 会截断 ::before 的 backdrop-filter */
 @keyframes float{
-
-
-    0%,100%{
-
-        transform:translateY(0);
-
-    }
-
-
-    50%{
-
-        transform:translateY(-15px);
-
-    }
-
+    0%,100%{ top:0; }
+    50%{ top:-15px; }
 }
 
 
@@ -1270,10 +1214,12 @@ nav a:hover::after{
 
 .modal-btn-primary{
     position:relative;
+    isolation:isolate;
     border:none;
-    background:var(--gold-mid);
-    backdrop-filter:var(--glass-blur-sm);
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    /* 底色与玻璃在 ::before（z-index:-1），避免滤镜盖住文字 */
+    background:transparent;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     color:#111;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,.28),
@@ -1284,7 +1230,21 @@ nav a:hover::after{
 }
 
 .modal-btn-primary::before{
-    content:none;
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.04), rgba(48,48,52,.04)),
+        linear-gradient(155deg, rgba(252,213,53,.9) 0%, rgba(240,185,11,.82) 45%, rgba(201,148,0,.78) 100%);
+    /* 小按钮禁用位移折射，避免边缘被 warp 出缺口 */
+    backdrop-filter:blur(4px) saturate(1.4) contrast(1.08) brightness(1.04);
+    -webkit-backdrop-filter:blur(4px) saturate(1.4) contrast(1.08) brightness(1.04);
+    filter:none;
+    -webkit-filter:none;
+    transform:translateZ(0);
 }
 
 .modal-btn-primary::after{
@@ -1293,7 +1253,7 @@ nav a:hover::after{
     inset:4px;
     border-radius:calc(var(--radius-control) - 4px);
     pointer-events:none;
-    z-index:0;
+    z-index:-1;
     background:
         linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
     box-shadow:
@@ -1313,16 +1273,40 @@ nav a:hover::after{
     opacity:.95;
 }
 
+.modal-btn-primary > *,
+.modal-btn-secondary > *{
+    position:relative;
+    z-index:2;
+}
+
 .modal-btn-secondary{
     position:relative;
+    isolation:isolate;
     border:var(--glass-border);
-    background:
-        linear-gradient(155deg, rgba(255,255,255,.04), rgba(0,0,0,.06) 42%, rgba(0,0,0,.08));
-    backdrop-filter:var(--glass-blur-sm);
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    background:transparent;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     color:rgba(255,255,255,.88);
     box-shadow:var(--glass-rim);
     overflow:hidden;
+}
+
+.modal-btn-secondary::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.12) 0%, var(--btn-dark-mid) 38%, var(--btn-dark-deep) 100%),
+        var(--btn-dark);
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:none;
+    -webkit-filter:none;
+    transform:translateZ(0);
 }
 
 .modal-btn-secondary::after{
@@ -1331,7 +1315,7 @@ nav a:hover::after{
     inset:4px;
     border-radius:calc(var(--radius-control) - 4px);
     pointer-events:none;
-    z-index:0;
+    z-index:-1;
     background:
         linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.16) 42%, rgba(255,255,255,.06) 100%);
     box-shadow:
@@ -1344,9 +1328,15 @@ nav a:hover::after{
 }
 
 .modal-btn-secondary:hover{
-    background:
-        linear-gradient(155deg, rgba(255,255,255,.07), rgba(0,0,0,.08) 42%, rgba(0,0,0,.1));
+    background:transparent;
     box-shadow:var(--glass-rim);
+}
+
+.modal-btn-secondary:hover::before{
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.14) 0%, rgba(90,90,96,.14) 38%, rgba(0,0,0,.16) 100%),
+        var(--btn-dark-hover);
 }
 
 .modal-btn-secondary:hover::after{
@@ -1464,9 +1454,76 @@ body.modal-open{
     width:max-content;
     max-width:min(720px, calc(100% - 240px));
     border-radius:var(--radius-pill);
+    overflow:hidden;
+    isolation:isolate;
+    /* 父层只做底色；真正玻璃效果在 .float-nav-glass（兼容更多浏览器） */
+    background:
+        linear-gradient(155deg, rgba(255,255,255,.12) 0%, rgba(80,80,86,.10) 38%, rgba(0,0,0,.14) 100%),
+        rgba(36,36,40,.34);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+    border:1px solid rgba(255,255,255,.22);
     box-shadow:
         var(--glass-rim),
-        0 8px 20px rgba(0,0,0,.22);
+        0 8px 20px rgba(0,0,0,.22),
+        inset 0 0 0 .5px rgba(255,255,255,.12);
+}
+
+/* 玻璃层：先 backdrop 再 CSS filter 位移，Safari/Chrome/Firefox 更通用 */
+.float-nav-glass{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:rgba(48,48,52,.08);
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:url(#glass-refract);
+    -webkit-filter:url(#glass-refract);
+    transform:translateZ(0);
+}
+
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+    .float-nav-glass{
+        background:
+            linear-gradient(155deg, rgba(255,255,255,.18), rgba(30,30,34,.55) 55%, rgba(0,0,0,.35));
+        filter:none;
+        -webkit-filter:none;
+    }
+}
+
+/* 浮窗自有高光/折射层 */
+.float-nav::before{
+    z-index:1;
+    opacity:.55;
+    animation:none;
+    background:
+        radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.22) 0%, transparent 42%),
+        radial-gradient(90% 80% at 88% 100%, rgba(255,255,255,.08) 0%, transparent 48%),
+        linear-gradient(125deg, rgba(255,255,255,.1) 0%, transparent 36%, rgba(0,0,0,.08) 100%);
+}
+
+.float-nav::after{
+    z-index:1;
+    opacity:.7;
+    background:
+        radial-gradient(ellipse 95% 55% at 50% -18%, rgba(255,255,255,.2), transparent 58%),
+        radial-gradient(ellipse 85% 50% at 50% 118%, rgba(0,0,0,.18), transparent 55%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.42),
+        inset 0 -1px 0 rgba(0,0,0,.35),
+        inset 1px 0 0 rgba(255,255,255,.14),
+        inset -1px 0 0 rgba(0,0,0,.22),
+        inset 0 0 0 .5px rgba(255,255,255,.1);
+}
+
+.float-nav > .float-nav-glass{
+    z-index:0;
+}
+
+.float-nav > .float-nav-item{
+    z-index:2;
 }
 
 .float-nav-item{
@@ -1551,7 +1608,7 @@ body.modal-open{
 
 .float-nav-item.active{
     color:#5b9cff;
-    background:rgba(91,156,255,.14);
+    background:rgba(255,255,255,.10);
     box-shadow:none;
 }
 
@@ -1566,13 +1623,13 @@ body.modal-open{
 
 .float-nav-item.active:hover{
     color:#7eb2ff;
-    background:rgba(91,156,255,.14);
+    background:rgba(255,255,255,.14);
 }
 
 .float-nav-item.active:hover::after{
     opacity:.55;
     background:
-        linear-gradient(180deg, rgba(255,255,255,.36) 0%, rgba(91,156,255,.12) 45%, rgba(255,255,255,.05) 100%);
+        linear-gradient(180deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.05) 100%);
 }
 
 .float-nav-item.active:hover img{
@@ -1583,7 +1640,7 @@ body:has(.float-nav) .panel-main{
     padding-top:60px;
 }
 
-/* 手机：TAB 脱离顶栏，底部悬浮；大图标 + 小文字 */
+/* 手机：TAB 脱离顶栏，底部悬浮；大图标 + 小文字；四项等宽 */
 @media screen and (max-width:768px){
     .float-nav{
         position:fixed;
@@ -1591,8 +1648,8 @@ body:has(.float-nav) .panel-main{
         top:auto;
         bottom:16px;
         transform:translateX(-50%);
-        width:max-content;
-        max-width:calc(100% - 24px);
+        width:calc(100% - 24px);
+        max-width:420px;
         padding:2px;
         gap:0;
         box-shadow:
@@ -1601,21 +1658,18 @@ body:has(.float-nav) .panel-main{
     }
 
     .float-nav-item{
-        flex:0 1 auto;
+        flex:1 1 0;
         flex-direction:column;
         min-width:0;
-        padding:6px 10px;
+        width:0;
+        padding:6px 4px;
         border-radius:var(--radius-pill);
     }
 
-    .float-nav-item:first-child{
-        padding-left:12px;
-        padding-right:10px;
-    }
-
+    .float-nav-item:first-child,
     .float-nav-item:last-child{
-        padding-right:12px;
-        padding-left:10px;
+        padding-left:4px;
+        padding-right:4px;
     }
 
     .float-nav-item img{
@@ -1628,7 +1682,11 @@ body:has(.float-nav) .panel-main{
     .float-nav-item span{
         font-size:9px;
         font-weight:500;
-        white-space:normal;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        max-width:100%;
+        text-align:center;
     }
 
     body:has(.float-nav) .panel-main{
@@ -1711,6 +1769,7 @@ body:has(.float-nav) .panel-main{
 
 .panel-card .func-btn{
     position:relative;
+    isolation:isolate;
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -1724,9 +1783,9 @@ body:has(.float-nav) .panel-main{
     line-height:1;
     color:#111;
     border:none;
-    background:var(--gold-mid);
-    backdrop-filter:var(--glass-blur-sm);
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    background:transparent;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,.28),
         0 8px 20px rgba(0,0,0,.28),
@@ -1736,7 +1795,18 @@ body:has(.float-nav) .panel-main{
 }
 
 .panel-card .func-btn::before{
-    content:none;
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:var(--gold-mid);
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:none;
+    -webkit-filter:none;
+    transform:translateZ(0);
 }
 
 .panel-card .func-btn::after{
@@ -1745,7 +1815,7 @@ body:has(.float-nav) .panel-main{
     inset:4px;
     border-radius:999px;
     pointer-events:none;
-    z-index:0;
+    z-index:-1;
     background:
         linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
     box-shadow:
@@ -1884,6 +1954,7 @@ a.settings-btn,
 a.settings-btn-ghost,
 a.settings-btn-secondary{
     position:relative;
+    isolation:isolate;
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -1902,16 +1973,53 @@ a.settings-btn-secondary{
     -webkit-tap-highlight-color:transparent;
 }
 
+/* 按钮玻璃层：z-index:-1 保证文字在上层；小按钮不用 #glass-refract，避免位移把填充边缘扭出缺口 */
+.settings-btn::before,
+a.settings-btn::before,
+.settings-btn-ghost::before,
+a.settings-btn-ghost::before,
+.settings-btn-secondary::before,
+a.settings-btn-secondary::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:none;
+    -webkit-filter:none;
+    transform:translateZ(0);
+}
+
+.settings-btn > *,
+a.settings-btn > *,
+.settings-btn-ghost > *,
+a.settings-btn-ghost > *,
+.settings-btn-secondary > *,
+a.settings-btn-secondary > *{
+    position:relative;
+    z-index:2;
+}
+
 .settings-btn,
 a.settings-btn{
-    background:var(--gold-mid);
+    background:transparent;
     color:#111;
-    backdrop-filter:var(--glass-blur-sm);
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,.28),
         0 8px 20px rgba(0,0,0,.28),
         0 0 18px rgba(240,185,11,.4);
+}
+
+.settings-btn::before,
+a.settings-btn::before{
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(252,213,53,.9) 0%, rgba(240,185,11,.82) 45%, rgba(201,148,0,.78) 100%);
 }
 
 .settings-btn::after,
@@ -1921,7 +2029,7 @@ a.settings-btn::after{
     inset:4px;
     border-radius:calc(var(--radius-control) - 4px);
     pointer-events:none;
-    z-index:0;
+    z-index:-1;
     background:
         linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
     box-shadow:
@@ -1948,12 +2056,21 @@ a.settings-btn-secondary,
 .settings-btn-ghost,
 a.settings-btn-ghost{
     border:var(--glass-border);
-    background:
-        linear-gradient(155deg, rgba(255,255,255,.04), rgba(0,0,0,.06) 42%, rgba(0,0,0,.08));
-    backdrop-filter:var(--glass-blur-sm);
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    background:transparent;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     color:rgba(255,255,255,.88);
     box-shadow:var(--glass-rim);
+}
+
+.settings-btn-secondary::before,
+a.settings-btn-secondary::before,
+.settings-btn-ghost::before,
+a.settings-btn-ghost::before{
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.12) 0%, var(--btn-dark-mid) 38%, var(--btn-dark-deep) 100%),
+        var(--btn-dark);
 }
 
 .settings-btn-secondary::after,
@@ -1965,7 +2082,7 @@ a.settings-btn-ghost::after{
     inset:4px;
     border-radius:calc(var(--radius-control) - 4px);
     pointer-events:none;
-    z-index:0;
+    z-index:-1;
     background:
         linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.16) 42%, rgba(255,255,255,.06) 100%);
     box-shadow:
@@ -1981,10 +2098,19 @@ a.settings-btn-ghost::after{
 a.settings-btn-secondary:hover,
 .settings-btn-ghost:hover,
 a.settings-btn-ghost:hover{
-    background:
-        linear-gradient(155deg, rgba(255,255,255,.07), rgba(0,0,0,.08) 42%, rgba(0,0,0,.1));
+    background:transparent;
     box-shadow:var(--glass-rim);
     color:#fff;
+}
+
+.settings-btn-secondary:hover::before,
+a.settings-btn-secondary:hover::before,
+.settings-btn-ghost:hover::before,
+a.settings-btn-ghost:hover::before{
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.14) 0%, rgba(90,90,96,.14) 38%, rgba(0,0,0,.16) 100%),
+        var(--btn-dark-hover);
 }
 
 .settings-btn-secondary:hover::after,
@@ -2259,6 +2385,13 @@ button.trade-icon-btn,
 
 .trade-icon-btn-primary img{
     filter:brightness(0) saturate(100%);
+}
+
+.trade-icon-btn.settings-btn-ghost::before,
+.trade-icon-btn.settings-btn::before,
+.trade-icon-btn.settings-btn-ghost::after,
+.trade-icon-btn.settings-btn::after{
+    border-radius:50%;
 }
 
 .trade-action-btn.settings-btn-ghost::after,
