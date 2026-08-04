@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}金格Pi - 我的MBTI{% endblock %}
+
+{% block body_class %}panel-page{% endblock %}
+
+{% block content %}
+<main class="panel-main settings-main">
+    <div class="page-title">
+        <h2>我的 MBTI</h2>
+        <p>记录每次分析结果；射线上只展示你已出现过的类型</p>
+    </div>
+
+    <section class="settings-card panel-card mbti-card">
+        <div class="settings-row settings-row-last">
+            <div class="settings-label">
+                <h3>当前类型</h3>
+                <p>来自 MBTI_log.csv 最近一次记录</p>
+            </div>
+            <div class="settings-control settings-control-stack">
+                {% if latest %}
+                <div class="my-mbti-current-row">
+                    {% if mbti_icons.get(latest.类型) %}
+                    <img class="my-mbti-current-icon" src="{{ mbti_icons[latest.类型] }}" alt="{{ latest.类型 }}" width="48" height="48">
+                    {% endif %}
+                    <div>
+                        <p class="my-mbti-current">{{ latest.类型 }}</p>
+                        <p class="mbti-file-name">更新于 {{ latest.时间 }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="mbti-file-name">暂无记录，请先到「MBTI测试」完成分析</p>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% if show_ray %}
+    <section class="settings-card panel-card my-mbti-wave-card">
+        <div class="my-mbti-wave-head">
+            <div>
+                <p class="mbti-result-label">类型波动</p>
+                <h3>射线状态图</h3>
+            </div>
+            <p class="mbti-file-name">
+                已出现 {{ ray_types|length }} 类
+                {% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}
+            </p>
+        </div>
+
+        <div class="mbti-ray"
+             id="myMbtiRay"
+             data-points='{{ points | tojson }}'
+             data-types='{{ ray_types | tojson }}'>
+            <svg class="mbti-ray-arcs" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <div class="mbti-ray-track{% if ray_types|length == 1 %} is-single{% endif %}">
+                <div class="mbti-ray-line"></div>
+                <div class="mbti-ray-beam" id="mbtiRayBeam"></div>
+                {% for t in ray_types %}
+                <div class="mbti-ray-node is-owned{% if latest and t == latest.类型 %} is-current{% endif %}"
+                     data-type="{{ t }}"
+                     data-level="{{ loop.index0 }}">
+                    <div class="mbti-ray-node-icon">
+                        <img src="{{ mbti_icons[t] }}" alt="{{ t }}" width="28" height="28">
+                    </div>
+                    <span class="mbti-ray-node-name">{{ t }}</span>
+                    <span class="mbti-ray-node-dot"></span>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="mbti-ray-caption" id="mbtiRayCaption"></p>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if points|length >= 1 %}
+    <section class="settings-card panel-card">
+        <div class="my-mbti-wave-head">
+            <div>
+                <p class="mbti-result-label">历史记录</p>
+                <h3>MBTI_log</h3>
+            </div>
+            <p class="mbti-file-name">共 {{ points|length }} 条{% if transitions %} · 变化 {{ transitions|length }} 次{% endif %}</p>
+        </div>
+        <ul class="my-mbti-timeline">
+            {% for p in points|reverse %}
+            <li class="my-mbti-timeline-item{% if p.changed and p.prev_type %} is-change{% endif %}{% if loop.first %} is-latest{% endif %}">
+                <div class="my-mbti-timeline-type">
+                    {% if mbti_icons.get(p.类型) %}
+                    <img src="{{ mbti_icons[p.类型] }}" alt="" class="my-mbti-timeline-icon" width="22" height="22">
+                    {% endif %}
+                    <span>{{ p.类型 }}</span>
+                </div>
+                <div class="my-mbti-timeline-meta">
+                    <span>{{ p.时间 }}</span>
+                    {% if p.changed and p.prev_type %}
+                    <span class="my-mbti-change-tag">{{ p.prev_type }} → {{ p.类型 }}</span>
+                    {% elif loop.first %}
+                    <span class="my-mbti-change-tag is-soft">最新</span>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var root = document.getElementById("myMbtiRay");
+    if (!root) return;
+
+    var points = [];
+    var types = [];
+    try {
+        points = JSON.parse(root.getAttribute("data-points") || "[]");
+        types = JSON.parse(root.getAttribute("data-types") || "[]");
+    } catch (e) {
+        return;
+    }
+    if (!points.length || !types.length) return;
+
+    var levelOf = {};
+    types.forEach(function (t, i) { levelOf[t] = i; });
+
+    var latest = points[points.length - 1];
+    var curLevel = levelOf[latest.类型];
+    if (typeof curLevel !== "number") curLevel = types.length - 1;
+    var maxLevel = Math.max(types.length - 1, 1);
+
+    var beam = document.getElementById("mbtiRayBeam");
+    if (beam) {
+        if (types.length === 1) {
+            beam.style.width = "50%";
+            beam.style.left = "25%";
+        } else {
+            var pct = (curLevel / maxLevel) * 100;
+            beam.style.width = "calc(" + pct + "% + 18px)";
+        }
+    }
+
+    var caption = document.getElementById("mbtiRayCaption");
+    var transitions = points.filter(function (p) {
+        return p.prev_type && p.类型 && p.prev_type !== p.类型
+            && levelOf.hasOwnProperty(p.prev_type)
+            && levelOf.hasOwnProperty(p.类型);
+    });
+    if (caption) {
+        if (transitions.length) {
+            var last = transitions[transitions.length - 1];
+            caption.textContent = "最近波动：" + last.prev_type + " → " + last.类型 + "（共 " + transitions.length + " 次）";
+        } else {
+            caption.textContent = "当前射线落点：" + latest.类型;
+        }
+    }
+
+    var svg = root.querySelector(".mbti-ray-arcs");
+    if (!svg || types.length < 2 || !transitions.length) return;
+
+    var ns = "http://www.w3.org/2000/svg";
+    function el(name, attrs) {
+        var node = document.createElementNS(ns, name);
+        Object.keys(attrs || {}).forEach(function (k) {
+            node.setAttribute(k, attrs[k]);
+        });
+        return node;
+    }
+
+    var W = 1000, pad = 70, span = W - pad * 2;
+    function xAt(level) {
+        return pad + (span * level) / maxLevel;
+    }
+
+    svg.innerHTML = "";
+    var recent = transitions.slice(-6);
+    recent.forEach(function (tr, idx) {
+        var a = levelOf[tr.prev_type];
+        var b = levelOf[tr.类型];
+        if (typeof a !== "number" || typeof b !== "number" || a === b) return;
+        var x1 = xAt(a), x2 = xAt(b);
+        var y = 96;
+        var lift = 28 + (idx % 3) * 14;
+        var mid = (x1 + x2) / 2;
+        var isLast = idx === recent.length - 1;
+        svg.appendChild(el("path", {
+            d: "M" + x1 + " " + y + " Q " + mid + " " + (y - lift) + " " + x2 + " " + y,
+            fill: "none",
+            stroke: isLast ? "#f0b90b" : "rgba(126,184,240,0.55)",
+            "stroke-width": isLast ? "2.4" : "1.6",
+            "stroke-linecap": "round"
+        }));
+        var dir = x2 >= x1 ? 1 : -1;
+        svg.appendChild(el("polygon", {
+            points: [
+                x2 + "," + y,
+                (x2 - 8 * dir) + "," + (y - 5),
+                (x2 - 8 * dir) + "," + (y + 5)
+            ].join(" "),
+            fill: isLast ? "#f0b90b" : "rgba(126,184,240,0.7)"
+        }));
+    });
+})();
+</script>
+{% endblock %}

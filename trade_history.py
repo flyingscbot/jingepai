@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import os
 import re
 from datetime import datetime
@@ -219,6 +220,28 @@ def latest_trade_date(user_id: str) -> str | None:
     """返回最近一笔记录的成交日期；无记录则 None。"""
     dates = sorted({r["成交日期"] for r in load_all_records(user_id) if r.get("成交日期")})
     return dates[-1] if dates else None
+
+
+MBTI_RECORD_LIMIT = 10000
+
+
+def recent_records_for_ai(user_id: str, limit: int = MBTI_RECORD_LIMIT) -> list[dict[str, str]]:
+    """取最近 limit 条交易记录（按成交日期+时间倒序），供 AI 分析。"""
+    if limit < 1:
+        return []
+    rows = load_all_records(user_id)
+    rows.sort(key=lambda r: (r["成交日期"], r["时间"], r["证券代码"]), reverse=True)
+    return rows[:limit]
+
+
+def records_to_csv_text(records: list[dict[str, str]]) -> str:
+    """将记录序列化为 CSV 文本（含表头），供 AI 输入。"""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=CSV_HEADERS, lineterminator="\n")
+    writer.writeheader()
+    for rec in records:
+        writer.writerow({h: rec.get(h, "") for h in CSV_HEADERS})
+    return buf.getvalue()
 
 
 def list_all_records_indexed(user_id: str) -> list[dict[str, Any]]:

@@ -7,6 +7,7 @@ import re
 from home import home_bp
 import user_db
 import mbti_ai
+import mbti_log
 import trade_history
 
 app = Flask(__name__)
@@ -61,6 +62,7 @@ def _current_user():
 def _set_login_session(user: dict) -> None:
     user_db.ensure_user_folder(user)
     trade_history.ensure_history_csv(user["id"])
+    mbti_log.ensure_log_csv(user["id"])
     session["is_login"] = True
     session["user_id"] = user["id"]
     session["username"] = user["username"]
@@ -182,8 +184,18 @@ def mbti():
     if not user:
         return redirect(url_for("logout"))
     user_db.ensure_user_folder(user)
-    files = user_db.list_trade_files(user["id"])
-    return render_template("mbti.html", user=user, trade_files=files)
+    trade_history.ensure_history_csv(user["id"])
+    mbti_log.ensure_log_csv(user["id"])
+    all_rows = trade_history.load_all_records(user["id"])
+    recent = trade_history.recent_records_for_ai(user["id"])
+    return render_template(
+        "mbti.html",
+        user=user,
+        history_total=len(all_rows),
+        history_used=len(recent),
+        history_limit=trade_history.MBTI_RECORD_LIMIT,
+        mbti_types=mbti_log.MBTI_TYPES,
+    )
 
 
 @app.route("/api/mbti/analyze", methods=["POST"])
@@ -192,33 +204,52 @@ def api_mbti_analyze():
     user = _current_user()
     if not user:
         return jsonify({"success": False, "message": "未登录"}), 401
-    data = request.get_json(silent=True) or {}
-    names = data.get("names")
-    if names is None and data.get("name"):
-        names = [data.get("name")]
-    if not isinstance(names, list):
-        names = []
-    names = [str(n).strip() for n in names if str(n).strip()]
-    # 去重并保持顺序
-    seen = set()
-    unique_names = []
-    for n in names:
-        if n not in seen:
-            seen.add(n)
-            unique_names.append(n)
-    if not unique_names:
-        return jsonify({"success": False, "message": "请至少选择一个文件"})
     try:
-        files = []
-        for name in unique_names:
-            filename, raw = user_db.read_trade_file(user["id"], name)
-            files.append((filename, raw))
-        result = mbti_ai.analyze_mbti_files(files)
+        result = mbti_ai.analyze_mbti_for_user(user["id"])
+        prev = mbti_log.latest_record(user["id"])
+        log_row = mbti_log.append_record(user["id"], result["mbti"])
+        result["log_time"] = log_row["时间"]
+        result["changed"] = bool(prev and prev.get("类型") != log_row["类型"])
+        result["prev_type"] = (prev or {}).get("类型", "")
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)})
     except Exception:
         return jsonify({"success": False, "message": "分析失败，请稍后重试"})
-    return jsonify({"success": True, "message": "分析完成", "result": result})
+    return jsonify({"success": True, "message": "分析完成，已写入 MBTI_log.csv", "result": result})
+
+
+@app.route("/my-mbti")
+@login_required
+def my_mbti():
+    user = _current_user()
+    if not user:
+        return redirect(url_for("logout"))
+    user_db.ensure_user_folder(user)
+    mbti_log.ensure_log_csv(user["id"])
+    points = mbti_log.change_points(user["id"])
+    latest = points[-1] if points else None
+    transitions = [p for p in points if p.get("prev_type") and p.get("类型") != p.get("prev_type")]
+    owned_types = sorted(
+        {p.get("类型") for p in points if p.get("类型") in mbti_log.MBTI_LEVEL},
+        key=lambda t: mbti_log.MBTI_LEVEL[t],
+    )
+    icon_urls = {
+        t: url_for("static", filename=f"icons/{mbti_log.MBTI_ICONS[t]}")
+        for t in owned_types
+        if t in mbti_log.MBTI_ICONS
+    }
+    return render_template(
+        "my_mbti.html",
+        user=user,
+        latest=latest,
+        points=points,
+        transitions=transitions,
+        show_ray=len(owned_types) > 0,
+        ray_types=owned_types,
+        mbti_types=mbti_log.MBTI_TYPES,
+        mbti_level=mbti_log.MBTI_LEVEL,
+        mbti_icons=icon_urls,
+    )
 
 
 @app.route("/trade")

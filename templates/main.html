@@ -13,21 +13,27 @@
     <div class="panel-cards">
         <div class="panel-card">
             <img src="{{ url_for('static', filename='icons/trade.svg') }}" class="panel-card-icon" alt="">
-            <h3>我的交易数据</h3>
+            <h3>我的数据</h3>
             <p>上传交易数据，查看历史记录</p>
             <a href="{{ url_for('trade') }}" class="func-btn">进入查看详情</a>
         </div>
         <div class="panel-card">
-            <img src="{{ url_for('static', filename='icons/chat.svg') }}" class="panel-card-icon" alt="">
-            <h3>投资聊天室</h3>
-            <p>选择合适聊天室加入，获得建议</p>
-            <a href="{{ url_for('chat') }}" class="func-btn">浏览聊天室</a>
+            <img src="{{ url_for('static', filename='icons/mbti.svg') }}" class="panel-card-icon" alt="">
+            <h3>MBTI测试</h3>
+            <p>基于成交记录分析投资性格类型</p>
+            <a href="{{ url_for('mbti') }}" class="func-btn">开始测试</a>
         </div>
         <div class="panel-card">
-            <img src="{{ url_for('static', filename='icons/mbti.svg') }}" class="panel-card-icon" alt="">
-            <h3>投资性格MBTI测试</h3>
-            <p>专属金融性格测评，分析风险偏好。</p>
-            <a href="{{ url_for('mbti') }}" class="func-btn">开始测试</a>
+            <img src="{{ url_for('static', filename='icons/my_mbti.svg') }}" class="panel-card-icon" alt="">
+            <h3>我的MBTI</h3>
+            <p>查看历史类型与波动轨迹</p>
+            <a href="{{ url_for('my_mbti') }}" class="func-btn">查看我的MBTI</a>
+        </div>
+        <div class="panel-card">
+            <img src="{{ url_for('static', filename='icons/chat.svg') }}" class="panel-card-icon" alt="">
+            <h3>聊天室</h3>
+            <p>选择合适聊天室加入，获得建议</p>
+            <a href="{{ url_for('chat') }}" class="func-btn">浏览聊天室</a>
         </div>
     </div>
 </main>

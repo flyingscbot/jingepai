@@ -1462,7 +1462,7 @@ body.modal-open{
     gap:0;
     padding:2px;
     width:max-content;
-    max-width:min(560px, calc(100% - 280px));
+    max-width:min(720px, calc(100% - 240px));
     border-radius:var(--radius-pill);
     box-shadow:
         var(--glass-rim),
@@ -2935,4 +2935,304 @@ a.settings-btn-ghost.is-disabled{
     color:#888;
     font-size:13px;
     text-align:center;
+}
+
+/* =========================
+   我的 MBTI
+========================= */
+
+.my-mbti-current-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.my-mbti-current-icon{
+    width:48px;
+    height:48px;
+    flex-shrink:0;
+    display:block;
+    object-fit:contain;
+    filter:none;
+}
+
+.my-mbti-current{
+    margin:0;
+    font-size:32px;
+    font-weight:800;
+    letter-spacing:.04em;
+    color:var(--gold-mid, #f0b90b);
+    line-height:1.2;
+}
+
+.my-mbti-wave-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:18px;
+}
+
+.my-mbti-wave-head h3{
+    margin:4px 0 0;
+    font-size:20px;
+    color:#fff;
+}
+
+/* 横向射线状态图 */
+.mbti-ray{
+    position:relative;
+    padding:8px 8px 4px;
+    border-radius:14px;
+    background:rgba(0,0,0,.18);
+    border:1px solid rgba(255,255,255,.06);
+    overflow:hidden;
+}
+
+.mbti-ray-arcs{
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+    width:100%;
+    height:88px;
+    pointer-events:none;
+    z-index:2;
+}
+
+.mbti-ray-track{
+    position:relative;
+    z-index:1;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:6px;
+    min-height:168px;
+    padding:84px 12px 10px;
+}
+
+.mbti-ray-line{
+    position:absolute;
+    left:28px;
+    right:28px;
+    bottom:46px;
+    height:2px;
+    border-radius:999px;
+    background:rgba(255,255,255,.12);
+    z-index:0;
+}
+
+.mbti-ray-beam{
+    position:absolute;
+    left:28px;
+    bottom:46px;
+    height:2px;
+    width:18px;
+    max-width:calc(100% - 56px);
+    border-radius:999px;
+    background:linear-gradient(90deg, rgba(240,185,11,.15), #f0b90b);
+    box-shadow:0 0 12px rgba(240,185,11,.45);
+    z-index:1;
+    transition:width .45s ease;
+}
+
+.mbti-ray-beam::after{
+    content:"";
+    position:absolute;
+    right:-5px;
+    top:50%;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    transform:translateY(-50%);
+    background:#f0b90b;
+    box-shadow:0 0 10px rgba(240,185,11,.7);
+}
+
+.mbti-ray-track.is-single{
+    justify-content:center;
+}
+
+.mbti-ray-track.is-single .mbti-ray-node{
+    flex:0 0 auto;
+}
+
+.mbti-ray-node{
+    position:relative;
+    z-index:2;
+    flex:1 1 0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+    opacity:1;
+    transition:transform .25s;
+}
+
+.mbti-ray-node.is-current{
+    transform:translateY(-2px);
+}
+
+.mbti-ray-node-icon{
+    width:44px;
+    height:44px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);
+}
+
+.mbti-ray-node-icon img,
+.my-mbti-timeline-icon{
+    width:28px;
+    height:28px;
+    display:block;
+    object-fit:contain;
+    filter:none;
+}
+
+.mbti-ray-node.is-current .mbti-ray-node-icon{
+    background:rgba(240,185,11,.12);
+    border-color:rgba(240,185,11,.45);
+    box-shadow:0 0 18px rgba(240,185,11,.18);
+}
+
+.mbti-ray-node-name{
+    font-size:12px;
+    font-weight:600;
+    color:rgba(255,255,255,.72);
+    text-align:center;
+    white-space:nowrap;
+}
+
+.mbti-ray-node.is-current .mbti-ray-node-name{
+    color:#f0b90b;
+}
+
+.mbti-ray-node-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:rgba(255,255,255,.22);
+    box-shadow:0 0 0 3px rgba(0,0,0,.18);
+}
+
+.mbti-ray-node.is-current .mbti-ray-node-dot{
+    background:#f0b90b;
+    box-shadow:0 0 0 4px rgba(240,185,11,.18);
+}
+
+.mbti-ray-caption{
+    margin:2px 12px 12px;
+    color:#888;
+    font-size:12px;
+}
+
+.my-mbti-timeline{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.my-mbti-timeline-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 14px;
+    border-radius:12px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.06);
+}
+
+.my-mbti-timeline-item.is-latest{
+    border-color:rgba(240,185,11,.28);
+    background:rgba(240,185,11,.06);
+}
+
+.my-mbti-timeline-item.is-change{
+    border-color:rgba(126,184,240,.28);
+}
+
+.my-mbti-timeline-type{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:16px;
+    font-weight:700;
+    color:#fff;
+}
+
+.my-mbti-timeline-icon{
+    width:22px;
+    height:22px;
+}
+
+.my-mbti-timeline-meta{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    color:#888;
+    font-size:12px;
+}
+
+.my-mbti-change-tag{
+    padding:2px 8px;
+    border-radius:999px;
+    color:#f0b90b;
+    background:rgba(240,185,11,.12);
+    border:1px solid rgba(240,185,11,.28);
+    font-size:11px;
+    white-space:nowrap;
+}
+
+.my-mbti-change-tag.is-soft{
+    color:#7eb8f0;
+    background:rgba(126,184,240,.10);
+    border-color:rgba(126,184,240,.28);
+}
+
+@media screen and (max-width:768px){
+    .my-mbti-wave-head{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .mbti-ray-track{
+        min-height:150px;
+        padding-top:72px;
+        gap:2px;
+    }
+
+    .mbti-ray-node-icon{
+        width:36px;
+        height:36px;
+        border-radius:12px;
+    }
+
+    .mbti-ray-node-icon img{
+        width:22px;
+        height:22px;
+    }
+
+    .mbti-ray-node-name{
+        font-size:10px;
+    }
+
+    .my-mbti-timeline-item{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .my-mbti-timeline-meta{
+        justify-content:flex-start;
+    }
 }

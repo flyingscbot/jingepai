@@ -21,15 +21,19 @@
         <nav class="float-nav" aria-label="功能导航">
             <a href="{{ url_for('trade') }}" class="float-nav-item{% if request.endpoint == 'trade' %} active{% endif %}">
                 <img src="{{ url_for('static', filename='icons/trade.svg') }}" alt="">
-                <span>我的交易数据</span>
-            </a>
-            <a href="{{ url_for('chat') }}" class="float-nav-item{% if request.endpoint == 'chat' %} active{% endif %}">
-                <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="">
-                <span>投资聊天室</span>
+                <span>我的数据</span>
             </a>
             <a href="{{ url_for('mbti') }}" class="float-nav-item{% if request.endpoint == 'mbti' %} active{% endif %}">
                 <img src="{{ url_for('static', filename='icons/mbti.svg') }}" alt="">
-                <span>投资性格MBTI测试</span>
+                <span>MBTI测试</span>
+            </a>
+            <a href="{{ url_for('my_mbti') }}" class="float-nav-item{% if request.endpoint == 'my_mbti' %} active{% endif %}">
+                <img src="{{ url_for('static', filename='icons/my_mbti.svg') }}" alt="">
+                <span>我的MBTI</span>
+            </a>
+            <a href="{{ url_for('chat') }}" class="float-nav-item{% if request.endpoint == 'chat' %} active{% endif %}">
+                <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="">
+                <span>聊天室</span>
             </a>
         </nav>
         {% endif %}
