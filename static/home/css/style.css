@@ -2228,22 +2228,26 @@ a.trade-icon-btn,
 button.trade-icon-btn,
 .settings-btn.trade-icon-btn,
 .settings-btn-ghost.trade-icon-btn{
-    width:36px;
-    height:36px;
-    min-width:36px;
-    min-height:36px;
+    width:40px;
+    height:40px;
+    min-width:40px;
+    min-height:40px;
     padding:0;
     border-radius:50%;
     display:inline-flex;
     align-items:center;
     justify-content:center;
     flex-shrink:0;
+    line-height:0;
 }
 
 .trade-icon-btn img{
-    width:18px;
-    height:18px;
+    width:24px;
+    height:24px;
+    margin:0;
     display:block;
+    flex-shrink:0;
+    object-fit:contain;
     filter:brightness(0) invert(1);
     pointer-events:none;
 }
@@ -2670,8 +2674,8 @@ button.trade-icon-btn,
 
 .trade-rec-edit,
 .trade-rec-del{
-    min-height:36px;
-    height:36px;
+    min-height:40px;
+    height:40px;
     flex-shrink:0;
 }
 
@@ -2859,9 +2863,9 @@ button.trade-icon-btn,
 
     .trade-day-header .trade-action-btn,
     .trade-day-header .trade-icon-btn{
-        min-height:36px;
-        width:36px;
-        height:36px;
+        min-height:40px;
+        width:40px;
+        height:40px;
         padding:0;
     }
 
@@ -2902,10 +2906,10 @@ button.trade-icon-btn,
     .trade-rec-edit,
     .trade-rec-del{
         flex:0 0 auto;
-        width:36px;
-        min-width:36px;
-        min-height:36px;
-        height:36px;
+        width:40px;
+        min-width:40px;
+        min-height:40px;
+        height:40px;
     }
 }
 
