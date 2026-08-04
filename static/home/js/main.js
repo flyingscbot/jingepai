@@ -66,8 +66,30 @@
     });
 
     document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") closeAllModals();
+        if (e.key === "Escape") {
+            closeAllModals();
+            closeAccountMenu();
+        }
     });
+
+    /* 账户菜单：触控端点按切换；桌面仍可用 CSS hover，点击也可开关 */
+    const account = document.querySelector(".account");
+    const avatar = account && account.querySelector(".avatar");
+
+    function closeAccountMenu() {
+        if (account) account.classList.remove("is-open");
+    }
+
+    if (account && avatar) {
+        avatar.addEventListener("click", function (e) {
+            e.stopPropagation();
+            account.classList.toggle("is-open");
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!account.contains(e.target)) closeAccountMenu();
+        });
+    }
 
     const tryMbtiBtn = document.getElementById("tryMbtiBtn");
     if (tryMbtiBtn) {

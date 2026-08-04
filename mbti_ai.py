@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -17,6 +18,28 @@ from typing import Any
 
 import mbti_log
 import trade_history
+
+
+class AlreadyAnalyzedError(ValueError):
+    """交易数据与上次成功分析相同，无需再次调用 AI。"""
+
+    code = "already_analyzed"
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(
+            message
+            or "你已经生成过MBTI报告。当前交易数据没有变化，无需重复分析；更新交易记录后可再试。"
+        )
+
+
+class AnalyzeInProgressError(ValueError):
+    """同一用户已有分析任务在进行中。"""
+
+    code = "analyze_in_progress"
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message or "正在分析中，请稍候")
+
 
 # 测试默认：本地 Ollama；生产可设 MBTI_AI_PROVIDER=cloud 并配置 URL/KEY
 AI_PROVIDER = (os.environ.get("MBTI_AI_PROVIDER") or "ollama").strip().lower()
@@ -234,6 +257,12 @@ def _call_ai_api(user_prompt: str) -> dict[str, Any]:
     return _call_cloud(user_prompt)
 
 
+def fingerprint_ai_input(records: list[dict[str, str]]) -> str:
+    """对送入 AI 的 CSV 文本做稳定 SHA256 指纹。"""
+    csv_text = trade_history.records_to_csv_text(records)
+    return hashlib.sha256(csv_text.encode("utf-8")).hexdigest()
+
+
 def analyze_mbti_from_history(
     records: list[dict[str, str]],
     *,
@@ -288,11 +317,36 @@ def analyze_mbti_from_history(
 
 
 def analyze_mbti_for_user(user_id: str, limit: int = trade_history.MBTI_RECORD_LIMIT) -> dict[str, Any]:
-    """读取用户交易历史并分析。"""
+    """读取用户交易历史并分析。
+
+    若当前 AI 输入指纹与上次成功分析相同，抛出 AlreadyAnalyzedError（不调用 AI）。
+    若已有进行中的分析，抛出 AnalyzeInProgressError（不调用 AI）。
+    成功时在结果中附带 input_hash，由调用方在写入日志后落盘。
+    """
     trade_history.ensure_history_csv(user_id)
     all_rows = trade_history.load_all_records(user_id)
     recent = trade_history.recent_records_for_ai(user_id, limit=limit)
-    return analyze_mbti_from_history(recent, total_in_csv=len(all_rows), limit=limit)
+    if not recent:
+        raise ValueError("暂无交易历史记录，请先在「我的交易数据」中整理或添加")
+
+    input_hash = fingerprint_ai_input(recent)
+    prev_hash = mbti_log.load_input_hash(user_id)
+    if prev_hash and prev_hash == input_hash:
+        raise AlreadyAnalyzedError()
+
+    lock_token = mbti_log.try_acquire_analyze_lock(
+        user_id,
+        ttl_sec=AI_TIMEOUT + 120,
+    )
+    if not lock_token:
+        raise AnalyzeInProgressError()
+
+    try:
+        result = analyze_mbti_from_history(recent, total_in_csv=len(all_rows), limit=limit)
+        result["input_hash"] = input_hash
+        return result
+    finally:
+        mbti_log.release_analyze_lock(user_id, lock_token)
 
 
 # 兼容旧文件调用（已弃用：请使用 analyze_mbti_for_user）

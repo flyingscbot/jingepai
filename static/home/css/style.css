@@ -67,6 +67,7 @@
 
 .gold-glass,
 .card,
+.account-menu,
 .modal-box,
 .panel-card{
     overflow:hidden;
@@ -871,73 +872,37 @@ nav a:hover::after{
 
 
 
-/* 下拉菜单 */
-
-
+/* 下拉菜单：玻璃底 / ::before+#glass-refract 沿用顶部共享规则（同 .panel-card） */
 .account-menu{
-
-
     position:absolute;
-
     right:0;
-
     /* 贴着头像底部，落在 .account 热区内 */
     top:40px;
-
     z-index:20;
-
-
     width:160px;
-
-
     padding:12px 15px 15px;
-
-
     border-radius:var(--radius-panel);
-
-
-    /* 与其它浮层同一套玻璃参数，不用 opacity 显隐以免破坏模糊 */
-    background:var(--glass-bg);
-
-    backdrop-filter:var(--glass-blur);
-
-    -webkit-backdrop-filter:var(--glass-blur);
-
-    border:var(--glass-border);
-
-
-    box-shadow:
-        var(--glass-rim),
-        var(--glass-depth);
-
-
+    /* 不用 opacity 显隐，避免破坏玻璃层；背景/模糊由共享规则提供 */
     visibility:hidden;
-
-
     pointer-events:none;
-
-
     transform:translateY(-8px);
-
-
     transition:transform .28s ease, visibility .28s;
-
-
 }
 
+/* 桌面真悬停：移入打开、移出关闭。触控端不走此规则，避免 sticky :hover */
+@media (hover: hover) and (pointer: fine) {
+    .account:hover .account-menu{
+        visibility:visible;
+        pointer-events:auto;
+        transform:translateY(0);
+    }
+}
 
-.account:hover .account-menu{
-
-
+/* 点击/触控切换打开（.is-open 由 JS 控制） */
+.account.is-open .account-menu{
     visibility:visible;
-
-
     pointer-events:auto;
-
-
     transform:translateY(0);
-
-
 }
 
 
@@ -3151,6 +3116,47 @@ button.trade-icon-btn,
     color:#888;
 }
 
+.mbti-result-card.is-analyzing{
+    min-height:320px;
+    justify-content:flex-start;
+    position:relative;
+    box-shadow:
+        var(--glass-rim),
+        var(--glass-depth),
+        0 0 0 1px rgba(240,185,11,.18),
+        0 0 28px rgba(240,185,11,.12),
+        0 0 56px rgba(240,185,11,.06);
+    animation:mbtiCardGlow 3.6s ease-in-out infinite;
+}
+
+.mbti-result-card.is-analyzing::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:
+        radial-gradient(ellipse 70% 55% at 50% 72%, rgba(240,185,11,.1) 0%, transparent 62%),
+        linear-gradient(180deg, rgba(240,185,11,.04) 0%, transparent 28%);
+    opacity:.85;
+    z-index:0;
+}
+
+.mbti-result-card.is-analyzing > *{
+    position:relative;
+    z-index:1;
+}
+
+.mbti-result-card.is-analyzing .mbti-result-type{
+    opacity:.7;
+    letter-spacing:6px;
+    animation:mbtiTypePulse 2.4s ease-in-out infinite;
+}
+
+.mbti-result-card.is-analyzing .mbti-result-header{
+    margin-bottom:8px;
+}
+
 .mbti-result-header{
     display:flex;
     align-items:flex-start;
@@ -3208,6 +3214,188 @@ button.trade-icon-btn,
     font-family:"Noto Sans SC", sans-serif;
 }
 
+/* MBTI 分析加载：密集流动金尘粒子（canvas） */
+.mbti-analyzing{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    flex:1;
+    gap:14px;
+    padding:18px 8px 28px;
+    text-align:center;
+    position:relative;
+    isolation:isolate;
+    overflow:hidden;
+}
+
+.mbti-analyzing[hidden]{
+    display:none !important;
+}
+
+.mbti-analyzing.is-enter .mbti-analyzing-field{
+    animation:mbtiFieldEnter .8s ease-out both;
+}
+
+.mbti-analyzing.is-enter .mbti-analyzing-status{
+    animation:mbtiStatusEnter .55s cubic-bezier(.22,1,.36,1) .12s both;
+}
+
+.mbti-analyzing.is-enter .mbti-analyzing-hint{
+    animation:mbtiStatusEnter .55s cubic-bezier(.22,1,.36,1) .22s both;
+}
+
+.mbti-analyzing-field{
+    position:relative;
+    width:min(100%, 320px);
+    height:168px;
+    margin:4px 0 2px;
+    z-index:1;
+    overflow:hidden;
+    pointer-events:none;
+}
+
+.mbti-analyzing-canvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+.mbti-analyzing-status{
+    margin:0;
+    min-height:1.45em;
+    color:#f8f0d0;
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.08em;
+    position:relative;
+    z-index:3;
+    background:linear-gradient(
+        100deg,
+        #f5f5f5 0%,
+        #f5f5f5 36%,
+        var(--gold-light) 48%,
+        #fff 52%,
+        #f0b90b 58%,
+        #f5f5f5 70%,
+        #f5f5f5 100%
+    );
+    background-size:220% 100%;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    -webkit-text-fill-color:transparent;
+    animation:mbtiShimmer 2.8s ease-in-out infinite;
+    transition:opacity .18s ease, transform .18s ease, filter .18s ease;
+}
+
+.mbti-analyzing-status.is-swap{
+    opacity:0;
+    transform:translateY(6px);
+    filter:blur(2px);
+}
+
+.mbti-analyzing-hint{
+    margin:0;
+    color:rgba(240,185,11,.78);
+    font-size:12px;
+    letter-spacing:.14em;
+    position:relative;
+    z-index:3;
+    text-shadow:0 0 12px rgba(240,185,11,.2);
+}
+
+.mbti-analyzing-hint::after{
+    content:"...";
+    display:inline-block;
+    width:0;
+    overflow:hidden;
+    vertical-align:bottom;
+    animation:mbtiEllipsis 1.4s steps(4, end) infinite;
+}
+
+@keyframes mbtiTypePulse{
+    0%, 100%{ opacity:.45; }
+    50%{ opacity:.85; }
+}
+
+@keyframes mbtiCardGlow{
+    0%, 100%{
+        box-shadow:
+            var(--glass-rim),
+            var(--glass-depth),
+            0 0 0 1px rgba(240,185,11,.14),
+            0 0 24px rgba(240,185,11,.08),
+            0 0 48px rgba(240,185,11,.04);
+    }
+    50%{
+        box-shadow:
+            var(--glass-rim),
+            var(--glass-depth),
+            0 0 0 1px rgba(240,185,11,.28),
+            0 0 36px rgba(240,185,11,.16),
+            0 0 72px rgba(240,185,11,.08);
+    }
+}
+
+@keyframes mbtiShimmer{
+    0%{ background-position:120% 0; }
+    100%{ background-position:-120% 0; }
+}
+
+@keyframes mbtiEllipsis{
+    to{ width:1.15em; }
+}
+
+@keyframes mbtiStatusEnter{
+    from{
+        opacity:0;
+        transform:translateY(10px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+@keyframes mbtiFieldEnter{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .mbti-result-card.is-analyzing,
+    .mbti-result-card.is-analyzing .mbti-result-type,
+    .mbti-analyzing-status,
+    .mbti-analyzing-hint::after,
+    .mbti-analyzing.is-enter .mbti-analyzing-field,
+    .mbti-analyzing.is-enter .mbti-analyzing-status,
+    .mbti-analyzing.is-enter .mbti-analyzing-hint{
+        animation:none !important;
+    }
+
+    .mbti-analyzing-status{
+        color:#f5f5f5;
+        -webkit-text-fill-color:#f5f5f5;
+        background:none;
+        opacity:1;
+    }
+
+    .mbti-analyzing-status.is-swap{
+        opacity:.55;
+        transform:none;
+        filter:none;
+    }
+
+    .mbti-result-card.is-analyzing{
+        box-shadow:
+            var(--glass-rim),
+            var(--glass-depth),
+            0 0 0 1px rgba(240,185,11,.2),
+            0 0 24px rgba(240,185,11,.1);
+    }
+}
+
 @media screen and (max-width:1024px){
     .mbti-test-main{
         max-width:780px;
@@ -3242,8 +3430,17 @@ button.trade-icon-btn,
         padding:16px;
     }
 
-    /* 手机未出结果时先不占位 */
-    .mbti-result-card.is-empty{
+    .mbti-result-card.is-analyzing{
+        min-height:290px;
+    }
+
+    .mbti-analyzing-field{
+        height:140px;
+        width:min(100%, 280px);
+    }
+
+    /* 手机未出结果时先不占位；分析中需展示加载态 */
+    .mbti-result-card.is-empty:not(.is-analyzing){
         display:none;
     }
 }

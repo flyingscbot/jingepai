@@ -51,7 +51,7 @@
             </div>
         </section>
 
-        <section class="settings-card panel-card mbti-result-card is-empty" id="mbtiResultCard">
+        <section class="settings-card panel-card mbti-result-card is-empty" id="mbtiResultCard" aria-live="polite">
             <div class="mbti-result-header">
                 <div>
                     <p class="mbti-result-label">分析结果</p>
@@ -59,6 +59,13 @@
                     <p class="mbti-result-title" id="mbtiTitle"></p>
                 </div>
                 <p class="mbti-result-source" id="mbtiSource"></p>
+            </div>
+            <div class="mbti-analyzing" id="mbtiAnalyzing" hidden aria-hidden="true">
+                <div class="mbti-analyzing-field" aria-hidden="true">
+                    <canvas class="mbti-analyzing-canvas" id="mbtiParticleCanvas"></canvas>
+                </div>
+                <p class="mbti-analyzing-status" id="mbtiAnalyzingStatus">读取交易记录</p>
+                <p class="mbti-analyzing-hint">分析中，请稍候</p>
             </div>
             <p class="mbti-result-summary" id="mbtiSummary">点击左侧「分析」后，结果将显示在这里</p>
             <pre class="mbti-result-details" id="mbtiDetails" hidden></pre>
@@ -74,6 +81,20 @@
     var tipEl = document.getElementById("mbtiTip");
     var resultCard = document.getElementById("mbtiResultCard");
     var detailsEl = document.getElementById("mbtiDetails");
+    var analyzingEl = document.getElementById("mbtiAnalyzing");
+    var particleCanvas = document.getElementById("mbtiParticleCanvas");
+    var analyzingStatusEl = document.getElementById("mbtiAnalyzingStatus");
+    var summaryEl = document.getElementById("mbtiSummary");
+    var stageTimer = null;
+    var stageFlashTimer = null;
+    var enterTimer = null;
+    var particleState = null;
+    var ANALYZE_STAGES = [
+        "读取交易记录",
+        "识别行为模式",
+        "匹配人格类型",
+        "生成分析报告"
+    ];
 
     function tip(text, ok) {
         if (!tipEl) return;
@@ -81,12 +102,258 @@
         tipEl.className = "settings-tip" + (text ? (ok ? " is-ok" : " is-err") : "");
     }
 
+    function prefersReducedMotion() {
+        return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function particleCountForDevice() {
+        if (prefersReducedMotion()) return 36;
+        var mobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+        return mobile ? 80 : 170;
+    }
+
+    function createParticle(w, h, randomizeLife) {
+        var sizeRoll = Math.random();
+        var size = sizeRoll < 0.62 ? (0.6 + Math.random() * 1.1)
+            : sizeRoll < 0.9 ? (1.4 + Math.random() * 1.2)
+            : (2.2 + Math.random() * 1.4);
+        return {
+            x: Math.random() * w,
+            y: Math.random() * h,
+            vx: (Math.random() - 0.45) * 0.35,
+            vy: -(0.18 + Math.random() * 0.55),
+            size: size,
+            baseAlpha: 0.25 + Math.random() * 0.7,
+            twinkleSpeed: 1.2 + Math.random() * 4.5,
+            twinklePhase: Math.random() * Math.PI * 2,
+            life: randomizeLife ? Math.random() : 0,
+            maxLife: 3.5 + Math.random() * 5.5
+        };
+    }
+
+    function resizeParticleCanvas() {
+        if (!particleState || !particleCanvas) return;
+        var field = particleCanvas.parentElement;
+        if (!field) return;
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var w = Math.max(1, field.clientWidth);
+        var h = Math.max(1, field.clientHeight);
+        particleCanvas.width = Math.floor(w * dpr);
+        particleCanvas.height = Math.floor(h * dpr);
+        particleCanvas.style.width = w + "px";
+        particleCanvas.style.height = h + "px";
+        particleState.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        particleState.w = w;
+        particleState.h = h;
+    }
+
+    function drawParticles(staticOnly) {
+        if (!particleState) return;
+        var ctx = particleState.ctx;
+        var w = particleState.w;
+        var h = particleState.h;
+        var boost = particleState.flashBoost || 1;
+        ctx.clearRect(0, 0, w, h);
+        var i, p, alpha, r;
+        for (i = 0; i < particleState.particles.length; i++) {
+            p = particleState.particles[i];
+            if (staticOnly) {
+                alpha = p.baseAlpha * 0.55 * boost;
+            } else {
+                alpha = p.baseAlpha * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(p.twinklePhase))) * boost;
+                alpha *= Math.min(1, p.life * 2.2) * Math.min(1, (p.maxLife - p.life) * 1.4);
+            }
+            if (alpha <= 0.02) continue;
+            r = p.size * (0.9 + 0.35 * Math.sin(p.twinklePhase * 0.7));
+            ctx.beginPath();
+            ctx.fillStyle = "rgba(240,185,11," + Math.min(1, alpha).toFixed(3) + ")";
+            ctx.shadowColor = "rgba(252,213,53," + Math.min(1, alpha * 0.9).toFixed(3) + ")";
+            ctx.shadowBlur = 4 + r * 2.2;
+            ctx.arc(p.x, p.y, Math.max(0.4, r), 0, Math.PI * 2);
+            ctx.fill();
+            if (p.size > 1.8) {
+                ctx.beginPath();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = "rgba(255,244,180," + Math.min(0.85, alpha * 0.7).toFixed(3) + ")";
+                ctx.arc(p.x, p.y, Math.max(0.3, r * 0.35), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.shadowBlur = 0;
+    }
+
+    function tickParticles(ts) {
+        if (!particleState) return;
+        if (particleState.reduced) {
+            drawParticles(true);
+            return;
+        }
+        if (!particleState.lastTs) particleState.lastTs = ts;
+        var dt = Math.min(0.05, (ts - particleState.lastTs) / 1000);
+        particleState.lastTs = ts;
+        if (particleState.flashBoost > 1) {
+            particleState.flashBoost = Math.max(1, particleState.flashBoost - dt * 1.8);
+        }
+        var w = particleState.w;
+        var h = particleState.h;
+        var i, p;
+        for (i = 0; i < particleState.particles.length; i++) {
+            p = particleState.particles[i];
+            p.life += dt;
+            p.x += p.vx * (60 * dt);
+            p.y += p.vy * (60 * dt);
+            p.twinklePhase += p.twinkleSpeed * dt;
+            if (p.life >= p.maxLife || p.y < -8 || p.x < -12 || p.x > w + 12) {
+                particleState.particles[i] = createParticle(w, h, false);
+                particleState.particles[i].y = h + 4 + Math.random() * 20;
+                particleState.particles[i].life = 0;
+            }
+        }
+        drawParticles(false);
+        particleState.raf = requestAnimationFrame(tickParticles);
+    }
+
+    function onParticleResize() {
+        if (!particleState) return;
+        resizeParticleCanvas();
+        if (particleState.reduced) drawParticles(true);
+    }
+
+    function startParticleField() {
+        stopParticleField();
+        if (!particleCanvas || !particleCanvas.getContext) return;
+        var ctx = particleCanvas.getContext("2d");
+        if (!ctx) return;
+        var reduced = prefersReducedMotion();
+        var count = particleCountForDevice();
+        particleState = {
+            ctx: ctx,
+            particles: [],
+            raf: null,
+            lastTs: 0,
+            w: 0,
+            h: 0,
+            reduced: reduced,
+            flashBoost: 1
+        };
+        resizeParticleCanvas();
+        var i;
+        for (i = 0; i < count; i++) {
+            particleState.particles.push(createParticle(particleState.w, particleState.h, true));
+        }
+        window.addEventListener("resize", onParticleResize);
+        if (reduced) {
+            drawParticles(true);
+        } else {
+            particleState.raf = requestAnimationFrame(tickParticles);
+        }
+    }
+
+    function stopParticleField() {
+        if (!particleState) return;
+        if (particleState.raf) {
+            cancelAnimationFrame(particleState.raf);
+            particleState.raf = null;
+        }
+        window.removeEventListener("resize", onParticleResize);
+        if (particleState.ctx && particleState.w) {
+            particleState.ctx.clearRect(0, 0, particleState.w, particleState.h);
+        }
+        particleState = null;
+    }
+
+    function flashStageCore() {
+        if (!particleState || particleState.reduced) return;
+        particleState.flashBoost = 1.55;
+        if (stageFlashTimer) clearTimeout(stageFlashTimer);
+        stageFlashTimer = setTimeout(function () {
+            if (particleState) particleState.flashBoost = 1;
+            stageFlashTimer = null;
+        }, 700);
+    }
+
+    function setStageText(text, animate) {
+        if (!analyzingStatusEl) return;
+        if (!animate) {
+            analyzingStatusEl.textContent = text;
+            analyzingStatusEl.classList.remove("is-swap");
+            return;
+        }
+        analyzingStatusEl.classList.add("is-swap");
+        window.setTimeout(function () {
+            analyzingStatusEl.textContent = text;
+            analyzingStatusEl.classList.remove("is-swap");
+        }, 180);
+    }
+
+    function stopAnalyzing() {
+        if (stageTimer) {
+            clearInterval(stageTimer);
+            stageTimer = null;
+        }
+        if (stageFlashTimer) {
+            clearTimeout(stageFlashTimer);
+            stageFlashTimer = null;
+        }
+        if (enterTimer) {
+            clearTimeout(enterTimer);
+            enterTimer = null;
+        }
+        stopParticleField();
+        if (!resultCard) return;
+        resultCard.classList.remove("is-analyzing");
+        if (analyzingEl) {
+            analyzingEl.classList.remove("is-enter");
+            analyzingEl.hidden = true;
+            analyzingEl.setAttribute("aria-hidden", "true");
+        }
+        if (analyzingStatusEl) analyzingStatusEl.classList.remove("is-swap");
+        if (summaryEl) summaryEl.hidden = false;
+    }
+
+    function startAnalyzing() {
+        if (!resultCard) return;
+        resultCard.classList.add("is-empty", "is-analyzing");
+        document.getElementById("mbtiType").textContent = "····";
+        document.getElementById("mbtiTitle").textContent = "";
+        document.getElementById("mbtiSource").textContent = "";
+        detailsEl.textContent = "";
+        detailsEl.hidden = true;
+        if (summaryEl) {
+            summaryEl.textContent = "";
+            summaryEl.hidden = true;
+        }
+        if (analyzingEl) {
+            analyzingEl.hidden = false;
+            analyzingEl.setAttribute("aria-hidden", "false");
+            analyzingEl.classList.remove("is-enter");
+            void analyzingEl.offsetWidth;
+            analyzingEl.classList.add("is-enter");
+            if (enterTimer) clearTimeout(enterTimer);
+            enterTimer = setTimeout(function () {
+                analyzingEl.classList.remove("is-enter");
+                enterTimer = null;
+            }, 900);
+        }
+        startParticleField();
+        var stageIndex = 0;
+        setStageText(ANALYZE_STAGES[0], false);
+        flashStageCore();
+        if (stageTimer) clearInterval(stageTimer);
+        stageTimer = setInterval(function () {
+            stageIndex = (stageIndex + 1) % ANALYZE_STAGES.length;
+            setStageText(ANALYZE_STAGES[stageIndex], true);
+            flashStageCore();
+        }, 2200);
+    }
+
     function showResult(data) {
         if (!resultCard) return;
+        stopAnalyzing();
         resultCard.classList.remove("is-empty");
         document.getElementById("mbtiType").textContent = data.mbti || "—";
         document.getElementById("mbtiTitle").textContent = data.title || "";
-        document.getElementById("mbtiSummary").textContent = data.summary || "";
+        summaryEl.textContent = data.summary || "";
         var details = data.details || "";
         detailsEl.textContent = details;
         detailsEl.hidden = !details;
@@ -95,22 +362,23 @@
             : "";
     }
 
-    function resetResultPending() {
+    function showAnalyzeError(message) {
+        stopAnalyzing();
         if (!resultCard) return;
         resultCard.classList.add("is-empty");
         document.getElementById("mbtiType").textContent = "—";
         document.getElementById("mbtiTitle").textContent = "";
-        document.getElementById("mbtiSummary").textContent = "分析中，请稍候...";
+        document.getElementById("mbtiSource").textContent = "";
         detailsEl.textContent = "";
         detailsEl.hidden = true;
-        document.getElementById("mbtiSource").textContent = "";
+        summaryEl.textContent = message || "分析失败";
     }
 
     if (!analyzeBtn) return;
     analyzeBtn.addEventListener("click", function () {
         analyzeBtn.disabled = true;
         tip("分析中，请稍候...");
-        resetResultPending();
+        startAnalyzing();
         fetch("/api/mbti/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -120,7 +388,7 @@
         .then(function (data) {
             if (!data.success) {
                 tip(data.message || "分析失败", false);
-                document.getElementById("mbtiSummary").textContent = data.message || "分析失败";
+                showAnalyzeError(data.message || "分析失败");
                 return;
             }
             var result = data.result || {};
@@ -133,7 +401,7 @@
         })
         .catch(function () {
             tip("请求异常，请检查服务是否启动", false);
-            document.getElementById("mbtiSummary").textContent = "请求异常，请检查服务是否启动";
+            showAnalyzeError("请求异常，请检查服务是否启动");
         })
         .finally(function () {
             analyzeBtn.disabled = {{ 'true' if history_total == 0 else 'false' }};

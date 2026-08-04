@@ -208,9 +208,28 @@ def api_mbti_analyze():
         result = mbti_ai.analyze_mbti_for_user(user["id"])
         prev = mbti_log.latest_record(user["id"])
         log_row = mbti_log.append_record(user["id"], result["mbti"])
+        input_hash = result.pop("input_hash", None)
+        if input_hash:
+            mbti_log.save_input_hash(user["id"], input_hash)
         result["log_time"] = log_row["时间"]
         result["changed"] = bool(prev and prev.get("类型") != log_row["类型"])
         result["prev_type"] = (prev or {}).get("类型", "")
+    except mbti_ai.AlreadyAnalyzedError as e:
+        return jsonify(
+            {
+                "success": False,
+                "code": e.code,
+                "message": str(e),
+            }
+        )
+    except mbti_ai.AnalyzeInProgressError as e:
+        return jsonify(
+            {
+                "success": False,
+                "code": e.code,
+                "message": str(e),
+            }
+        )
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)})
     except Exception:
