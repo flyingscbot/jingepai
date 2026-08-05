@@ -325,7 +325,11 @@ def init_oidc(app):
 def _current_session_user():
     if not session.get("is_login"):
         return None
-    return user_db.get_user_by_id(session.get("user_id"))
+    user = user_db.get_user_by_id(session.get("user_id"))
+    if user and not user.get("is_active", True):
+        session.clear()
+        return None
+    return user
 
 
 @oidc_bp.get("/.well-known/openid-configuration")
@@ -378,6 +382,15 @@ def authorize():
             password = request.form.get("password") or ""
             candidate = user_db.get_user_by_name(username)
             if candidate and user_db.verify_password(candidate, password):
+                if not candidate.get("is_active", True):
+                    error = "账号已停用，无法授权"
+                    return render_template_string(
+                        AUTHORIZATION_HTML,
+                        client_name=client_name,
+                        error=error,
+                        username=username,
+                        form_action=request.url,
+                    )
                 session["is_login"] = True
                 session["user_id"] = candidate["id"]
                 session["username"] = candidate["username"]
@@ -423,6 +436,6 @@ def issue_token():
 def userinfo():
     token = current_token
     user = user_db.get_user_by_id(getattr(token, "user_id", None))
-    if not user:
+    if not user or not user.get("is_active", True):
         return jsonify({"error": "invalid_token"}), 401
     return jsonify(dict(_user_info(user)))

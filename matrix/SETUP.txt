@@ -224,6 +224,12 @@
 
 测试账号（本地）：sso_test / 123456
 
+金格账号管理后台（无导航入口）：
+  浏览器打开 http://127.0.0.1:1000/jingepi-console
+  需 role=admin 或 super_admin；首次可用环境变量 JINGEPI_ADMIN_USERNAME
+  在尚无最高管理时启动提升为 super_admin。详见 ADMIN.txt。
+  详见仓库根目录 ADMIN.txt。
+
 改主题 / displayname 后：
   cd matrix && docker compose up -d --force-recreate element
   （Synapse yaml 未改可不重启；Flask --reload 会加载新 hook）

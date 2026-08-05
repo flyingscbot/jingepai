@@ -44,6 +44,7 @@ _NO_TAB_ENDPOINTS = (
     "chat",
     "account_settings",
     "account_security",
+    "jingepi_console",
 )
 
 
@@ -66,15 +67,75 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if not session.get("is_login"):
             return redirect(url_for("home.index", modal="login"))
+        user = _current_user()
+        if not user or not user.get("is_active", True):
+            session.clear()
+            return redirect(url_for("home.index", modal="login"))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def _admin_api_denied(status: int, message: str):
+    return jsonify({"success": False, "message": message}), status
+
+
+def admin_required(f):
+    """登录 + role 为 admin / super_admin；可选 ADMIN_CONSOLE_TOKEN 额外门禁。"""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        wants_json = request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json"
+        if not session.get("is_login"):
+            if wants_json or request.path.startswith("/api/"):
+                return _admin_api_denied(401, "请先登录")
+            return redirect(url_for("home.index", modal="login"))
+        user = _current_user()
+        if not user or not user.get("is_active", True):
+            session.clear()
+            if wants_json or request.path.startswith("/api/"):
+                return _admin_api_denied(401, "账号已停用或未登录")
+            return redirect(url_for("home.index", modal="login"))
+        if not user_db.is_console_role(user.get("role")):
+            if wants_json or request.path.startswith("/api/"):
+                return _admin_api_denied(403, "需要管理员权限")
+            abort(403)
+        token = (os.environ.get("ADMIN_CONSOLE_TOKEN") or "").strip()
+        if token:
+            provided = (
+                request.args.get("token")
+                or request.headers.get("X-Admin-Console-Token")
+                or ""
+            ).strip()
+            if provided != token:
+                if wants_json or request.path.startswith("/api/"):
+                    return _admin_api_denied(403, "管理控制台令牌无效")
+                abort(403)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def _actor_is_super_admin(actor: dict | None) -> bool:
+    return bool(actor and user_db.is_super_admin_role(actor.get("role")))
+
+
+def _deny_plain_admin_target(actor: dict, target: dict) -> tuple | None:
+    """普通管理不可操作 admin / super_admin。"""
+    if _actor_is_super_admin(actor):
+        return None
+    if target.get("role") != user_db.ROLE_USER:
+        return _admin_api_denied(403, "普通管理只能操作普通用户账号")
+    return None
 
 
 def _current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return user_db.get_user_by_id(user_id)
+    user = user_db.get_user_by_id(user_id)
+    if user and not user.get("is_active", True):
+        return None
+    return user
 
 
 def _set_login_session(user: dict) -> None:
@@ -84,6 +145,7 @@ def _set_login_session(user: dict) -> None:
     session["is_login"] = True
     session["user_id"] = user["id"]
     session["username"] = user["username"]
+    session["role"] = user.get("role") or user_db.DEFAULT_ROLE
     session.permanent = True
 
 
@@ -113,6 +175,8 @@ def login():
 
     user = user_db.get_user_by_name(username)
     if user and user_db.verify_password(user, password):
+        if not user.get("is_active", True):
+            return jsonify({"success": False, "message": "账号已停用，无法登录"}), 403
         _set_login_session(user)
         return jsonify({"success": True, "message": "登录成功"})
     return jsonify({"success": False, "message": "用户名或密码错误"})
@@ -488,6 +552,166 @@ def chat():
         "chat.html",
         element_url=element_url,
         element_proxy_enabled=auth_config.ELEMENT_PROXY_ENABLED,
+    )
+
+
+@app.route("/jingepi-console")
+@admin_required
+def jingepi_console():
+    """隐藏管理后台入口（不在任何导航中挂链）。"""
+    user = _current_user()
+    return render_template(
+        "jingepi_console.html",
+        user=user,
+        is_super_admin=_actor_is_super_admin(user),
+    )
+
+
+@app.route("/api/admin/users", methods=["GET"])
+@admin_required
+def api_admin_list_users():
+    q = (request.args.get("q") or request.args.get("username") or "").strip()
+    users = user_db.list_users(q=q or None)
+    return jsonify({"success": True, "users": users, "total": len(users)})
+
+
+@app.route("/api/admin/users", methods=["POST"])
+@admin_required
+def api_admin_create_user():
+    actor = _current_user()
+    data = request.get_json(silent=True) or {}
+    role = (data.get("role") or user_db.DEFAULT_ROLE).strip().lower()
+    if not _actor_is_super_admin(actor):
+        if role != user_db.ROLE_USER:
+            return _admin_api_denied(403, "普通管理只能创建普通用户")
+        role = user_db.ROLE_USER
+    try:
+        created = user_db.create_user(
+            (data.get("username") or "").strip(),
+            data.get("password") or "",
+            role=role,
+        )
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "创建失败，请稍后重试"})
+    return jsonify(
+        {
+            "success": True,
+            "message": "用户已创建",
+            "user": user_db.public_user(created),
+        }
+    )
+
+
+@app.route("/api/admin/users/<user_id>", methods=["PATCH", "PUT"])
+@admin_required
+def api_admin_update_user(user_id):
+    actor = _current_user()
+    data = request.get_json(silent=True) or {}
+    before = user_db.get_user_by_id(user_id)
+    if not before:
+        return jsonify({"success": False, "message": "用户不存在"}), 404
+
+    denied = _deny_plain_admin_target(actor, before)
+    if denied:
+        return denied
+
+    kwargs = {}
+    if _actor_is_super_admin(actor):
+        if "username" in data:
+            kwargs["username"] = data.get("username")
+        if "password" in data:
+            kwargs["password"] = data.get("password")
+        if "role" in data:
+            kwargs["role"] = data.get("role")
+        if "is_active" in data:
+            kwargs["is_active"] = bool(data.get("is_active"))
+    else:
+        # 普通管理：仅可对 user 重置密码 / 启停
+        if "username" in data or "role" in data:
+            return _admin_api_denied(
+                403, "普通管理不能修改用户名或角色"
+            )
+        if "password" in data:
+            kwargs["password"] = data.get("password")
+        if "is_active" in data:
+            kwargs["is_active"] = bool(data.get("is_active"))
+        if not kwargs:
+            return jsonify({"success": False, "message": "没有可更新的字段"})
+
+    try:
+        updated = user_db.admin_update_user(user_id, **kwargs)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "更新失败，请稍后重试"})
+
+    # 用户名变更 → 同步 Matrix displayname
+    if (
+        "username" in kwargs
+        and updated["username"] != before["username"]
+    ):
+        try:
+            synapse_admin.set_displayname(updated["id"], updated["username"])
+        except Exception:
+            app.logger.exception("管理后台同步 Matrix displayname 失败")
+
+    # 停用 / 恢复 → 尽量同步 Matrix
+    if "is_active" in kwargs and bool(kwargs["is_active"]) != bool(
+        before.get("is_active", True)
+    ):
+        try:
+            synapse_admin.set_deactivated(
+                updated["id"], deactivated=not updated.get("is_active", True)
+            )
+        except Exception:
+            app.logger.exception("管理后台同步 Matrix 停用状态失败")
+
+    # 若停用了当前管理员自己，清 session
+    if (
+        updated["id"] == session.get("user_id")
+        and not updated.get("is_active", True)
+    ):
+        session.clear()
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "已更新",
+            "user": user_db.public_user(updated),
+        }
+    )
+
+
+@app.route("/api/admin/users/<user_id>", methods=["DELETE"])
+@admin_required
+def api_admin_delete_user(user_id):
+    """硬删除：仅最高管理。从 users.db 删除，并尽量停用/擦除 Matrix 账号。"""
+    actor = _current_user()
+    if not _actor_is_super_admin(actor):
+        return _admin_api_denied(403, "仅最高管理可硬删除用户")
+    if user_id == session.get("user_id"):
+        return jsonify({"success": False, "message": "不能删除当前登录账号"})
+    before = user_db.get_user_by_id(user_id)
+    if not before:
+        return jsonify({"success": False, "message": "用户不存在"}), 404
+    try:
+        deleted = user_db.delete_user(user_id)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)})
+    except Exception:
+        return jsonify({"success": False, "message": "删除失败，请稍后重试"})
+    try:
+        synapse_admin.erase_user(deleted["id"])
+    except Exception:
+        app.logger.exception("管理后台同步 Matrix 硬删除失败")
+    return jsonify(
+        {
+            "success": True,
+            "message": "已永久删除该账号",
+            "user": deleted,
+        }
     )
 
 

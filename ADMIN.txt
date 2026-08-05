@@ -1,0 +1,57 @@
+金格Pi 管理控制台（账号权限 · 三级角色）
+========================================
+
+入口（无公开导航链接，请自行收藏）
+  URL:  http://127.0.0.1:1000/jingepi-console
+  要求: 已登录 且 role 为 admin 或 super_admin
+  非管理角色访问: 403
+  可选额外门禁: 环境变量 ADMIN_CONSOLE_TOKEN
+    - 查询参数 ?token=... 或请求头 X-Admin-Console-Token
+
+角色（存 users.role）
+  super_admin  最高管理
+    - 完整控制台
+    - 编辑任意用户（用户名 / 角色 / 启停 / 重置密码）
+    - 硬删除用户（从 users.db 删除，并尽量擦除 Matrix）
+    - 可升降任意角色（含提升/降级管理）
+  admin        普通管理
+    - 可进控制台；列表 / 搜索
+    - 仅可创建 role=user
+    - 仅可对 user：重置密码、启用/停用
+    - 不可硬删除；不可改用户名/角色；不可操作 admin / super_admin
+  user         用户
+    - 无控制台；公开注册默认；Matrix SSO 不受角色拦截（仅看 is_active）
+
+迁移（旧二级 → 三级）
+  - 启动 init_db 时：若库中尚无任何 super_admin，则将全部旧 role=admin
+    一次性升为 super_admin（避免原管理员失去控制台）
+  - 例：「管理员llyp」等原唯一/全权 admin → super_admin
+  - 迁移完成后，新建的 admin 表示「普通管理」，不会再次被自动提升
+
+首次创建最高管理
+  1) 先注册/确保目标用户已存在
+  2) 设置环境变量后重启 Flask：
+       set JINGEPI_ADMIN_USERNAME=你的用户名
+       （PowerShell: $env:JINGEPI_ADMIN_USERNAME="你的用户名"）
+  3) 启动时若库中尚无任何 super_admin，会将该用户提升为 super_admin（仅一次）
+  4) 之后可由最高管理在控制台内任命其他最高管理或普通管理
+
+Flask shell 手动提升（备选）
+  from user_db import get_user_by_name, set_user_role, ROLE_SUPER_ADMIN
+  set_user_role(get_user_by_name("你的用户名")["id"], ROLE_SUPER_ADMIN)
+
+功能摘要
+  - 列出全部用户（用户名 / 角色 / 状态 / 创建时间 / id）
+  - 按用户名搜索
+  - 新建用户（最高管理可选三级角色；普通管理仅 user）
+  - 最高管理「编辑」：改用户名、重置密码、改角色、启用/停用
+  - 最高管理「删除」= 硬删除（DB + 资料夹；Matrix 尽量 erase/停用）
+  - 普通管理：对 user 启停 / 重置密码（无编辑弹窗、无删除）
+  - 保护：不可删除/降级/停用最后一个活跃的 super_admin
+  - 改用户名时尽量同步 Matrix displayname
+  - 停用时尽量同步 Matrix deactivated
+
+注意
+  - 不要在 base.html / 交易 / 聊天页头加入口链接
+  - 停用账号后网页登录与 OIDC 授权均会拒绝（is_active=False）
+  - 管理角色本身不阻止 Matrix SSO

@@ -221,3 +221,90 @@ def set_displayname(user_id: str, displayname: str) -> bool:
 
     logger.warning("displayname 同步失败: %s %s %s", mxid, code, raw[:200])
     return False
+
+
+def set_deactivated(user_id: str, deactivated: bool = True) -> bool:
+    """用 Admin API 停用/恢复 Matrix 用户。user_id = 金格 users.id（hex）。
+
+    成功 True；Synapse 未起 / 无 admin / 用户尚未 SSO 创建时返回 False（不抛）。
+    """
+    try:
+        localpart = auth_config.matrix_localpart_from_user_id(user_id)
+    except ValueError as exc:
+        logger.warning("set_deactivated: %s", exc)
+        return False
+
+    mxid = auth_config.matrix_mxid(localpart)
+    token = ensure_admin_token()
+    if not token:
+        logger.warning("无 Synapse admin token，跳过 Matrix 停用: %s", mxid)
+        return False
+
+    url = (
+        f"{_synapse_base()}/_synapse/admin/v2/users/"
+        f"{urllib.parse.quote(mxid, safe='')}"
+    )
+    code, body, raw = _http_json(
+        "PUT",
+        url,
+        body={"deactivated": bool(deactivated)},
+        token=token,
+    )
+    if code in (200, 201):
+        logger.info(
+            "已%s Matrix 用户 %s",
+            "停用" if deactivated else "恢复",
+            mxid,
+        )
+        return True
+
+    errcode = body.get("errcode") if isinstance(body, dict) else None
+    if code == 404 or errcode == "M_NOT_FOUND":
+        logger.info("Matrix 用户尚未存在，跳过停用：%s", mxid)
+        return False
+
+    logger.warning("Matrix 停用同步失败: %s %s %s", mxid, code, raw[:200])
+    return False
+
+
+def erase_user(user_id: str) -> bool:
+    """硬删除场景：尽量擦除/停用 Matrix 用户。
+
+    优先 POST /_synapse/admin/v1/deactivate/{userId} + erase；
+    失败则回退 set_deactivated。用户尚未 SSO 创建时返回 False（不抛）。
+    """
+    try:
+        localpart = auth_config.matrix_localpart_from_user_id(user_id)
+    except ValueError as exc:
+        logger.warning("erase_user: %s", exc)
+        return False
+
+    mxid = auth_config.matrix_mxid(localpart)
+    token = ensure_admin_token()
+    if not token:
+        logger.warning("无 Synapse admin token，跳过 Matrix 擦除: %s", mxid)
+        return False
+
+    url = (
+        f"{_synapse_base()}/_synapse/admin/v1/deactivate/"
+        f"{urllib.parse.quote(mxid, safe='')}"
+    )
+    code, body, raw = _http_json(
+        "POST",
+        url,
+        body={"erase": True},
+        token=token,
+    )
+    if code in (200, 201):
+        logger.info("已擦除 Matrix 用户 %s", mxid)
+        return True
+
+    errcode = body.get("errcode") if isinstance(body, dict) else None
+    if code == 404 or errcode == "M_NOT_FOUND":
+        logger.info("Matrix 用户尚未存在，跳过擦除：%s", mxid)
+        return False
+
+    logger.warning(
+        "Matrix erase 失败，回退 deactivated: %s %s %s", mxid, code, raw[:200]
+    )
+    return set_deactivated(user_id, deactivated=True)

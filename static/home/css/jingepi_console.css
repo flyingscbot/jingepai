@@ -1,0 +1,236 @@
+/* 金格Pi 管理控制台 —— 复用站点金/暗色变量 */
+
+.console-page header .float-nav,
+.console-page .header-switch {
+    display: none !important;
+}
+
+.console-main {
+    max-width: 1120px;
+}
+
+.console-title {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.console-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.console-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(240, 185, 11, 0.35);
+    color: var(--gold-light);
+    background: rgba(240, 185, 11, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.console-toolbar {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-panel);
+}
+
+.console-search {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 240px;
+    min-width: 200px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+}
+
+.console-search .settings-input {
+    width: 100%;
+}
+
+.console-meta {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 13px;
+}
+
+.console-table-wrap {
+    padding: 8px 12px 16px;
+    border-radius: var(--radius-panel);
+}
+
+.console-table-scroll {
+    overflow-x: auto;
+}
+
+.console-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.console-table th,
+.console-table td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: middle;
+}
+
+.console-table th {
+    color: rgba(252, 213, 53, 0.9);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.console-table td {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.console-table tr:hover td {
+    background: rgba(240, 185, 11, 0.04);
+}
+
+.console-empty {
+    text-align: center !important;
+    color: rgba(255, 255, 255, 0.45) !important;
+    padding: 36px 12px !important;
+}
+
+.console-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.console-pill-super {
+    color: #1a1400;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold-mid));
+}
+
+.console-pill-admin {
+    color: #dce8ff;
+    background: rgba(90, 130, 200, 0.22);
+    border: 1px solid rgba(130, 170, 230, 0.35);
+}
+
+.console-pill-user {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.console-muted {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+}
+
+.console-field-hint {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.console-pill-on {
+    color: #9be7a8;
+    background: rgba(60, 160, 90, 0.15);
+    border: 1px solid rgba(90, 200, 120, 0.28);
+}
+
+.console-pill-off {
+    color: #ffb0b0;
+    background: rgba(160, 50, 50, 0.16);
+    border: 1px solid rgba(220, 90, 90, 0.3);
+}
+
+.console-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.console-actions button {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: var(--btn-dark);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.console-actions button:hover {
+    background: var(--btn-dark-hover);
+    border-color: rgba(240, 185, 11, 0.35);
+    color: var(--gold-light);
+}
+
+.console-actions .is-danger:hover {
+    border-color: rgba(255, 120, 120, 0.45);
+    color: #ffb0b0;
+}
+
+.console-modal {
+    width: min(440px, 92vw);
+}
+
+.console-select {
+    width: 100%;
+    box-sizing: border-box;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: #1a1a1e;
+    color: #fff;
+    font-size: 14px;
+}
+
+.console-field-label {
+    display: block;
+    margin: 4px 0 2px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.console-modal .modal-field-group {
+    gap: 10px;
+}
+
+@media (max-width: 720px) {
+    .console-meta {
+        margin-left: 0;
+        width: 100%;
+    }
+}

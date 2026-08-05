@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}金格Pi · 管理控制台{% endblock %}
+
+{% block body_class %}panel-page console-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='home/css/jingepi_console.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="panel-main console-main"
+      data-is-super-admin="{{ '1' if is_super_admin else '0' }}"
+      data-my-role="{{ user.role }}">
+    <div class="page-title console-title">
+        <div>
+            <h2>管理控制台</h2>
+            <p>账号权限与用户管理 · 本页无公开入口</p>
+        </div>
+        <div class="console-title-actions">
+            <span class="console-badge">
+                {% if is_super_admin %}最高管理{% else %}普通管理{% endif %}
+                · {{ user.username }}
+            </span>
+            <button type="button" class="settings-btn" id="btnCreateUser">新建用户</button>
+        </div>
+    </div>
+
+    <section class="console-toolbar panel-card">
+        <label class="console-search">
+            <span>按用户名筛选</span>
+            <input type="search" id="searchInput" class="settings-input" placeholder="输入用户名关键字…" autocomplete="off">
+        </label>
+        <button type="button" class="settings-btn-secondary" id="btnRefresh">刷新</button>
+        <p class="console-meta" id="listMeta">加载中…</p>
+    </section>
+
+    <section class="console-table-wrap panel-card">
+        <div class="console-table-scroll">
+            <table class="console-table" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>用户名</th>
+                        <th>角色</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>用户 ID</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTbody">
+                    <tr><td colspan="6" class="console-empty">加载中…</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="settings-tip" id="listTip"></p>
+    </section>
+</main>
+
+<!-- 新建用户 -->
+<div class="modal-overlay" id="createModal" aria-hidden="true">
+    <div class="modal-box console-modal" role="dialog" aria-labelledby="createTitle">
+        <button type="button" class="modal-close" data-close-console-modal aria-label="关闭">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <div class="modal-title">
+            <h2 id="createTitle">新建用户</h2>
+            <p id="createSubtitle">
+                {% if is_super_admin %}
+                创建后默认可立即登录；可指定三级角色
+                {% else %}
+                普通管理仅可创建「用户」账号
+                {% endif %}
+            </p>
+        </div>
+        <div class="modal-tip modal-tip-error" id="createError"></div>
+        <form id="createForm">
+            <div class="modal-field-group">
+                <input type="text" id="createUsername" placeholder="用户名" maxlength="32" required>
+                <input type="password" id="createPassword" placeholder="密码（至少 6 位）" required>
+                {% if is_super_admin %}
+                <select id="createRole" class="console-select">
+                    <option value="user">用户 (user)</option>
+                    <option value="admin">普通管理 (admin)</option>
+                    <option value="super_admin">最高管理 (super_admin)</option>
+                </select>
+                {% else %}
+                <input type="hidden" id="createRole" value="user">
+                <p class="console-field-hint">角色固定为：用户</p>
+                {% endif %}
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="modal-btn modal-btn-primary">创建</button>
+                <button type="button" class="modal-btn modal-btn-secondary" data-close-console-modal>取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if is_super_admin %}
+<!-- 编辑用户（仅最高管理） -->
+<div class="modal-overlay" id="editModal" aria-hidden="true">
+    <div class="modal-box console-modal" role="dialog" aria-labelledby="editTitle">
+        <button type="button" class="modal-close" data-close-console-modal aria-label="关闭">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <div class="modal-title">
+            <h2 id="editTitle">编辑用户</h2>
+            <p id="editSubtitle">修改角色、重置密码或启停账号</p>
+        </div>
+        <div class="modal-tip modal-tip-error" id="editError"></div>
+        <form id="editForm">
+            <input type="hidden" id="editUserId">
+            <div class="modal-field-group">
+                <label class="console-field-label">用户名</label>
+                <input type="text" id="editUsername" placeholder="用户名" maxlength="32" required>
+                <label class="console-field-label">新密码（留空则不改）</label>
+                <input type="password" id="editPassword" placeholder="留空保持原密码">
+                <label class="console-field-label">角色</label>
+                <select id="editRole" class="console-select">
+                    <option value="user">用户 (user)</option>
+                    <option value="admin">普通管理 (admin)</option>
+                    <option value="super_admin">最高管理 (super_admin)</option>
+                </select>
+                <label class="console-field-label">账号状态</label>
+                <select id="editActive" class="console-select">
+                    <option value="1">启用</option>
+                    <option value="0">停用</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="modal-btn modal-btn-primary">保存</button>
+                <button type="button" class="modal-btn modal-btn-secondary" data-close-console-modal>取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='home/js/jingepi_console.js') }}"></script>
+{% endblock %}

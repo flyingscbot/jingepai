@@ -16,3 +16,9 @@
 
 2026.8.5
 品牌 logo 蓝金对调 + 动势处理，标题栏文字改为 logo 图片
+账号权限：users 表增加 role / is_active；隐藏管理后台 /jingepi-console
+  环境变量 JINGEPI_ADMIN_USERNAME 在无 admin 时启动提升；详见 ADMIN.txt
+角色三级：super_admin（最高管理）/ admin（普通管理）/ user
+  旧 admin 一次性迁移为 super_admin；最高管理可编辑+硬删除用户
+  普通管理仅可管 user；详见 ADMIN.txt
+  llyp名称改为管理员llyp
