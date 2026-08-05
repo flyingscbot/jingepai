@@ -16,6 +16,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+import mbti_algo
 import mbti_log
 import trade_history
 
@@ -38,7 +39,7 @@ class AnalyzeInProgressError(ValueError):
     code = "analyze_in_progress"
 
     def __init__(self, message: str | None = None) -> None:
-        super().__init__(message or "正在分析中，请稍候")
+        super().__init__(message or "同一用户已有分析任务在进行中。")
 
 
 # 测试默认：本地 Ollama；生产可设 MBTI_AI_PROVIDER=cloud 并配置 URL/KEY
@@ -53,30 +54,40 @@ AI_TIMEOUT = int(os.environ.get("MBTI_AI_TIMEOUT", "300"))
 
 MBTI_TYPES = mbti_log.MBTI_TYPES
 
-SYSTEM_PROMPT = """你是投资性格分析助手。请根据用户的证券成交记录（CSV），判断其投资性格类型。
+SYSTEM_PROMPT = """你是投资性格分析助手。输入包含两部分：
+1）前置算法（金融 MBTI V2）给出的主型、四维百分位、关键行为特征与置信度；
+2）用户原始证券成交记录（CSV）。
 
 必须且只能从以下 5 类中选出最匹配的 1 类（原样输出类型名，不要自创）：
 
-1. 苟住型：极少交易、长期持有、极度厌恶风险，宁可错过也不轻易出手。
-2. 稳字型：节奏偏慢、仓位克制、偏爱稳健标的，买卖决策谨慎。
-3. 端水型：攻守相对平衡，既会把握机会也会控制回撤，风格中庸。
-4. 操作型：交易较频繁，善于波段与调仓，对市场波动反应积极。
-5. 梭哈型：偏好重仓、短线博弈或高波动标的，风险偏好很高。
+1. 苟住型（C1）：极少交易、长期持有、极度厌恶风险，宁可错过也不轻易出手。
+2. 稳字型（C2）：节奏偏慢、仓位克制、偏爱稳健标的，买卖决策谨慎。
+3. 端水型（C3）：攻守相对平衡，既会把握机会也会控制回撤，风格中庸。
+4. 操作型（C4）：交易较频繁，善于波段与调仓，对市场波动反应积极。
+5. 梭哈型（C5）：偏好重仓、短线博弈或高波动标的，风险偏好很高。
 
-请结合买卖频率、持仓时长线索、操作集中度、金额波动等综合判断。
+判定规则：
+- 主型以「前置算法建议主型」为默认答案；算法置信度 ≥ 0.65 时，除非原始成交与算法结论明显矛盾，否则不要改主型。
+- 置信度 < 0.65 或大量特征缺失时，可结合 CSV 微调主型，但须在 details 中说明改动理由。
+- 四维含义：莽值D1=风险偏好，心态值D2=决策纪律，手痒值D3=交易节奏，主见值D4=独立程度。
+- 结果表述为「投资行为风格标签」，不是人格诊断；不要荐股。
+
 只输出一个 JSON 对象，不要输出其它说明文字，字段如下：
 {
   "mbti": "五类之一",
   "title": "简短称号（可与类型相同或更口语）",
-  "summary": "2～4 句中文总结",
-  "details": "分点说明判断依据（纯文本）"
+  "summary": "2～4 句中文总结（可点出四位码/置信度）",
+  "details": "分点说明：先复述算法依据，再结合成交印证或修正理由（纯文本）"
 }
 """
 
 USER_PROMPT_TEMPLATE = """以下是该用户 trade_history.csv 中最近 {record_count} 条成交记录（全库共 {total_in_csv} 条，上限 {limit}）。
 字段：{schema}
 
-请据此给出投资性格类型（仅限：{types}）。
+{algo_block}
+
+请综合「前置算法」与原始 CSV，给出投资性格类型（仅限：{types}）。
+默认采用算法建议主型「{algo_mbti}」（置信度 {algo_confidence}）；仅在有充分相反证据时才改判。
 
 --- CSV 开始 ---
 {csv}
@@ -98,6 +109,7 @@ def _build_user_prompt(
     used: int,
     total: int,
     limit: int,
+    algo: dict[str, Any],
 ) -> str:
     return USER_PROMPT_TEMPLATE.format(
         record_count=used,
@@ -106,6 +118,9 @@ def _build_user_prompt(
         schema="、".join(trade_history.CSV_HEADERS),
         types=" / ".join(MBTI_TYPES),
         csv=csv_text,
+        algo_block=mbti_algo.format_algo_for_prompt(algo),
+        algo_mbti=algo.get("mbti") or "端水型",
+        algo_confidence=algo.get("confidence", 0),
     )
 
 
@@ -269,14 +284,20 @@ def analyze_mbti_from_history(
     total_in_csv: int | None = None,
     limit: int = trade_history.MBTI_RECORD_LIMIT,
 ) -> dict[str, Any]:
-    """基于交易历史记录分析投资性格 MBTI。"""
+    """基于交易历史记录分析投资性格 MBTI。
+
+    先跑 V2 前置算法，再将算法结果写入提示词供 AI 生成解释与最终类型。
+    """
     if not records:
         raise ValueError("暂无交易历史记录，请先在「我的交易数据」中整理或添加")
 
+    algo = mbti_algo.run_pre_algorithm(records)
     csv_text = trade_history.records_to_csv_text(records)
     used = len(records)
     total = total_in_csv if total_in_csv is not None else used
-    user_prompt = _build_user_prompt(csv_text, used=used, total=total, limit=limit)
+    user_prompt = _build_user_prompt(
+        csv_text, used=used, total=total, limit=limit, algo=algo
+    )
 
     if not ai_is_ready():
         raise ValueError("AI 接口尚未配置，暂不生成类型结果（不会写入 MBTI_log）")
@@ -289,6 +310,12 @@ def analyze_mbti_from_history(
         raise ValueError(f"AI 分析失败：{e}") from e
 
     mbti = _normalize_ai_type(str(raw.get("mbti") or raw.get("类型") or ""))
+    # 高置信算法结果：若 AI 偏离且无法识别冲突证据，回退到算法主型
+    algo_mbti = str(algo.get("mbti") or "")
+    algo_conf = float(algo.get("confidence") or 0)
+    if algo_mbti in MBTI_TYPES and algo_conf >= 0.65 and mbti != algo_mbti:
+        mbti = algo_mbti
+
     title = str(raw.get("title") or mbti).strip() or mbti
     summary = str(raw.get("summary") or "").strip()
     details = str(raw.get("details") or "").strip()
@@ -304,6 +331,11 @@ def analyze_mbti_from_history(
         "title": title,
         "summary": summary if summary else f"判定为「{mbti}」。{range_hint}",
         "details": details,
+        "algo": algo,
+        "algo_mbti": algo_mbti,
+        "algo_tags": algo.get("tags"),
+        "algo_confidence": algo_conf,
+        "algo_display": algo.get("display"),
         "source_file": f"trade_history.csv（最近 {used} 条）",
         "record_count": used,
         "total_in_csv": total,
