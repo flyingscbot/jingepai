@@ -4,11 +4,16 @@ import datetime
 import os
 import re
 
+import auth_config
 from home import home_bp
 import user_db
 import mbti_ai
 import mbti_log
 import trade_history
+from element_proxy import register_element_proxy
+from matrix_proxy import register_matrix_proxy
+from oidc_provider import init_oidc
+import synapse_admin
 
 app = Flask(__name__)
 app.secret_key = "train_2026_abc123"
@@ -16,14 +21,27 @@ app.permanent_session_lifetime = datetime.timedelta(hours=2)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 上传最大 50MB
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
+# 本地 HTTP：避免 Secure + SameSite=None（Cursor Simple Browser / 明文 HTTP 会拒收）
+if auth_config.oidc_uses_http():
+    app.config["SESSION_COOKIE_SECURE"] = False
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+else:
+    app.config["SESSION_COOKIE_SECURE"] = True
+    # HTTPS 生产若需跨站嵌入可改为 "None"
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+
 app.register_blueprint(home_bp)
 
 user_db.bootstrap()
-
+init_oidc(app)
+register_element_proxy(app)
+register_matrix_proxy(app)
 # 不显示功能 TAB 的页面
 _NO_TAB_ENDPOINTS = (
     "home.index",
-    "main",
+    "chat",
     "account_settings",
     "account_security",
 )
@@ -103,7 +121,7 @@ def login():
 @app.route("/main")
 @login_required
 def main():
-    return render_template("main.html")
+    return redirect(url_for("trade"))
 
 
 @app.route("/account_settings")
@@ -140,6 +158,12 @@ def api_update_username():
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)})
     session["username"] = updated["username"]
+    # Matrix 会话可能仍登录：Admin API 即时推送 displayname；
+    # 另：下次 SSO 登录也会经 OIDC name + sso.update_profile_information 同步。
+    try:
+        synapse_admin.set_displayname(updated["id"], updated["username"])
+    except Exception:
+        app.logger.exception("同步 Matrix displayname 失败（金格用户名已更新）")
     return jsonify({"success": True, "message": "用户名已更新", "username": updated["username"]})
 
 
@@ -459,7 +483,12 @@ def api_trade_history_delete():
 @app.route("/chat")
 @login_required
 def chat():
-    return render_template("chat.html")
+    element_url = auth_config.element_embed_path()
+    return render_template(
+        "chat.html",
+        element_url=element_url,
+        element_proxy_enabled=auth_config.ELEMENT_PROXY_ENABLED,
+    )
 
 
 @app.route("/logout")
@@ -492,4 +521,5 @@ def register_page():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=1000, debug=True, use_reloader=True)
+    # 需 0.0.0.0 以便 Docker 内 Synapse 经 host.docker.internal 访问 OIDC
+    app.run(host="0.0.0.0", port=1000, debug=True, use_reloader=True)

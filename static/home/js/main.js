@@ -116,7 +116,7 @@
                 .then(function (res) { return res.json(); })
                 .then(function (resp) {
                     if (resp.success) {
-                        window.location.href = "/main";
+                        window.location.href = "/trade";
                     } else {
                         showTip(errorTip, resp.message, "error");
                     }

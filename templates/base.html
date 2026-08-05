@@ -45,11 +45,21 @@
                 <img src="{{ url_for('static', filename='icons/my_mbti.svg') }}" alt="">
                 <span>我的MBTI</span>
             </a>
-            <a href="{{ url_for('chat') }}" class="float-nav-item{% if request.endpoint == 'chat' %} active{% endif %}">
-                <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="">
-                <span>聊天室</span>
-            </a>
         </nav>
+        {% endif %}
+
+        {% if is_login %}
+        {% if request.endpoint == 'chat' %}
+        <a href="{{ url_for('trade') }}" class="header-switch" aria-label="切换至用户面板">
+            <img src="{{ url_for('static', filename='icons/panel.svg') }}" alt="" aria-hidden="true">
+            <span>切换至用户面板</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('chat') }}" class="header-switch" aria-label="切换至聊天室">
+            <img src="{{ url_for('static', filename='icons/chat.svg') }}" alt="" aria-hidden="true">
+            <span>切换至聊天室</span>
+        </a>
+        {% endif %}
         {% endif %}
 
         <div class="account">
@@ -61,7 +71,7 @@
             <div class="account-menu">
                 {% if is_login %}
                 <span style="font-weight: bold;">&nbsp;{{ username }}</span>
-                <a href="{{ url_for('main') }}" class="menu-link">
+                <a href="{{ url_for('trade') }}" class="menu-link">
                     <img src="{{ url_for('static', filename='icons/panel.svg') }}" class="menu-icon" alt="">
                     用户面板
                 </a>

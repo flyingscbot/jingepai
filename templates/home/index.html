@@ -13,7 +13,7 @@ MBTI<br>
 </h1>
 
 {% if is_login %}
-<a href="{{ url_for('main') }}"><button type="button">试用MBTI</button></a>
+<a href="{{ url_for('mbti') }}"><button type="button">试用MBTI</button></a>
 {% else %}
 <button type="button" id="tryMbtiBtn">试用MBTI</button>
 {% endif %}

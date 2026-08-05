@@ -1,0 +1,231 @@
+金格Pi × 自建 Matrix（OIDC B2）对接说明
+
+=====================================
+
+
+
+当前状态（本机已跑通）
+
+--------------------
+
+- Synapse: http://127.0.0.1:8008  （docker compose，healthy）
+
+- Element Web: http://127.0.0.1:8081  （upstream；金格默认反代为 /element/；默认语言简体中文 setting_defaults.language=zh-hans；show_labs_settings=false 关闭实验室；默认主题 custom-金格Pi 金色 #f0b90b，强制锁定不可切换）
+
+- /chat iframe 默认同源：http://127.0.0.1:1000/element/
+
+- 登录仅允许金格Pi OIDC SSO（已关闭密码/访客/开放注册；/login 仅 SSO/token）
+
+- 禁止添加/切换其它 Matrix homeserver（单服锁定）：
+  Element disable_custom_urls=true（登录页无 Server picker「编辑」）；
+  default_server_config.base_url=http://127.0.0.1:1000、
+  default_server_name=matrix.localhost、room_directory.servers 仅 matrix.localhost、
+  default_federate=false；
+  lab-suppress-e2ee-nags.js 兜底隐藏「添加服务器 / Add server」
+  （房间目录 NetworkDropdown 不受 disable_custom_urls 控制）。
+  改配置后需 recreate Element，并对 /element/ 硬刷新（必要时清站点数据）。
+
+- 实训全面禁用 E2EE，无恢复密钥 / 安全备份 / 数字身份流程：
+  Synapse encryption_enabled_by_default_for_room_type=off；
+  extra_well_known_client_content.io.element.e2ee.force_disable=true（及 default=false）；
+  default_power_level_content_override 将 m.room.encryption 提到 PL 999；
+  Element force_verification=false、UIFeature.advancedEncryption=false、
+  default_server_config.io.element.e2ee.force_disable=true；
+  （Element 1.12+ 已移除 secure_backup_required 等配置，无单独 UIFeature 可关
+  Encryption / Key storage 设置页。）
+  Element nginx 注入 lab-suppress-e2ee-nags.js：隐藏验证 Toast、密钥存储 /
+  安全备份 / 恢复 / 加密设置侧栏与面板、房间加密开关文案，并隐藏设置页 MXID
+  （保留显示名）。
+  Flask :1000 反代拦截全部 /_matrix/client/*/room_keys/*（403；Synapse 无官方
+  关备份 API 配置）。不拦截 login/sync/keys/{upload,query,claim}。
+  自检：GET http://127.0.0.1:1000/.well-known/matrix/client 与
+  http://127.0.0.1:8008/.well-known/matrix/client 均应含 force_disable。
+  若仍见旧加密 UI：对该站点硬刷新，并清除站点数据
+  （http://127.0.0.1:1000/element/ → 站点信息 → 清除 Cookie/网站数据）后
+  重新金格Pi登录。旧账号可另跑 matrix/reset-lab-crypto.ps1 清服务端
+  cross-signing。
+
+- OIDC Issuer（容器侧）: http://host.docker.internal:1000
+
+- OIDC 浏览器公开基址: http://127.0.0.1:1000
+
+- 金格 Flask 必须监听 0.0.0.0:1000（供容器经 host.docker.internal 回调）
+
+
+
+
+
+架构
+
+----
+
+  浏览器 ──authorize/登录──► 127.0.0.1:1000（金格 Flask）
+
+  Synapse 容器 ──discovery/token/jwks──► host.docker.internal:1000
+
+                 │
+
+                 ▼
+
+         Element :8081 ──Flask 反代──► /element/  ← /chat 同源 iframe
+
+
+
+
+
+一、日常启动
+
+------------
+
+1) 启动金格（必须 0.0.0.0，不要用 127.0.0.1）：
+
+     venv\Scripts\python.exe -m flask run --host=0.0.0.0 --port=1000
+
+   若 VS Code / Cursor 调试器仍绑 127.0.0.1，请改 launch 参数或改用上面命令重启。
+
+2) 启动 Matrix（含 Element）：
+
+     cd matrix
+
+     docker compose up -d
+
+3) 打开聊天室：
+
+     http://127.0.0.1:1000/chat
+
+   （iframe 加载同源 /element/；也可点「在新标签打开聊天室」）
+
+   选择「金格Pi」→ 用实训账号登录
+
+
+
+
+
+二、环境变量（可选）
+
+--------------------
+
+  OIDC_ISSUER=http://host.docker.internal:1000
+
+  OIDC_PUBLIC_BASE=http://127.0.0.1:1000
+
+  MATRIX_SERVER_NAME=matrix.localhost
+
+  OIDC_MATRIX_CLIENT_ID=jingepi-synapse
+
+  OIDC_MATRIX_CLIENT_SECRET=change-me-synapse-oidc-secret
+
+  OIDC_MATRIX_REDIRECT_URIS=http://127.0.0.1:8008/_synapse/client/oidc/callback,http://localhost:8008/_synapse/client/oidc/callback
+
+  AUTHLIB_INSECURE_TRANSPORT=1
+
+  ELEMENT_PROXY_ENABLED=1
+
+  ELEMENT_UPSTREAM=http://127.0.0.1:8081
+
+  ELEMENT_PROXY_PATH=/element
+
+  ELEMENT_URL=http://localhost:8081
+
+
+
+
+
+三、Element 同源反代
+
+--------------------
+
+- 默认 ELEMENT_PROXY_ENABLED=1：Flask 把 /element/* 转发到 ELEMENT_UPSTREAM
+
+- /chat 的 iframe 使用相对路径 /element/（与金格同端口、同站点）
+
+- 关闭反代：ELEMENT_PROXY_ENABLED=0，则回退到 ELEMENT_URL（跨源 iframe）
+
+- 自检：浏览器打开 http://127.0.0.1:1000/element/ 应看到 Element（需上游 :8081 已起）
+
+
+
+
+
+四、Cursor Simple Browser / Cookie
+
+----------------------------------
+
+- Cursor 内置 Simple Browser 对第三方 Cookie、Secure+SameSite=None（明文 HTTP）更严
+
+- 同源 /element/ + 本地 Session 使用 Secure=False、SameSite=Lax，便于 HTTP 实训
+
+- 若 iframe 内 SSO 仍失败：点「在新标签打开聊天室」（顶层导航更易完成 OIDC）
+
+- 仍不行时请改用本机 Chrome/Edge 打开 http://127.0.0.1:1000/chat
+
+- 生产务必 HTTPS、去掉 skip_verification，并更换所有 change-me 密钥
+
+
+
+
+
+五、其它说明
+
+------------
+
+- MXID localpart = 金格 users.id（uuid4.hex，32 位小写十六进制），形如
+  @a1b2c3d4e5f6...（32 位）:matrix.localhost；显示名 = 金格 username。
+  Synapse enable_set_displayname=false，客户端不可改显示名；
+  sso.update_profile_information=true，每次 SSO 登录用金格用户名同步显示名
+  （OIDC userinfo.name 每次从 DB 读当前 username，非缓存）。
+  金格「用户设置」改用户名时，Flask 另调 Synapse Admin API
+  PUT /_synapse/admin/v2/users/@<id>:matrix.localhost {displayname}
+  即时更新，无需重新登录 Matrix。
+  Admin token：首次自动用 registration_shared_secret 注册 @jingepi-admin，
+  缓存到 matrix/data/jingepi-admin.access_token；或设环境变量
+  SYNAPSE_ADMIN_ACCESS_TOKEN / 跑 matrix/bootstrap-admin.ps1。
+  Element 无单独「隐藏改名」UIFeature，以服务端禁用为准。
+  实训强制主题 custom-金格Pi（default_theme + setting_defaults.theme，
+  use_system_theme=false）；Element 1.12 无 UIFeature.themeSetting，
+  lab-suppress-e2ee-nags.js 隐藏外观页主题选择器并写回 localStorage。
+  实训隐藏「停用账户」与「个人信息」相关 UI：UIFeature.deactivate /
+  identityServer / thirdPartyId=false；Synapse 无官方关停用 API 的配置，
+  Flask :1000 反代拦截 POST /_matrix/client/*/account/deactivate（403）。
+  同步拦截 /_matrix/client/*/room_keys/*（密钥备份创建/读写，403）。
+
+- 环境变量补充：
+  SYNAPSE_REGISTRATION_SHARED_SECRET（默认与 homeserver.yaml 一致）
+  SYNAPSE_ADMIN_ACCESS_TOKEN（可选，跳过自动注册）
+
+- 迁移注意：已有 Matrix 账号通过 OIDC sub（金格 id）绑定，再次 SSO 仍进旧
+  MXID（形如 @u<截断uuid>:…），不会自动改成新 localpart。仅新注册用户为
+  @<完整32位hex>:matrix.localhost。若要统一新格式：管理员删除旧 Matrix 用户
+  后重新 SSO，或 docker compose down -v 清空 synapse-pg 后重建实训环境。
+
+- Element 已配置 CSP frame-ancestors，允许被金格页面 iframe
+
+- homeserver.yaml：discover: false，authorization_endpoint 强制 127.0.0.1，
+
+  token/jwks/userinfo 仍用 host.docker.internal；skip_verification: true 仅本地 HTTP
+
+- 若 SSO 仍跳到 host.docker.internal：检查 Flask 是否仍绑 127.0.0.1，并
+
+  docker compose restart synapse
+
+- 镜像拉取困难时可配 registry-mirrors（已写入 %USERPROFILE%\.docker\daemon.json）
+
+同源 Synapse 反代（已默认开启）
+--------------------------------
+- Element / SSO / Client API 全部走 http://127.0.0.1:1000
+- Flask 反代 /_matrix 与 /_synapse 到 127.0.0.1:8008
+- public_baseurl 与 element base_url 均为 http://127.0.0.1:1000
+- OIDC callback: http://127.0.0.1:1000/_synapse/client/oidc/callback
+- 代理会去掉 Secure Cookie，并允许 iframe frame-ancestors
+
+推荐打开：
+  http://127.0.0.1:1000/element/   （全屏，SSO 最稳）
+  或 http://127.0.0.1:1000/chat     （iframe；可用「全屏打开聊天室」）
+
+测试账号（本地）：sso_test / 123456
+
+改主题 / displayname 后：
+  cd matrix && docker compose up -d --force-recreate element
+  （Synapse yaml 未改可不重启；Flask --reload 会加载新 hook）
+  浏览器对 http://127.0.0.1:1000/element/ 硬刷新（Ctrl+F5）；
+  若仍见旧主题：站点信息 → 清除 Cookie/网站数据后重新金格Pi登录。

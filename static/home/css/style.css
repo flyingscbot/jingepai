@@ -447,6 +447,8 @@ nav a:hover::after{
 
     position:relative;
 
+    isolation:isolate;
+
     display:inline-flex;
 
     align-items:center;
@@ -465,11 +467,11 @@ nav a:hover::after{
 
     border-radius:var(--radius-pill);
 
-    background:var(--gold-mid);
+    background:transparent;
 
-    backdrop-filter:var(--glass-blur-sm);
+    backdrop-filter:none;
 
-    -webkit-backdrop-filter:var(--glass-blur-sm);
+    -webkit-backdrop-filter:none;
 
     font-size:18px;
 
@@ -490,17 +492,58 @@ nav a:hover::after{
 
 }
 
-/* 金色按钮不加暗色蒙层，保持与标题 Pi 同色 */
 .hero button::before{
 
-    content:none;
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    border-radius:inherit;
+
+    pointer-events:none;
+
+    z-index:-1;
+
+    background:var(--gold-mid);
+
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+
+    transform:translateZ(0);
 
 }
 
 
 .hero button::after{
 
-    content:none;
+    content:"";
+
+    position:absolute;
+
+    inset:4px;
+
+    border-radius:inherit;
+
+    pointer-events:none;
+
+    z-index:-1;
+
+    background:
+        linear-gradient(180deg, #fff 0%, rgba(255,255,255,.7) 40%, rgba(255,255,255,.35) 100%);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.7),
+        inset 0 -1px 0 rgba(255,255,255,.14),
+        inset 0 0 0 .5px rgba(255,255,255,.28);
+
+    mix-blend-mode:soft-light;
+
+    opacity:0;
+
+    transition:opacity .22s ease;
 
 }
 
@@ -508,6 +551,12 @@ nav a:hover::after{
 .hero button:hover{
 
     transform:none;
+
+}
+
+.hero button:hover::after{
+
+    opacity:1;
 
 }
 
@@ -817,6 +866,117 @@ nav a:hover::after{
     
     }
     /* =====================
+   标题栏：聊天室 / 用户面板切换（对齐 .modal-btn-secondary 玻璃按钮）
+===================== */
+
+.header-switch{
+    position:relative;
+    isolation:isolate;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-left:auto;
+    margin-right:12px;
+    padding:0 14px;
+    height:32px;
+    line-height:1;
+    box-sizing:border-box;
+    border-radius:var(--radius-pill);
+    border:var(--glass-border);
+    background:transparent;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+    color:rgba(255,255,255,.88);
+    text-decoration:none;
+    font-size:13px;
+    font-weight:400;
+    letter-spacing:.02em;
+    white-space:nowrap;
+    overflow:hidden;
+    box-shadow:var(--glass-rim);
+    transition:box-shadow .22s ease, color .22s ease;
+}
+
+.header-switch::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.12) 0%, var(--btn-dark-mid) 38%, var(--btn-dark-deep) 100%),
+        var(--btn-dark);
+    backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    -webkit-backdrop-filter:blur(4px) saturate(1.45) contrast(1.1) brightness(1.05);
+    filter:none;
+    -webkit-filter:none;
+    transform:translateZ(0);
+}
+
+.header-switch::after{
+    content:"";
+    position:absolute;
+    inset:3px;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,.16) 42%, rgba(255,255,255,.06) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.32),
+        inset 0 -1px 0 rgba(255,255,255,.08),
+        inset 0 0 0 .5px rgba(255,255,255,.16);
+    mix-blend-mode:soft-light;
+    opacity:0;
+    transition:opacity .22s ease;
+}
+
+.header-switch span,
+.header-switch img{
+    position:relative;
+    z-index:2;
+}
+
+.header-switch span{
+    display:inline-flex;
+    align-items:center;
+    line-height:1;
+    font-weight:400;
+}
+
+.header-switch img{
+    width:18px;
+    height:18px;
+    flex-shrink:0;
+    filter:brightness(0) invert(1);
+    opacity:.92;
+}
+
+.header-switch:hover{
+    color:#fff;
+    box-shadow:var(--glass-rim);
+}
+
+.header-switch:hover::before{
+    background:
+        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
+        linear-gradient(155deg, rgba(255,255,255,.14) 0%, rgba(90,90,96,.14) 38%, rgba(0,0,0,.16) 100%),
+        var(--btn-dark-hover);
+}
+
+.header-switch:hover::after{
+    opacity:.62;
+}
+
+.header-switch:hover img{
+    opacity:1;
+}
+
+
+/* =====================
    用户账户按钮
 ===================== */
 
@@ -825,7 +985,7 @@ nav a:hover::after{
 
     position:relative;
 
-    margin-left:30px;
+    margin-left:12px;
 
     cursor:pointer;
 
@@ -979,6 +1139,23 @@ nav a:hover::after{
 
         height:auto;
     
+    }
+
+    .header-switch{
+        position:absolute;
+        right:64px;
+        top:50%;
+        transform:translateY(-50%);
+        margin:0;
+        padding:0 10px;
+        font-size:12px;
+        font-weight:400;
+        max-width:min(42vw, 160px);
+    }
+
+    .header-switch span{
+        overflow:hidden;
+        text-overflow:ellipsis;
     }
     
     
@@ -1244,11 +1421,29 @@ nav a:hover::after{
 }
 
 .modal-btn-primary::after{
-    content:none;
+    content:"";
+    position:absolute;
+    inset:4px;
+    border-radius:calc(var(--radius-control) - 4px);
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(180deg, #fff 0%, rgba(255,255,255,.7) 40%, rgba(255,255,255,.35) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.7),
+        inset 0 -1px 0 rgba(255,255,255,.14),
+        inset 0 0 0 .5px rgba(255,255,255,.28);
+    mix-blend-mode:soft-light;
+    opacity:0;
+    transition:opacity .22s ease;
 }
 
 .modal-btn-primary:hover{
     transform:none;
+}
+
+.modal-btn-primary:hover::after{
+    opacity:1;
 }
 
 .modal-btn-primary > *,
@@ -1674,6 +1869,49 @@ body:has(.float-nav) .panel-main{
 }
 
 /* =========================
+   聊天室（嵌入 Element Web）
+========================= */
+
+body.chat-page{
+    overflow:hidden;
+}
+
+body.chat-page header{
+    flex-shrink:0;
+}
+
+.chat-shell{
+    position:relative;
+    z-index:1;
+    height:calc(100vh - 52px);
+    width:100%;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:#0b0b0c;
+    display:flex;
+    flex-direction:column;
+}
+
+.chat-frame{
+    display:block;
+    width:100%;
+    flex:1;
+    min-height:0;
+    border:0;
+    background:#0b0b0c;
+}
+
+@media screen and (max-width:768px){
+    .chat-shell{
+        height:calc(100vh - 52px);
+        /* 移动端顶栏 height:auto，给一点余量 */
+        min-height:calc(100dvh - 64px);
+    }
+}
+
+
+/* =========================
    用户面板 /main
 ========================= */
 
@@ -1788,11 +2026,29 @@ body:has(.float-nav) .panel-main{
 }
 
 .panel-card .func-btn::after{
-    content:none;
+    content:"";
+    position:absolute;
+    inset:4px;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(180deg, #fff 0%, rgba(255,255,255,.7) 40%, rgba(255,255,255,.35) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.7),
+        inset 0 -1px 0 rgba(255,255,255,.14),
+        inset 0 0 0 .5px rgba(255,255,255,.28);
+    mix-blend-mode:soft-light;
+    opacity:0;
+    transition:opacity .22s ease;
 }
 
 .panel-card .func-btn:hover{
     transform:none;
+}
+
+.panel-card .func-btn:hover::after{
+    opacity:1;
 }
 
 @media screen and (max-width:900px){
@@ -1982,12 +2238,31 @@ a.settings-btn::before{
 
 .settings-btn::after,
 a.settings-btn::after{
-    content:none;
+    content:"";
+    position:absolute;
+    inset:4px;
+    border-radius:calc(var(--radius-control) - 4px);
+    pointer-events:none;
+    z-index:-1;
+    background:
+        linear-gradient(180deg, #fff 0%, rgba(255,255,255,.7) 40%, rgba(255,255,255,.35) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.7),
+        inset 0 -1px 0 rgba(255,255,255,.14),
+        inset 0 0 0 .5px rgba(255,255,255,.28);
+    mix-blend-mode:soft-light;
+    opacity:0;
+    transition:opacity .22s ease;
 }
 
 .settings-btn:hover,
 a.settings-btn:hover{
     transform:none;
+}
+
+.settings-btn:hover::after,
+a.settings-btn:hover::after{
+    opacity:1;
 }
 
 .settings-btn-secondary,

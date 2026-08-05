@@ -1,0 +1,53 @@
+# 自建 Matrix（Synapse）+ Element Web + 金格 OIDC
+# 使用前请先启动金格 Flask（默认 http://host.docker.internal:1000）
+
+services:
+  postgres:
+    image: docker.io/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: synapse_dev_password
+      POSTGRES_DB: synapse
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - synapse-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  synapse:
+    image: docker.io/matrixdotorg/synapse:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    volumes:
+      - ./data:/data
+      - ./homeserver.yaml:/data/homeserver.yaml:ro
+    ports:
+      - "8008:8008"
+    extra_hosts:
+      # 让容器能访问宿主机上的金格 OIDC（Windows/macOS Docker Desktop）
+      - "host.docker.internal:host-gateway"
+
+  element:
+    image: docker.io/vectorim/element-web:latest
+    restart: unless-stopped
+    depends_on:
+      - synapse
+    volumes:
+      - ./element-config.json:/app/config.json:ro
+      - ./element-nginx:/etc/nginx/conf.d:ro
+      - ./element-templates-empty:/etc/nginx/templates:ro
+      # 实训：隐藏验证 Toast / 密钥存储 / 备份 / 加密设置 + 设置页 MXID（Element 1.12+ 无 config 可关）
+      - ./element-static:/lab-static:ro
+    ports:
+      - "8081:80"
+
+volumes:
+  synapse-pg:

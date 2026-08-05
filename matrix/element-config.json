@@ -1,0 +1,72 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "http://127.0.0.1:1000",
+      "server_name": "金格Pi聊天室"
+    },
+    "io.element.e2ee": {
+      "default": false,
+      "force_disable": true
+    }
+  },
+  "default_server_name": "matrix.localhost",
+  "brand": "金格Pi聊天室",
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "disable_3pid_login": true,
+  "force_verification": false,
+  "default_theme": "custom-金格Pi",
+  "default_country_code": "CN",
+  "default_federate": false,
+  "room_directory": {
+    "servers": ["matrix.localhost"]
+  },
+  "setting_defaults": {
+    "language": "zh-hans",
+    "breadcrumbs": true,
+    "blacklistUnverifiedDevices": false,
+    "UIFeature.advancedEncryption": false,
+    "UIFeature.advancedSettings": false,
+    "UIFeature.deactivate": false,
+    "UIFeature.identityServer": false,
+    "UIFeature.thirdPartyId": false,
+    "UIFeature.passwordReset": false,
+    "UIFeature.registration": false,
+    "use_system_theme": false,
+    "theme": "custom-金格Pi",
+    "custom_themes": [
+      {
+        "name": "金格Pi",
+        "is_dark": true,
+        "colors": {
+          "accent-color": "#f0b90b",
+          "primary-color": "#f0b90b",
+          "warning-color": "#ff4b55",
+          "sidebar-color": "#050505",
+          "roomlist-background-color": "#0b0b0c",
+          "roomlist-text-color": "#f5f5f5",
+          "roomlist-text-secondary-color": "#aaaaaa",
+          "roomlist-highlights-color": "#1a1608",
+          "roomlist-separator-color": "#2a2a2a",
+          "timeline-background-color": "#0b0b0c",
+          "timeline-text-color": "#f5f5f5",
+          "timeline-text-secondary-color": "#aaaaaa",
+          "timeline-highlights-color": "#1a1608",
+          "secondary-content": "#c99400",
+          "tertiary-content": "#fcd535"
+        },
+        "compound": {
+          "--cpd-color-text-action-accent": "#f0b90b",
+          "--cpd-color-icon-accent-tertiary": "#f0b90b"
+        }
+      }
+    ]
+  },
+  "features": {
+    "feature_video_rooms": false,
+    "feature_group_calls": false,
+    "feature_element_call_video_rooms": false,
+    "feature_disable_call_per_sender_encryption": true
+  },
+  "show_labs_settings": false
+}

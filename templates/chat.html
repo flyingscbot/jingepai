@@ -2,13 +2,16 @@
 
 {% block title %}金格Pi - 投资聊天室{% endblock %}
 
-{% block body_class %}panel-page{% endblock %}
+{% block body_class %}panel-page chat-page{% endblock %}
 
 {% block content %}
-<main class="panel-main">
-    <div class="page-title">
-        <h2>投资聊天室</h2>
-        <p>内容即将上线，敬请期待</p>
-    </div>
+<main class="chat-shell" aria-label="投资聊天室">
+    <iframe
+        class="chat-frame"
+        src="{{ element_url }}"
+        title="金格Pi 聊天室"
+        allow="camera; microphone; display-capture; clipboard-read; clipboard-write; fullscreen"
+        referrerpolicy="no-referrer-when-downgrade"
+    ></iframe>
 </main>
 {% endblock %}

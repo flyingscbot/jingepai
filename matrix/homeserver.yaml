@@ -1,0 +1,122 @@
+# 开发用 Synapse 配置模板（OIDC → 金格）
+# 首次启动前请阅读 SETUP.txt，并按需修改 server_name / issuer。
+
+server_name: "matrix.localhost"
+pid_file: /data/homeserver.pid
+public_baseurl: "http://127.0.0.1:1000/"
+
+listeners:
+  - port: 8008
+    type: http
+    tls: false
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: synapse_dev_password
+    dbname: synapse
+    host: postgres
+    cp_min: 1
+    cp_max: 5
+
+log_config: "/data/matrix.localhost.log.config"
+media_store_path: /data/media_store
+registration_shared_secret: "jingepi-dev-registration-secret-change-me"
+report_stats: false
+macaroon_secret_key: "jingepi-dev-macaroon-secret-change-me"
+form_secret: "jingepi-dev-form-secret-change-me"
+signing_key_path: "/data/matrix.localhost.signing.key"
+
+# 关闭开放注册 / 密码登录 / 访客，仅允许金格Pi OIDC SSO
+enable_registration: false
+enable_registration_without_verification: false
+allow_guest_access: false
+password_config:
+  enabled: false
+# 注意：Synapse 无官方配置可关闭用户自助 POST /account/deactivate；
+# 实训由 Flask matrix_proxy 在 :1000 拦截该接口（见 SETUP.txt）。
+
+# 禁止客户端改显示名；由 OIDC 用金格用户名下发，并在每次 SSO 登录同步
+enable_set_displayname: false
+sso:
+  update_profile_information: true
+
+# 实训：全面禁用 E2EE，避免恢复密钥 / 安全备份 / 数字身份流程
+# 须加引号：裸 off 会被 YAML 解析成布尔 False
+encryption_enabled_by_default_for_room_type: "off"
+
+# 告知 Element：强制禁用 E2EE（新建房间不可加密；忽略 default）
+# Synapse 在 public_baseurl 下提供 GET /.well-known/matrix/client
+extra_well_known_client_content:
+  "io.element.e2ee":
+    default: false
+    force_disable: true
+
+# 服务端再锁一层：普通用户无权发送 m.room.encryption（需 PL 999）
+# 注意：覆盖 events 时需写出完整默认事件权限，否则会清空其它规则
+default_power_level_content_override:
+  private_chat:
+    events:
+      "m.room.avatar": 50
+      "m.room.canonical_alias": 50
+      "m.room.encryption": 999
+      "m.room.history_visibility": 100
+      "m.room.name": 50
+      "m.room.power_levels": 100
+      "m.room.server_acl": 100
+      "m.room.tombstone": 100
+    events_default: 0
+  trusted_private_chat:
+    events:
+      "m.room.avatar": 50
+      "m.room.canonical_alias": 50
+      "m.room.encryption": 999
+      "m.room.history_visibility": 100
+      "m.room.name": 50
+      "m.room.power_levels": 100
+      "m.room.server_acl": 100
+      "m.room.tombstone": 100
+    events_default: 0
+  public_chat:
+    events:
+      "m.room.avatar": 50
+      "m.room.canonical_alias": 50
+      "m.room.encryption": 999
+      "m.room.history_visibility": 100
+      "m.room.name": 50
+      "m.room.power_levels": 100
+      "m.room.server_acl": 100
+      "m.room.tombstone": 100
+    events_default: 0
+
+# 金格 OIDC（Issuer 需与 Flask OIDC_ISSUER 一致，容器内用 host.docker.internal）
+# skip_verification: 仅本地 HTTP issuer；生产请去掉并改用 HTTPS
+# 浏览器走 authorization_endpoint(127.0.0.1)；Synapse 容器走 token/jwks(host.docker.internal)
+oidc_providers:
+  - idp_id: jingepi
+    idp_name: "金格Pi"
+    discover: false
+    skip_verification: true
+    issuer: "http://host.docker.internal:1000"
+    authorization_endpoint: "http://127.0.0.1:1000/oauth/authorize"
+    token_endpoint: "http://host.docker.internal:1000/oauth/token"
+    userinfo_endpoint: "http://host.docker.internal:1000/oauth/userinfo"
+    jwks_uri: "http://host.docker.internal:1000/oauth/jwks.json"
+    client_id: "jingepi-synapse"
+    client_secret: "change-me-synapse-oidc-secret"
+    scopes: ["openid", "profile"]
+    user_mapping_provider:
+      config:
+        # preferred_username = 金格 users.id（uuid4.hex）；display name = 金格 username
+        localpart_template: "{{ user.preferred_username }}"
+        display_name_template: "{{ user.name }}"
+    allow_existing_users: true
+
+trusted_key_servers: []
+suppress_key_server_warning: true
