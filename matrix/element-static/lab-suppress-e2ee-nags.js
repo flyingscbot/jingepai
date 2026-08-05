@@ -8,13 +8,29 @@
  *    disable_custom_urls 已锁登录切换；房间目录 NetworkDropdown 仍有 Add server，靠本脚本兜底
  * 6) 隐藏设置侧栏「实验室 / Labs」（show_labs_settings=false 的 UI 兜底）
  * 7) 强制主题「金格Pi」，隐藏外观页主题切换 / 匹配系统主题
+ * 8) 强制强调色 / CTA 为金格金（主按钮填色 #e0a80a，覆盖 Element / Compound 默认绿）
+ * 9) 确保 lab-jingepi-theme.css 已加载（nginx 注入兜底；表面/字体以该 CSS 为主）
  *
  * Element Web 1.12.x：无 config 可关 Encryption 设置页与 VERIFY_THIS_SESSION Toast；
  * 亦无 UIFeature.themeSetting，主题锁定靠 default_theme + 本脚本。
  */
 (function () {
   var STYLE_ID = "jingepi-lab-e2ee-hide";
+  var THEME_LINK_ID = "jingepi-lab-theme-css";
   var FORCED_THEME = "custom-金格Pi";
+  var GOLD = "#f0b90b";
+  var GOLD_BTN = "#e0a80a";
+  var GOLD_HOVER = "#c99400";
+  var GOLD_PRESSED = "#c99400";
+  var GOLD_ON = "#fff6d1";
+  var SURFACE = "#12151c";
+  var PANEL = "#12151c";
+  var PANEL_RAISED = "#12151c";
+  var INPUT = "#161a22";
+  var HIGHLIGHT = "#241c0e";
+  var TEXT = "#f5f5f5";
+  var TEXT_MUTED = "#aaaaaa";
+  var BORDER = "rgba(255, 255, 255, 0.06)";
 
   var HIDE_CSS = [
     "/* ---- 设置页隐藏 MXID ---- */",
@@ -102,14 +118,229 @@
     "[data-jingepi-hide-theme='1'] {",
     "  display: none !important;",
     "}",
+
+    "/* ---- 金格色板：绿 CTA + 炭灰/深蓝灰表面（与 lab-jingepi-theme.css 双保险） ---- */",
+    ":root,",
+    "html,",
+    "body,",
+    ".cpd-theme-dark,",
+    ".cpd-theme-light,",
+    "[class*='cpd-theme-'] {",
+    "  --accent: " + GOLD_BTN + " !important;",
+    "  --accent-color: " + GOLD_BTN + " !important;",
+    "  --primary-color: " + GOLD_BTN + " !important;",
+    "  --secondary-content: " + GOLD_PRESSED + " !important;",
+    "  --tertiary-content: #fcd535 !important;",
+    "  --background: " + SURFACE + " !important;",
+    "  --cpd-color-text-action-accent: " + GOLD + " !important;",
+    "  --cpd-color-icon-accent-tertiary: " + GOLD + " !important;",
+    "  --cpd-color-icon-accent-primary: " + GOLD + " !important;",
+    "  --cpd-color-bg-accent-rest: " + GOLD_BTN + " !important;",
+    "  --cpd-color-bg-accent-hovered: " + GOLD_HOVER + " !important;",
+    "  --cpd-color-bg-accent-pressed: " + GOLD_PRESSED + " !important;",
+    "  --cpd-color-bg-accent-selected: rgba(240, 185, 11, 0.22) !important;",
+    "  --cpd-color-bg-accent-subtle: rgba(240, 185, 11, 0.16) !important;",
+    "  --cpd-color-bg-badge-accent: #fcd535 !important;",
+    "  --cpd-color-text-badge-accent: " + GOLD_ON + " !important;",
+    "  --cpd-color-border-accent-primary: " + GOLD + " !important;",
+    "  --cpd-color-border-accent-subtle: " + GOLD_PRESSED + " !important;",
+    "  --cpd-color-bg-action-primary-rest: " + GOLD_BTN + " !important;",
+    "  --cpd-color-bg-action-primary-hovered: " + GOLD_HOVER + " !important;",
+    "  --cpd-color-bg-action-primary-pressed: " + GOLD_PRESSED + " !important;",
+    "  --cpd-color-text-on-solid-primary: " + GOLD_ON + " !important;",
+    "  --cpd-color-icon-on-solid-primary: " + GOLD_ON + " !important;",
+    "  --cpd-color-gradient-action-stop1: " + GOLD_BTN + " !important;",
+    "  --cpd-color-gradient-action-stop2: " + GOLD_HOVER + " !important;",
+    "  --cpd-color-gradient-action-stop3: " + GOLD_PRESSED + " !important;",
+    "  --cpd-color-gradient-action-stop4: #a67c00 !important;",
+    "  --cpd-color-bg-canvas-default: " + SURFACE + " !important;",
+    "  --cpd-color-bg-subtle-primary: " + SURFACE + " !important;",
+    "  --cpd-color-bg-subtle-secondary: " + SURFACE + " !important;",
+    "  --cpd-color-bg-subtle-tertiary: " + SURFACE + " !important;",
+    "  --cpd-color-text-primary: " + TEXT + " !important;",
+    "  --cpd-color-text-secondary: " + TEXT_MUTED + " !important;",
+    "  --cpd-color-separator-primary: " + BORDER + " !important;",
+    "  --cpd-color-separator-secondary: rgba(255, 255, 255, 0.04) !important;",
+    "  --cpd-color-border-focused: " + GOLD + " !important;",
+    "  --cpd-color-text-link-external: #fcd535 !important;",
+    "  --cpd-color-text-success-primary: " + GOLD + " !important;",
+    "  --cpd-color-icon-success-primary: " + GOLD + " !important;",
+    "  font-family: \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", \"Hiragino Sans GB\", sans-serif;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary,",
+    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary,",
+    ".mx_Login_submit,",
+    ".mx_Dialog_primary,",
+    ".mx_Dialog button.mx_Dialog_primary,",
+    ".mx_Dialog_buttons button.mx_Dialog_primary,",
+    "button.mx_AccessibleButton_kind_primary,",
+    ".cpd-button[data-kind='primary'],",
+    "button[data-kind='primary'] {",
+    "  background-color: " + GOLD_BTN + " !important;",
+    "  background: " + GOLD_BTN + " !important;",
+    "  border-color: " + GOLD_BTN + " !important;",
+    "  color: " + GOLD_ON + " !important;",
+    "  --cpd-color-text-on-solid-primary: " + GOLD_ON + " !important;",
+    "  --cpd-color-icon-on-solid-primary: " + GOLD_ON + " !important;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary:hover,",
+    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary:hover,",
+    ".mx_Login_submit:hover,",
+    ".mx_Dialog_primary:hover,",
+    ".cpd-button[data-kind='primary']:hover,",
+    "button[data-kind='primary']:hover {",
+    "  background-color: " + GOLD_HOVER + " !important;",
+    "  background: " + GOLD_HOVER + " !important;",
+    "  border-color: " + GOLD_HOVER + " !important;",
+    "  color: " + GOLD_ON + " !important;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary:active,",
+    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary:active,",
+    ".mx_Login_submit:active,",
+    ".cpd-button[data-kind='primary']:active,",
+    "button[data-kind='primary']:active {",
+    "  background-color: " + GOLD_PRESSED + " !important;",
+    "  background: " + GOLD_PRESSED + " !important;",
+    "  border-color: " + GOLD_PRESSED + " !important;",
+    "  color: " + GOLD_ON + " !important;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary svg,",
+    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary svg,",
+    ".mx_Login_submit svg,",
+    ".mx_Dialog_primary svg,",
+    ".cpd-button[data-kind='primary'] svg,",
+    "button[data-kind='primary'] svg,",
+    ".mx_AccessibleButton_kind_primary svg path,",
+    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary svg path,",
+    ".mx_Login_submit svg path,",
+    ".mx_Dialog_primary svg path,",
+    ".cpd-button[data-kind='primary'] svg path,",
+    "button[data-kind='primary'] svg path {",
+    "  color: " + GOLD_ON + " !important;",
+    "  fill: currentColor !important;",
+    "  stroke: currentColor;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary_outline,",
+    ".mx_AccessibleButton_kind_primary_outline.mx_AccessibleButton {",
+    "  color: " + GOLD + " !important;",
+    "  border-color: " + GOLD + " !important;",
+    "}",
+
+    ".mx_AccessibleButton_kind_primary_outline:hover {",
+    "  color: " + GOLD_HOVER + " !important;",
+    "  border-color: " + GOLD_HOVER + " !important;",
+    "  background-color: rgba(240, 185, 11, 0.12) !important;",
+    "}",
+
+    "a,",
+    ".mx_TextButton,",
+    ".mx_LinkButton,",
+    ".mx_AccessibleButton_kind_link,",
+    ".mx_AccessibleButton_kind_link_inline,",
+    ".text-success {",
+    "  --accent-color: " + GOLD + ";",
+    "}",
+
+    ".mx_AccessibleButton_kind_link,",
+    ".mx_AccessibleButton_kind_link_inline,",
+    ".mx_LinkButton,",
+    ".mx_TextButton,",
+    ".mx_LeftPanelLiveShareWarning,",
+    ".mx_ShareType_badge,",
+    "#mx_theme_accentColor {",
+    "  color: " + GOLD + " !important;",
+    "}",
+
+    ".mx_LeftPanelLiveShareWarning,",
+    ".mx_ShareType_badge {",
+    "  background-color: " + GOLD + " !important;",
+    "  color: " + GOLD_ON + " !important;",
+    "}",
   ].join("\n");
 
+  function forceGoldCssVars(el) {
+    if (!el || !el.style || !el.style.setProperty) return;
+    var pairs = [
+      ["--accent", GOLD_BTN],
+      ["--accent-color", GOLD_BTN],
+      ["--primary-color", GOLD_BTN],
+      ["--background", SURFACE],
+      ["--cpd-color-text-action-accent", GOLD],
+      ["--cpd-color-icon-accent-tertiary", GOLD],
+      ["--cpd-color-icon-accent-primary", GOLD],
+      ["--cpd-color-bg-accent-rest", GOLD_BTN],
+      ["--cpd-color-bg-accent-hovered", GOLD_HOVER],
+      ["--cpd-color-bg-accent-pressed", GOLD_PRESSED],
+      ["--cpd-color-bg-action-primary-rest", GOLD_BTN],
+      ["--cpd-color-bg-action-primary-hovered", GOLD_HOVER],
+      ["--cpd-color-bg-action-primary-pressed", GOLD_PRESSED],
+      ["--cpd-color-text-on-solid-primary", GOLD_ON],
+      ["--cpd-color-icon-on-solid-primary", GOLD_ON],
+      ["--cpd-color-border-accent-primary", GOLD],
+      ["--cpd-color-bg-canvas-default", SURFACE],
+      ["--cpd-color-bg-subtle-primary", SURFACE],
+      ["--cpd-color-bg-subtle-secondary", SURFACE],
+      ["--cpd-color-bg-subtle-tertiary", SURFACE],
+      ["--cpd-color-text-primary", TEXT],
+      ["--cpd-color-text-secondary", TEXT_MUTED],
+      ["--cpd-color-separator-primary", BORDER],
+      ["--cpd-color-border-focused", GOLD],
+    ];
+    for (var i = 0; i < pairs.length; i++) {
+      el.style.setProperty(pairs[i][0], pairs[i][1], "important");
+    }
+  }
+
+  function paintInlineGreens(root) {
+    var nodes = (root || document).querySelectorAll
+      ? (root || document).querySelectorAll("[style]")
+      : [];
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var st = el.getAttribute("style") || "";
+      if (
+        !/#0[Dd][Bb][Dd]8[Bb]|#03[Bb]381|#00[Cc]073|#0[Ee][Cc][Dd]8[Cc]|#8[Ee]41[Ff]2|#7[Ee]57[Cc]2/i.test(
+          st
+        )
+      ) {
+        continue;
+      }
+      el.style.cssText = st
+        .replace(/#0[Dd][Bb][Dd]8[Bb]/gi, GOLD)
+        .replace(/#03[Bb]381/gi, GOLD)
+        .replace(/#00[Cc]073/gi, GOLD)
+        .replace(/#0[Ee][Cc][Dd]8[Cc]/gi, GOLD)
+        .replace(/#8[Ee]41[Ff]2/gi, GOLD)
+        .replace(/#7[Ee]57[Cc]2/gi, GOLD_PRESSED);
+    }
+  }
+
+  function ensureThemeStylesheet() {
+    if (document.getElementById(THEME_LINK_ID)) return;
+    if (document.querySelector('link[href*="lab-jingepi-theme.css"]')) return;
+    var link = document.createElement("link");
+    link.id = THEME_LINK_ID;
+    link.rel = "stylesheet";
+    link.href = "lab-jingepi-theme.css";
+    (document.head || document.documentElement).appendChild(link);
+  }
+
   function injectCss() {
-    if (document.getElementById(STYLE_ID)) return;
-    var style = document.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent = HIDE_CSS;
-    (document.head || document.documentElement).appendChild(style);
+    ensureThemeStylesheet();
+    if (!document.getElementById(STYLE_ID)) {
+      var style = document.createElement("style");
+      style.id = STYLE_ID;
+      style.textContent = HIDE_CSS;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    forceGoldCssVars(document.documentElement);
+    forceGoldCssVars(document.body);
+    paintInlineGreens(document);
   }
 
   /* ---- Toast / Banner 文案 ---- */
@@ -316,6 +547,9 @@
     hideRoomEncryptionToggles();
     hideAddServerUi();
     hideThemeSwitcher();
+    forceGoldCssVars(document.documentElement);
+    forceGoldCssVars(document.body);
+    paintInlineGreens(document);
   }
 
   var obs = new MutationObserver(suppress);

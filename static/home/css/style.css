@@ -1888,7 +1888,11 @@ body.chat-page header{
     margin:0;
     padding:0;
     overflow:hidden;
-    background:#0b0b0c;
+    background:#0f1419;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    outline:none;
     display:flex;
     flex-direction:column;
 }
@@ -1899,7 +1903,10 @@ body.chat-page header{
     flex:1;
     min-height:0;
     border:0;
-    background:#0b0b0c;
+    border-radius:0;
+    box-shadow:none;
+    outline:none;
+    background:#0f1419;
 }
 
 @media screen and (max-width:768px){

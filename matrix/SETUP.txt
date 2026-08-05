@@ -10,7 +10,7 @@
 
 - Synapse: http://127.0.0.1:8008  （docker compose，healthy）
 
-- Element Web: http://127.0.0.1:8081  （upstream；金格默认反代为 /element/；默认语言简体中文 setting_defaults.language=zh-hans；show_labs_settings=false 关闭实验室；默认主题 custom-金格Pi 金色 #f0b90b，强制锁定不可切换）
+- Element Web: http://127.0.0.1:8081  （upstream；金格默认反代为 /element/；默认语言简体中文 setting_defaults.language=zh-hans；show_labs_settings=false 关闭实验室；默认主题 custom-金格Pi 炭黑/深蓝底 + 金强调 #f0b90b/#fcd535/#c99400，强制锁定不可切换；Noto Sans SC + Compound 表面/CTA 由 element-config compound + lab-jingepi-theme.css / lab-suppress 对齐金格站）
 
 - /chat iframe 默认同源：http://127.0.0.1:1000/element/
 
@@ -183,7 +183,9 @@
   Element 无单独「隐藏改名」UIFeature，以服务端禁用为准。
   实训强制主题 custom-金格Pi（default_theme + setting_defaults.theme，
   use_system_theme=false）；Element 1.12 无 UIFeature.themeSetting，
-  lab-suppress-e2ee-nags.js 隐藏外观页主题选择器并写回 localStorage。
+  lab-suppress-e2ee-nags.js 隐藏外观页主题选择器并写回 localStorage；
+  lab-jingepi-theme.css + config compound 对齐金格炭黑/金表面与 Noto Sans SC，
+  并覆盖 Compound accent / primary CTA 默认绿为 #f0b90b。
   实训隐藏「停用账户」与「个人信息」相关 UI：UIFeature.deactivate /
   identityServer / thirdPartyId=false；Synapse 无官方关停用 API 的配置，
   Flask :1000 反代拦截 POST /_matrix/client/*/account/deactivate（403）。
