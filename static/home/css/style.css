@@ -11,7 +11,6 @@
     --gold-light:#fcd535;
     --gold-mid:#f0b90b;
     --gold-deep:#c99400;
-    /* Liquid Glass：更高透 + 更强模糊 */
     --lg-x:28%;
     --lg-y:12%;
     --glass-bg:
@@ -202,7 +201,7 @@ body::before{
 
 header{
 
-    height:64px;
+    height:52px;
 
     display:flex;
 
@@ -271,6 +270,12 @@ header > *{
 
     letter-spacing:2px;
 
+    display:flex;
+
+    align-items:center;
+
+    line-height:1;
+
 }
 
 
@@ -279,6 +284,27 @@ header > *{
     color:inherit;
 
     text-decoration:none;
+
+    display:flex;
+
+    align-items:center;
+
+}
+
+
+.logo-img{
+
+    display:block;
+
+    height:36px;
+
+    width:auto;
+
+    max-width:min(220px, 52vw);
+
+    object-fit:contain;
+
+    image-rendering:-webkit-optimize-contrast;
 
 }
 
@@ -474,31 +500,7 @@ nav a:hover::after{
 
 .hero button::after{
 
-    content:"";
-
-    position:absolute;
-
-    inset:5px;
-
-    border-radius:999px;
-
-    pointer-events:none;
-
-    z-index:0;
-
-    background:
-        linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
-
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.85),
-        inset 0 -1px 0 rgba(255,255,255,.18),
-        inset 0 0 0 .5px rgba(255,255,255,.4);
-
-    mix-blend-mode:soft-light;
-
-    opacity:0;
-
-    transition:opacity .22s ease;
+    content:none;
 
 }
 
@@ -506,13 +508,6 @@ nav a:hover::after{
 .hero button:hover{
 
     transform:none;
-
-}
-
-
-.hero button:hover::after{
-
-    opacity:.95;
 
 }
 
@@ -660,7 +655,7 @@ nav a:hover::after{
     
         margin:0;
     
-        padding:16px 20px;
+        padding:10px 20px;
     
         flex-direction:row;
     
@@ -681,6 +676,18 @@ nav a:hover::after{
 
         margin-right:auto;
     
+    }
+
+    .logo-img{
+
+        height:32px;
+
+        width:auto;
+
+        max-width:min(180px, 48vw);
+
+        object-fit:contain;
+
     }
     
     
@@ -822,10 +829,30 @@ nav a:hover::after{
 
     cursor:pointer;
 
-    /* 向下延长热区，避免移向菜单时中途断开 */
-    padding-bottom:16px;
+    display:flex;
 
-    margin-bottom:-16px;
+    align-items:center;
+
+    align-self:stretch;
+
+    /* 热区用伪元素下延，避免 padding 把头像顶出标题栏 */
+}
+
+
+
+.account::after{
+
+    content:"";
+
+    position:absolute;
+
+    left:0;
+
+    right:0;
+
+    top:100%;
+
+    height:16px;
 
 }
 
@@ -833,9 +860,9 @@ nav a:hover::after{
 
 .avatar{
 
-    width:40px;
+    width:32px;
 
-    height:40px;
+    height:32px;
 
     border-radius:var(--radius-circle);
 
@@ -876,8 +903,8 @@ nav a:hover::after{
 .account-menu{
     position:absolute;
     right:0;
-    /* 贴着头像底部，落在 .account 热区内 */
-    top:40px;
+    /* 贴着头像区域底部 */
+    top:100%;
     z-index:20;
     width:160px;
     padding:12px 15px 15px;
@@ -944,16 +971,22 @@ nav a:hover::after{
     
         right:20px;
     
-        top:20px;
+        top:0;
+
+        bottom:0;
+
+        margin-left:0;
+
+        height:auto;
     
     }
     
     
     .avatar{
     
-        width:40px;
+        width:32px;
     
-        height:40px;
+        height:32px;
     
     }
     
@@ -1201,9 +1234,7 @@ nav a:hover::after{
     border-radius:inherit;
     pointer-events:none;
     z-index:-1;
-    background:
-        linear-gradient(0deg, rgba(48,48,52,.04), rgba(48,48,52,.04)),
-        linear-gradient(155deg, rgba(252,213,53,.9) 0%, rgba(240,185,11,.82) 45%, rgba(201,148,0,.78) 100%);
+    background:var(--gold-mid);
     /* 小按钮禁用位移折射，避免边缘被 warp 出缺口 */
     backdrop-filter:blur(4px) saturate(1.4) contrast(1.08) brightness(1.04);
     -webkit-backdrop-filter:blur(4px) saturate(1.4) contrast(1.08) brightness(1.04);
@@ -1213,29 +1244,11 @@ nav a:hover::after{
 }
 
 .modal-btn-primary::after{
-    content:"";
-    position:absolute;
-    inset:4px;
-    border-radius:calc(var(--radius-control) - 4px);
-    pointer-events:none;
-    z-index:-1;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.85),
-        inset 0 -1px 0 rgba(255,255,255,.18),
-        inset 0 0 0 .5px rgba(255,255,255,.4);
-    mix-blend-mode:soft-light;
-    opacity:0;
-    transition:opacity .22s ease;
+    content:none;
 }
 
 .modal-btn-primary:hover{
     transform:none;
-}
-
-.modal-btn-primary:hover::after{
-    opacity:.95;
 }
 
 .modal-btn-primary > *,
@@ -1775,29 +1788,11 @@ body:has(.float-nav) .panel-main{
 }
 
 .panel-card .func-btn::after{
-    content:"";
-    position:absolute;
-    inset:4px;
-    border-radius:999px;
-    pointer-events:none;
-    z-index:-1;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.85),
-        inset 0 -1px 0 rgba(255,255,255,.18),
-        inset 0 0 0 .5px rgba(255,255,255,.4);
-    mix-blend-mode:soft-light;
-    opacity:0;
-    transition:opacity .22s ease;
+    content:none;
 }
 
 .panel-card .func-btn:hover{
     transform:none;
-}
-
-.panel-card .func-btn:hover::after{
-    opacity:.95;
 }
 
 @media screen and (max-width:900px){
@@ -1982,38 +1977,17 @@ a.settings-btn{
 
 .settings-btn::before,
 a.settings-btn::before{
-    background:
-        linear-gradient(0deg, rgba(48,48,52,.06), rgba(48,48,52,.06)),
-        linear-gradient(155deg, rgba(252,213,53,.9) 0%, rgba(240,185,11,.82) 45%, rgba(201,148,0,.78) 100%);
+    background:var(--gold-mid);
 }
 
 .settings-btn::after,
 a.settings-btn::after{
-    content:"";
-    position:absolute;
-    inset:4px;
-    border-radius:calc(var(--radius-control) - 4px);
-    pointer-events:none;
-    z-index:-1;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.48) 42%, rgba(255,255,255,.22) 100%);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.85),
-        inset 0 -1px 0 rgba(255,255,255,.18),
-        inset 0 0 0 .5px rgba(255,255,255,.4);
-    mix-blend-mode:soft-light;
-    opacity:0;
-    transition:opacity .22s ease;
+    content:none;
 }
 
 .settings-btn:hover,
 a.settings-btn:hover{
     transform:none;
-}
-
-.settings-btn:hover::after,
-a.settings-btn:hover::after{
-    opacity:.95;
 }
 
 .settings-btn-secondary,

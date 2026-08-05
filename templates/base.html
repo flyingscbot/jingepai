@@ -25,7 +25,9 @@
 
     <header>
         <div class="logo">
-            <a href="{{ url_for('home.index') }}">金格<span>Pi</span></a>
+            <a href="{{ url_for('home.index') }}" aria-label="金格Pi">
+                <img src="{{ url_for('static', filename='home/img/logo.png') }}" alt="金格Pi" class="logo-img">
+            </a>
         </div>
 
         {% if show_float_nav %}

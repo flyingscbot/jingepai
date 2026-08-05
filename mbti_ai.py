@@ -16,6 +16,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+import market_data
 import mbti_algo
 import mbti_log
 import trade_history
@@ -286,66 +287,70 @@ def analyze_mbti_from_history(
 ) -> dict[str, Any]:
     """基于交易历史记录分析投资性格 MBTI。
 
-    先跑 V2 前置算法，再将算法结果写入提示词供 AI 生成解释与最终类型。
+    先跑 V2 前置算法（含 akshare 日行情临时缓存），再写入提示词供 AI 解释。
+    行情缓存在本函数结束时一律清理。
     """
     if not records:
         raise ValueError("暂无交易历史记录，请先在「我的交易数据」中整理或添加")
 
-    algo = mbti_algo.run_pre_algorithm(records)
-    csv_text = trade_history.records_to_csv_text(records)
-    used = len(records)
-    total = total_in_csv if total_in_csv is not None else used
-    user_prompt = _build_user_prompt(
-        csv_text, used=used, total=total, limit=limit, algo=algo
-    )
+    with market_data.MarketSession() as mkt:
+        algo = mbti_algo.run_pre_algorithm(records, market=mkt)
+        csv_text = trade_history.records_to_csv_text(records)
+        used = len(records)
+        total = total_in_csv if total_in_csv is not None else used
+        user_prompt = _build_user_prompt(
+            csv_text, used=used, total=total, limit=limit, algo=algo
+        )
 
-    if not ai_is_ready():
-        raise ValueError("AI 接口尚未配置，暂不生成类型结果（不会写入 MBTI_log）")
+        if not ai_is_ready():
+            raise ValueError("AI 接口尚未配置，暂不生成类型结果（不会写入 MBTI_log）")
 
-    try:
-        raw = _call_ai_api(user_prompt)
-    except ValueError:
-        raise
-    except Exception as e:
-        raise ValueError(f"AI 分析失败：{e}") from e
+        try:
+            raw = _call_ai_api(user_prompt)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"AI 分析失败：{e}") from e
 
-    mbti = _normalize_ai_type(str(raw.get("mbti") or raw.get("类型") or ""))
-    # 高置信算法结果：若 AI 偏离且无法识别冲突证据，回退到算法主型
-    algo_mbti = str(algo.get("mbti") or "")
-    algo_conf = float(algo.get("confidence") or 0)
-    if algo_mbti in MBTI_TYPES and algo_conf >= 0.65 and mbti != algo_mbti:
-        mbti = algo_mbti
+        mbti = _normalize_ai_type(str(raw.get("mbti") or raw.get("类型") or ""))
+        # 高置信算法结果：若 AI 偏离，回退到算法主型
+        algo_mbti = str(algo.get("mbti") or "")
+        algo_conf = float(algo.get("confidence") or 0)
+        if algo_mbti in MBTI_TYPES and algo_conf >= 0.65 and mbti != algo_mbti:
+            mbti = algo_mbti
 
-    title = str(raw.get("title") or mbti).strip() or mbti
-    summary = str(raw.get("summary") or "").strip()
-    details = str(raw.get("details") or "").strip()
+        title = str(raw.get("title") or mbti).strip() or mbti
+        summary = str(raw.get("summary") or "").strip()
+        details = str(raw.get("details") or "").strip()
 
-    date_from = records[-1].get("成交日期", "")
-    date_to = records[0].get("成交日期", "")
-    range_hint = ""
-    if date_from and date_to:
-        range_hint = f"覆盖成交日期 {date_from} ~ {date_to}。"
+        date_from = records[-1].get("成交日期", "")
+        date_to = records[0].get("成交日期", "")
+        range_hint = ""
+        if date_from and date_to:
+            range_hint = f"覆盖成交日期 {date_from} ~ {date_to}。"
 
-    return {
-        "mbti": mbti,
-        "title": title,
-        "summary": summary if summary else f"判定为「{mbti}」。{range_hint}",
-        "details": details,
-        "algo": algo,
-        "algo_mbti": algo_mbti,
-        "algo_tags": algo.get("tags"),
-        "algo_confidence": algo_conf,
-        "algo_display": algo.get("display"),
-        "source_file": f"trade_history.csv（最近 {used} 条）",
-        "record_count": used,
-        "total_in_csv": total,
-        "csv_chars": len(csv_text),
-        "ai_ready": True,
-        "ai_used": True,
-        "ai_provider": AI_PROVIDER,
-        "ai_model": AI_MODEL,
-        "types": list(MBTI_TYPES),
-    }
+        return {
+            "mbti": mbti,
+            "title": title,
+            "summary": summary if summary else f"判定为「{mbti}」。{range_hint}",
+            "details": details,
+            "algo": algo,
+            "algo_mbti": algo_mbti,
+            "algo_tags": algo.get("tags"),
+            "algo_confidence": algo_conf,
+            "algo_display": algo.get("display"),
+            "source_file": f"trade_history.csv（最近 {used} 条）",
+            "record_count": used,
+            "total_in_csv": total,
+            "csv_chars": len(csv_text),
+            "ai_ready": True,
+            "ai_used": True,
+            "ai_provider": AI_PROVIDER,
+            "ai_model": AI_MODEL,
+            "types": list(MBTI_TYPES),
+            "market_akshare": market_data.akshare_available(),
+        }
+    # MarketSession.__exit__ → close() 删除临时缓存目录
 
 
 def analyze_mbti_for_user(user_id: str, limit: int = trade_history.MBTI_RECORD_LIMIT) -> dict[str, Any]:
