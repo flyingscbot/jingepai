@@ -4,14 +4,45 @@
 
 {% block body_class %}panel-page chat-page{% endblock %}
 
+{% block head %}
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  /* 首屏兜底，避免 FOUC 时聊天区高度错误 */
+  body.chat-page { background:#0f1419; }
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="chat-shell" aria-label="投资聊天室">
+<main class="chat-shell" id="chatShell" aria-label="投资聊天室">
     <iframe
         class="chat-frame"
+        id="chatFrame"
         src="{{ element_url }}"
         title="金格Pi 聊天室"
         allow="camera; microphone; display-capture; clipboard-read; clipboard-write; fullscreen"
         referrerpolicy="no-referrer-when-downgrade"
     ></iframe>
 </main>
+<script>
+(function () {
+  function syncChatHeaderHeight() {
+    var header = document.querySelector("body.chat-page header");
+    var shell = document.getElementById("chatShell");
+    if (!header || !shell) return;
+    var h = Math.ceil(header.getBoundingClientRect().height);
+    if (h > 0) {
+      shell.style.setProperty("--chat-header-h", h + "px");
+      document.documentElement.style.setProperty("--chat-header-h", h + "px");
+    }
+  }
+  syncChatHeaderHeight();
+  window.addEventListener("resize", syncChatHeaderHeight);
+  window.addEventListener("orientationchange", function () {
+    setTimeout(syncChatHeaderHeight, 120);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncChatHeaderHeight);
+  }
+})();
+</script>
 {% endblock %}

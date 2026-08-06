@@ -1,73 +1,16 @@
 /**
- * 金格Pi × Element Web — 视觉对齐静态注入
- * 与 static/home/css/style.css 同系：炭灰/深蓝灰底 + 金强调 + Noto Sans SC
- * 由 element-nginx sub_filter 注入；配合 element-config.json custom_themes「金格Pi」
- *
- * 颜色值来自先注入的 jingepi-theme-vars.css（管理后台可改）；本文件只做映射与组件覆盖。
+ * 金格Pi × Element Web 视觉层（对齐站点 UI + 手机适配）
+ * 颜色来自 jingepi-theme-vars.css（--jingepi-*），本文件只负责结构与组件皮肤。
+ * 不破坏 Element 窄屏「列表 ↔ 房间」切换逻辑。
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap");
-
-:root,
-html,
-body,
-.cpd-theme-dark,
-.cpd-theme-light,
-[class*="cpd-theme-"] {
-  /* --jingepi-* 色值由 jingepi-theme-vars.css（先注入）提供；此处只做映射与字体 */
-  --jingepi-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
-
-  --accent: var(--jingepi-btn) !important;
-  --accent-color: var(--jingepi-btn) !important;
-  --primary-color: var(--jingepi-btn) !important;
-  --secondary-content: var(--jingepi-gold-deep) !important;
-  --tertiary-content: var(--jingepi-gold-light) !important;
-  --background: var(--jingepi-surface) !important;
-  --system: var(--jingepi-gold) !important;
-
-  --cpd-color-text-action-accent: var(--jingepi-gold) !important;
-  --cpd-color-icon-accent-tertiary: var(--jingepi-gold) !important;
-  --cpd-color-icon-accent-primary: var(--jingepi-gold) !important;
-  --cpd-color-bg-accent-rest: var(--jingepi-btn) !important;
-  --cpd-color-bg-accent-hovered: var(--jingepi-btn-hover) !important;
-  --cpd-color-bg-accent-pressed: var(--jingepi-gold-deep) !important;
-  --cpd-color-bg-accent-selected: rgba(240, 185, 11, 0.22) !important;
-  --cpd-color-bg-accent-subtle: rgba(240, 185, 11, 0.16) !important;
-  --cpd-color-bg-badge-accent: var(--jingepi-gold-light) !important;
-  --cpd-color-text-badge-accent: var(--jingepi-gold-on) !important;
-  --cpd-color-border-accent-primary: var(--jingepi-gold) !important;
-  --cpd-color-border-accent-subtle: var(--jingepi-gold-deep) !important;
-  --cpd-color-border-focused: var(--jingepi-gold) !important;
-  --cpd-color-bg-action-primary-rest: var(--jingepi-btn) !important;
-  --cpd-color-bg-action-primary-hovered: var(--jingepi-btn-hover) !important;
-  --cpd-color-bg-action-primary-pressed: var(--jingepi-gold-deep) !important;
-  --cpd-color-text-on-solid-primary: var(--jingepi-gold-on) !important;
-  --cpd-color-icon-on-solid-primary: var(--jingepi-gold-on) !important;
-  --cpd-color-gradient-action-stop1: var(--jingepi-btn) !important;
-  --cpd-color-gradient-action-stop2: var(--jingepi-btn-hover) !important;
-  --cpd-color-gradient-action-stop3: var(--jingepi-gold-deep) !important;
-  --cpd-color-gradient-action-stop4: var(--jingepi-gold-stop4) !important;
-
-  /* Compound 画布/subtle 全部对齐同一表面，消灭 inset 色差块 */
-  --cpd-color-bg-canvas-default: var(--jingepi-surface) !important;
-  --cpd-color-bg-subtle-primary: var(--jingepi-surface) !important;
-  --cpd-color-bg-subtle-secondary: var(--jingepi-surface) !important;
-  --cpd-color-bg-subtle-tertiary: var(--jingepi-surface) !important;
-  --cpd-color-text-primary: var(--jingepi-text) !important;
-  --cpd-color-text-secondary: var(--jingepi-text-muted) !important;
-  --cpd-color-icon-primary: var(--jingepi-text) !important;
-  --cpd-color-icon-secondary: var(--jingepi-text-muted) !important;
-  /* 分隔仅靠极淡发丝线，不用大块色阶 */
-  --cpd-color-separator-primary: rgba(255, 255, 255, 0.06) !important;
-  --cpd-color-separator-secondary: rgba(255, 255, 255, 0.04) !important;
-  --cpd-color-border-interactive-primary: var(--jingepi-border-strong) !important;
-  --cpd-color-border-interactive-secondary: var(--jingepi-border) !important;
-  --cpd-color-border-interactive-hovered: var(--jingepi-gold-deep) !important;
-  --cpd-color-text-link-external: var(--jingepi-gold-light) !important;
-  --cpd-color-text-success-primary: var(--jingepi-gold) !important;
-  --cpd-color-icon-success-primary: var(--jingepi-gold) !important;
-  --cpd-color-bg-success-subtle: rgba(240, 185, 11, 0.12) !important;
-  --cpd-color-bg-info-subtle: rgba(23, 37, 84, 0.45) !important;
+/* ---------- 基础 ---------- */
+html {
+  height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -75,21 +18,51 @@ body,
 #matrixchat,
 .mx_MatrixChat,
 .mx_MatrixChat_wrapper,
+.mx_MainSplit,
+.mx_LeftPanel,
+.mx_RoomView,
 .mx_AuthPage,
-.mx_EmbeddedPage,
+.mx_Dialog,
 button,
 input,
 textarea,
 select {
-  font-family: var(--jingepi-font) !important;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
+    sans-serif !important;
 }
 
-/*
- * 彻底消灭「中间方框」：
- * 1) 主布局 / 侧栏 / 卡片 chrome：border/outline/box-shadow 全关
- * 2) 对话框 / 菜单 / 登录卡片：去掉我们误加的玻璃描边（居中窗口上的矩形框）
- * 仅保留真正交互控件（输入框、按钮）的边框
- */
+body {
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  background: var(--jingepi-bg, #0f1419) !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+.mx_AuthPage,
+.mx_MatrixChat,
+.mx_MatrixChat_wrapper {
+  background: var(--jingepi-bg, #0f1419) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+}
+
+#matrixchat,
+.mx_MatrixChat,
+.mx_MatrixChat_wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 去掉我们历史误加的装饰框；主 chrome 无描边 */
 #matrixchat,
 .mx_MatrixChat,
 .mx_MatrixChat_wrapper,
@@ -125,55 +98,13 @@ select {
 .mx_MenuPanel,
 .mx_UserMenu_contextMenu,
 .mx_GenericDropdownMenu,
-.mx_ResizeHandle,
-.mx_ResizeHandle--horizontal,
-.mx_ResizeHandle--vertical {
+.mx_ResizeHandle {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
 }
 
-/* 伪元素装饰框（若有）一并干掉 */
-body::before,
-body::after,
-#matrixchat::before,
-#matrixchat::after,
-.mx_MatrixChat::before,
-.mx_MatrixChat::after,
-.mx_MatrixChat_wrapper::before,
-.mx_MatrixChat_wrapper::after,
-.mx_MainSplit::before,
-.mx_MainSplit::after,
-.mx_AuthPage::before,
-.mx_AuthPage::after,
-.mx_AuthPage_modal::before,
-.mx_AuthPage_modal::after,
-.mx_AuthBody::before,
-.mx_AuthBody::after,
-.mx_Dialog::before,
-.mx_Dialog::after,
-.mx_Dialog_border::before,
-.mx_Dialog_border::after,
-.mx_TabbedView::before,
-.mx_TabbedView::after {
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* 整页底色用 --jingepi-bg；氛围渐变极淡，避免中间卡与页面形成色阶矩形 */
-body,
-.mx_AuthPage,
-.mx_MatrixChat,
-.mx_MatrixChat_wrapper {
-  background:
-    radial-gradient(circle at top right, rgba(75, 59, 18, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at bottom left, rgba(23, 37, 84, 0.14) 0%, transparent 36%),
-    var(--jingepi-bg) !important;
-  color: var(--jingepi-text) !important;
-}
-
-/* ---- 侧栏 / 房间列表 ---- */
+/* ---------- 侧栏 / 房间列表 ---------- */
 .mx_LeftPanel,
 .mx_LeftPanel_wrapper,
 .mx_LeftPanel_wrapperPanel,
@@ -183,223 +114,348 @@ body,
 .mx_RoomList,
 .mx_RoomListItemView,
 .mx_RoomListSearch,
-.mx_RoomSnippet {
-  background-color: var(--jingepi-surface) !important;
-  color: var(--jingepi-text) !important;
+.mx_RoomSnippet,
+.mx_SpaceButton,
+.mx_UserMenu {
+  background-color: var(--jingepi-surface, #151209) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  min-width: 0 !important;
+}
+
+.mx_RoomListHeader,
+.mx_LegacyRoomHeader,
+.mx_RoomHeader,
+.mx_RoomHeader_wrapper {
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background-color: var(--jingepi-surface, #151209) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  box-shadow: none !important;
 }
 
 .mx_RoomListItemView_selected,
 .mx_RoomListItemView:hover,
 .mx_RoomTile_selected,
 .mx_RoomTile:hover,
-.mx_AccessibleButton.mx_RoomTile_selected {
-  background-color: var(--jingepi-highlight) !important;
+.mx_AccessibleButton.mx_RoomTile_selected,
+.mx_SpaceButton:hover,
+.mx_SpaceButton_active {
+  background-color: var(--jingepi-highlight, #241c0e) !important;
 }
 
 .mx_RoomTile_badge,
 .mx_NotificationBadge_count,
 .mx_NotificationBadge_dot {
-  background-color: var(--jingepi-gold) !important;
-  color: var(--jingepi-gold-on) !important;
-  border-color: var(--jingepi-gold) !important;
+  background-color: var(--jingepi-gold, #f0b90b) !important;
+  color: var(--jingepi-gold-on, #241c0e) !important;
+  border-color: var(--jingepi-gold, #f0b90b) !important;
 }
 
-/* ---- 时间线 / 主区 ---- */
+.mx_RoomListItemView_context,
+.mx_RoomSnippet_subtitle,
+.mx_RoomTile_subtitle,
+.mx_TextWithTooltip_target {
+  color: var(--jingepi-text-muted, #aaaaaa) !important;
+}
+
+/*
+ * 侧栏空间名 / 房间列表头标题：完整显示「金格Pi」，去掉 ellipsis 截断。
+ * Element 默认 .mx_SpaceButton_name 与 RoomListHeaderView title h1 会 text-overflow:ellipsis；
+ * 另有 min-width:0 会加剧 flex 压缩。地球（公开空间）标识保留。
+ */
+.mx_SpacePanel .mx_SpaceButton:not(.mx_SpaceButton_narrow) .mx_SpaceButton_name {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  max-width: none !important;
+}
+
+.mx_SpacePanel .mx_SpaceButton:not(.mx_SpaceButton_narrow) .mx_SpaceButton_selectionWrapper {
+  overflow: visible !important;
+  min-width: max-content !important;
+}
+
+.mx_SpacePanel .mx_SpaceTreeLevel {
+  max-width: none !important;
+}
+
+/* RoomListHeaderView（CSS module：*_title_* > h1） */
+.mx_RoomListPanel [class*="_title_"]:has(> h1),
+.mx_RoomListPanel [class*="_title_"] > h1,
+.mx_RoomListPanel header h1 {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  max-width: none !important;
+}
+
+.mx_RoomListPanel [class*="_container_"]:has([class*="_title_"] > h1) {
+  min-width: 0 !important; /* 仍可收缩，但标题本身不压缩 */
+  overflow: visible !important;
+}
+
+/* 列表项标题（公开空间头像角标地球仍保留）：保证短名如「金格Pi」不被压成 … */
+.mx_RoomListPanel [class*="_richItem_"] [class*="_title_"] {
+  min-width: 5em !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+/* ---------- 主聊天区 ---------- */
+.mx_MainSplit,
 .mx_RoomView,
 .mx_RoomView_body,
 .mx_RoomView_timeline,
 .mx_RoomView_messagePanel,
-.mx_MainSplit,
 .mx_RightPanel,
 .mx_BaseCard,
 .mx_ThreadView,
 .mx_EventTile,
 .mx_HomePage,
 .mx_EmbeddedPage {
-  background-color: var(--jingepi-surface) !important;
-  color: var(--jingepi-text) !important;
+  background-color: var(--jingepi-surface, #151209) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 .mx_EventTile:hover,
 .mx_EventTile.mx_EventTile_selected,
 .mx_EventTile.mx_EventTile_highlight {
-  background-color: var(--jingepi-highlight) !important;
+  background-color: var(--jingepi-highlight, #241c0e) !important;
 }
 
-.mx_RoomHeader,
-.mx_LegacyRoomHeader,
-.mx_RoomHeader_wrapper {
-  background-color: var(--jingepi-surface) !important;
-  border: none !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  box-shadow: none !important;
-  color: var(--jingepi-text) !important;
+.mx_EventTile .markdown-body,
+.mx_EventTile_body,
+.mx_EventTile_sender {
+  color: var(--jingepi-text, #f5f5f5) !important;
 }
 
-/* ---- 设置 / TabbedView：与主区同色，去掉 inset 卡片色块 ---- */
-.mx_TabbedView,
-.mx_TabbedView_tabPanel,
-.mx_TabbedView_tabPanelContent,
-.mx_SettingsDialog,
-.mx_SettingsTab,
-.mx_SettingsSection,
-.mx_SettingsSubsection,
-.mx_SettingsFlag {
-  background-color: var(--jingepi-surface) !important;
-  background: var(--jingepi-surface) !important;
-  box-shadow: none !important;
+.mx_EventTile .markdown-body a {
+  color: var(--jingepi-gold, #f0b90b) !important;
 }
 
-/* ---- 输入框 / Composer（仅交互控件可略深，不用大块面板色） ---- */
+/* 输入区：轻微抬升，贴近金格面板感，但不做大色块框 */
 .mx_MessageComposer,
-.mx_MessageComposer_wrapper,
 .mx_BasicMessageComposer,
 .mx_SendMessageComposer,
-.mx_MessageComposer_editor,
-.mx_Field input,
-.mx_Field textarea,
-.mx_SearchBox,
-.mx_FilterInput {
-  background-color: var(--jingepi-input) !important;
-  color: var(--jingepi-text) !important;
-  border-color: var(--jingepi-border) !important;
+.mx_MessageComposer_wrapper {
+  background-color: var(--jingepi-surface, #151209) !important;
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
 }
 
-.mx_MessageComposer,
-.mx_MessageComposer_wrapper {
-  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+.mx_BasicMessageComposer_input,
+.mx_MessageComposer textarea,
+.mx_Field_input,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+textarea {
+  background-color: var(--jingepi-input, #161a22) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
   box-shadow: none !important;
 }
 
-.mx_Field input:focus,
-.mx_Field textarea:focus,
-.mx_BasicMessageComposer:focus-within,
-.mx_MessageComposer_editor:focus-within {
-  border-color: var(--jingepi-gold) !important;
-  outline-color: var(--jingepi-gold) !important;
-  box-shadow: 0 0 0 1px rgba(240, 185, 11, 0.35) !important;
-}
-
-/* ---- 对话框 / 菜单：与页面同色 #12151c，仅软阴影区分层级，无不同实心底 ---- */
-.mx_Dialog,
-.mx_Dialog_fixedWidth,
-.mx_Dialog_border,
-.mx_Dialog_wrapper .mx_Dialog,
-.mx_ContextualMenu,
-.mx_IconizedContextMenu,
-.mx_MenuPanel,
-.mx_SettingsDialog,
-.mx_UserMenu_contextMenu,
-.mx_GenericDropdownMenu {
-  background: var(--jingepi-surface) !important;
-  background-color: var(--jingepi-surface) !important;
-  color: var(--jingepi-text) !important;
-  border: none !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+.mx_BasicMessageComposer_input:focus,
+.mx_Field_input:focus,
+input:focus,
+textarea:focus {
+  border-color: var(--jingepi-gold, #f0b90b) !important;
   outline: none !important;
 }
 
-.mx_Dialog_title,
-.mx_SettingsTab_heading,
-.mx_SettingsSubsection_heading {
-  color: var(--jingepi-text) !important;
+/* ---------- 设置 / 对话框 ---------- */
+.mx_TabbedView,
+.mx_TabbedView_tabPanel,
+.mx_SettingsDialog,
+.mx_Dialog,
+.mx_Dialog_fixedWidth,
+.mx_Dialog_content,
+.mx_Dialog_wrapper {
+  background-color: var(--jingepi-surface, #151209) !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45) !important;
 }
 
-.mx_Dialog_cancelButton,
-.mx_Dialog_cancelButton::before {
-  filter: none !important;
+.mx_Dialog_overlay,
+.mx_Dialog_background {
+  background: rgba(0, 0, 0, 0.55) !important;
 }
 
-/* ---- 按钮：主金 / 次描边金（前景极淡黄 #fff6d1） ---- */
-.mx_AccessibleButton_kind_primary,
-.mx_AccessibleButton.mx_AccessibleButton_kind_primary,
+.mx_TabbedView_tabLabel,
+.mx_TabbedView_tabLabel_text {
+  color: var(--jingepi-text-muted, #aaaaaa) !important;
+}
+
+.mx_TabbedView_tabLabel_active,
+.mx_TabbedView_tabLabel_active .mx_TabbedView_tabLabel_text {
+  color: var(--jingepi-gold, #f0b90b) !important;
+}
+
+/* ---------- 登录 / SSO：无中间色块卡 ---------- */
+.mx_AuthPage_modal,
+.mx_AuthBody,
+.mx_AuthHeader,
+.mx_AuthHeaderLogo,
+.mx_AuthBody_fieldRow,
+.mx_AuthBody_changeFlow,
+.mx_Login,
+.mx_SSOButtons {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--jingepi-text, #f5f5f5) !important;
+}
+
+.mx_AuthPage h1,
+.mx_AuthPage h2,
+.mx_Login_header,
+.mx_AuthHeaderLogo {
+  color: var(--jingepi-text, #f5f5f5) !important;
+}
+
+/* ---------- 按钮：金色主按钮仅用于登录/对话框/SSO 等文字 CTA ---------- */
 .mx_Login_submit,
 .mx_Dialog_primary,
 .mx_Dialog button.mx_Dialog_primary,
 .mx_Dialog_buttons button.mx_Dialog_primary,
-button.mx_AccessibleButton_kind_primary,
-.cpd-button[data-kind="primary"],
-button[data-kind="primary"] {
-  background-color: var(--jingepi-btn) !important;
-  background: var(--jingepi-btn) !important;
-  border-color: var(--jingepi-btn) !important;
-  color: var(--jingepi-gold-on) !important;
-  --cpd-color-text-on-solid-primary: var(--jingepi-gold-on) !important;
-  --cpd-color-icon-on-solid-primary: var(--jingepi-gold-on) !important;
+.mx_SSOButton,
+.mx_SSOButton_default {
+  background-color: var(--jingepi-btn, #e0a80a) !important;
+  background: var(--jingepi-btn, #e0a80a) !important;
+  border-color: var(--jingepi-btn, #e0a80a) !important;
+  color: var(--jingepi-gold-on, #fff6d1) !important;
+  border-radius: 14px !important;
 }
 
-.mx_AccessibleButton_kind_primary:hover,
-.mx_AccessibleButton.mx_AccessibleButton_kind_primary:hover,
 .mx_Login_submit:hover,
 .mx_Dialog_primary:hover,
-.cpd-button[data-kind="primary"]:hover,
-button[data-kind="primary"]:hover {
-  background-color: var(--jingepi-btn-hover) !important;
-  background: var(--jingepi-btn-hover) !important;
-  border-color: var(--jingepi-btn-hover) !important;
-  color: var(--jingepi-gold-on) !important;
+.mx_SSOButton:hover,
+.mx_SSOButton_default:hover {
+  background-color: var(--jingepi-btn-hover, #c99400) !important;
+  background: var(--jingepi-btn-hover, #c99400) !important;
+  border-color: var(--jingepi-btn-hover, #c99400) !important;
+  color: var(--jingepi-gold-on, #fff6d1) !important;
 }
 
-.mx_AccessibleButton_kind_primary:active,
-.mx_AccessibleButton.mx_AccessibleButton_kind_primary:active,
-.mx_Login_submit:active,
-.cpd-button[data-kind="primary"]:active,
-button[data-kind="primary"]:active {
-  background-color: var(--jingepi-gold-deep) !important;
-  background: var(--jingepi-gold-deep) !important;
-  border-color: var(--jingepi-gold-deep) !important;
-  color: var(--jingepi-gold-on) !important;
-}
-
-.mx_AccessibleButton_kind_primary svg,
-.mx_AccessibleButton.mx_AccessibleButton_kind_primary svg,
 .mx_Login_submit svg,
 .mx_Dialog_primary svg,
-.cpd-button[data-kind="primary"] svg,
-button[data-kind="primary"] svg,
-.mx_AccessibleButton_kind_primary svg path,
-.mx_AccessibleButton.mx_AccessibleButton_kind_primary svg path,
-.mx_Login_submit svg path,
-.mx_Dialog_primary svg path,
-.cpd-button[data-kind="primary"] svg path,
-button[data-kind="primary"] svg path {
-  color: var(--jingepi-gold-on) !important;
+.mx_SSOButton svg,
+.mx_Login_submit svg path {
+  color: var(--jingepi-gold-on, #fff6d1) !important;
   fill: currentColor !important;
-  stroke: currentColor;
 }
 
-.mx_AccessibleButton_kind_primary_outline,
-.mx_AccessibleButton_kind_primary_outline.mx_AccessibleButton,
-.mx_AccessibleButton_kind_secondary,
-.cpd-button[data-kind="secondary"] {
-  color: var(--jingepi-gold) !important;
-  border-color: var(--jingepi-gold-deep) !important;
-  background-color: transparent !important;
+/* 文字型 primary（非纯图标、非顶栏）仍可用金色 */
+.mx_AccessibleButton_kind_primary:not(:has(svg)),
+button.mx_AccessibleButton_kind_primary:not(:has(svg)) {
+  background-color: var(--jingepi-btn, #e0a80a) !important;
+  background: var(--jingepi-btn, #e0a80a) !important;
+  border-color: var(--jingepi-btn, #e0a80a) !important;
+  color: var(--jingepi-gold-on, #fff6d1) !important;
+  border-radius: 14px !important;
 }
 
-.mx_AccessibleButton_kind_primary_outline:hover,
-.mx_AccessibleButton_kind_secondary:hover,
-.cpd-button[data-kind="secondary"]:hover {
-  color: var(--jingepi-gold-hover) !important;
-  border-color: var(--jingepi-gold-hover) !important;
-  background-color: rgba(240, 185, 11, 0.12) !important;
+/*
+ * 图标按钮 + 顶栏/列表头控件：彻底取消尺寸/金色/大圆角强制。
+ * 展开按钮多在 .mx_RoomListHeader；FacePile/头像在 .mx_RoomHeader。
+ * 禁止 transform:scale 与宽高盒模型改动（会拉伸头像）。
+ */
+.mx_RoomHeader .cpd-button,
+.mx_RoomHeader .mx_AccessibleButton,
+.mx_RoomHeader button,
+.mx_RoomHeader_wrapper .cpd-button,
+.mx_RoomHeader_wrapper .mx_AccessibleButton,
+.mx_RoomHeader_wrapper button,
+.mx_LegacyRoomHeader .cpd-button,
+.mx_LegacyRoomHeader .mx_AccessibleButton,
+.mx_LegacyRoomHeader button,
+.mx_RoomListHeader .cpd-button,
+.mx_RoomListHeader .mx_AccessibleButton,
+.mx_RoomListHeader button,
+.mx_AccessibleButton_kind_primary:has(svg),
+.mx_AccessibleButton_kind_primary_outline:has(svg),
+.mx_AccessibleButton_kind_secondary:has(svg),
+.cpd-button[data-kind="primary"]:has(svg),
+.cpd-button[data-kind="secondary"]:has(svg),
+.cpd-button[data-kind="tertiary"]:has(svg),
+button[data-kind="primary"]:has(svg),
+button[data-kind="secondary"]:has(svg),
+button[data-kind="tertiary"]:has(svg) {
+  width: revert-layer !important;
+  height: revert-layer !important;
+  min-width: revert-layer !important;
+  min-height: revert-layer !important;
+  max-width: none !important;
+  max-height: none !important;
+  padding: revert-layer !important;
+  margin: revert-layer !important;
+  aspect-ratio: auto !important;
+  border-radius: revert-layer !important;
+  flex: revert-layer !important;
+  line-height: revert-layer !important;
+  transform: none !important;
+  background: revert-layer !important;
+  background-color: revert-layer !important;
+  border: revert-layer !important;
+  border-color: revert-layer !important;
+  color: revert-layer !important;
+  box-shadow: none !important;
+}
+
+/* 文字型 outline/secondary CTA（不含 SVG、非顶栏图标） */
+.mx_AccessibleButton_kind_primary_outline:not(:has(svg)),
+.mx_AccessibleButton_kind_secondary:not(:has(svg)),
+.cpd-button[data-kind="secondary"]:not(:has(svg)) {
+  color: var(--jingepi-gold, #f0b90b) !important;
+  border: 1px solid rgba(240, 185, 11, 0.45) !important;
+  background: transparent !important;
+  border-radius: 14px !important;
 }
 
 .mx_AccessibleButton_kind_link,
 .mx_AccessibleButton_kind_link_inline,
 .mx_LinkButton,
-.mx_TextButton,
 a {
-  color: var(--jingepi-gold) !important;
+  color: var(--jingepi-gold, #f0b90b) !important;
 }
 
 .mx_AccessibleButton_kind_link:hover,
-.mx_LinkButton:hover,
 a:hover {
-  color: var(--jingepi-gold-light) !important;
+  color: var(--jingepi-gold-light, #fcd535) !important;
 }
 
-/* ---- 滚动条 ---- */
+/* ---------- 开关 / 进度 ---------- */
+.mx_ToggleSwitch.mx_ToggleSwitch_on,
+.mx_ToggleControl.mx_ToggleControl_on .mx_ToggleControl_track {
+  background-color: var(--jingepi-gold, #f0b90b) !important;
+  border-color: var(--jingepi-gold, #f0b90b) !important;
+}
+
+.mx_ProgressBar .mx_ProgressBar_fill,
+.mx_IndicatorBar_barSegment.mx_IndicatorBar_current {
+  background-color: var(--jingepi-gold, #f0b90b) !important;
+}
+
+.mx_Spinner svg circle,
+.mx_InlineSpinner svg circle {
+  stroke: var(--jingepi-gold, #f0b90b) !important;
+}
+
+/* ---------- 滚动条 ---------- */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(240, 185, 11, 0.45) rgba(255, 255, 255, 0.04);
@@ -415,107 +471,16 @@ a:hover {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(240, 185, 11, 0.40);
+  background: rgba(240, 185, 11, 0.4);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(240, 185, 11, 0.65);
-  background-clip: padding-box;
-}
-
-/* ---- 残留默认绿 / 紫强制替换 ---- */
-.mx_Login_submit,
-.mx_Spinner,
-.text-success,
-.mx_ProgressBar .mx_ProgressBar_fill,
-.mx_IndicatorBar_barSegment,
-.mx_RoomTopicSearchResult_highlight,
-.mx_EventTile .markdown-body a {
-  accent-color: var(--jingepi-gold);
-}
-
-.mx_ProgressBar .mx_ProgressBar_fill,
-.mx_IndicatorBar_barSegment.mx_IndicatorBar_current {
-  background-color: var(--jingepi-gold) !important;
-}
-
-.mx_Spinner svg circle,
-.mx_InlineSpinner svg circle {
-  stroke: var(--jingepi-gold) !important;
-}
-
-.mx_ToggleSwitch.mx_ToggleSwitch_on,
-.mx_ToggleControl.mx_ToggleControl_on .mx_ToggleControl_track {
-  background-color: var(--jingepi-gold) !important;
-  border-color: var(--jingepi-gold) !important;
-}
-
-.mx_StyledRadioButton_checked .mx_StyledRadioButton_disk,
-.mx_Checkbox.mx_Checkbox_checked .mx_Checkbox_background {
-  background-color: var(--jingepi-gold) !important;
-  border-color: var(--jingepi-gold) !important;
-  color: var(--jingepi-gold-on) !important;
-}
-
-/*
- * SSO / 登录页：AuthBody / modal 透明透出 AuthPage 的 #12151c，
- * 禁止再用 #1c212b / rgba(28,33,43) 抬升底造成色差矩形
- */
-.mx_AuthPage_modal,
-.mx_AuthBody,
-.mx_AuthHeader,
-.mx_AuthHeaderLogo,
-.mx_AuthBody_fieldRow,
-.mx_AuthBody_changeFlow {
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  color: var(--jingepi-text) !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-.mx_Login,
-.mx_SSOButtons {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.mx_AuthPage h1,
-.mx_AuthPage h2,
-.mx_Login_header,
-.mx_AuthHeaderLogo {
-  color: var(--jingepi-text) !important;
-}
-
-.mx_SSOButton,
-.mx_SSOButton_default {
-  background-color: var(--jingepi-btn) !important;
-  border-color: var(--jingepi-btn) !important;
-  color: var(--jingepi-gold-on) !important;
-}
-
-.mx_SSOButton:hover,
-.mx_SSOButton_default:hover {
-  background-color: var(--jingepi-btn-hover) !important;
-  border-color: var(--jingepi-btn-hover) !important;
-  color: var(--jingepi-gold-on) !important;
-}
-
 /* =========================================================
-   移动端适配（不破坏 Element 自带窄屏房间列表 ↔ 聊天切换）
+   手机 / 窄屏
    ========================================================= */
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 900px) {
   html,
   body,
   #matrixchat,
@@ -523,7 +488,6 @@ body {
   .mx_MatrixChat_wrapper {
     width: 100% !important;
     max-width: 100vw !important;
-    min-width: 0 !important;
     overflow-x: hidden !important;
   }
 
@@ -545,23 +509,26 @@ body {
   .mx_RoomView_timeline,
   .mx_RoomView_messagePanel,
   .mx_SpacePanel,
-  .mx_RightPanel {
+  .mx_RightPanel,
+  .mx_RoomHeader,
+  .mx_RoomHeader_wrapper {
     min-width: 0 !important;
     max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  /* 对话框 / 设置：避免桌面固定宽在手机上溢出 */
   .mx_Dialog,
   .mx_Dialog_fixedWidth,
   .mx_Dialog_wrapper,
   .mx_SettingsDialog,
   .mx_Dialog_border {
-    width: min(100vw - 24px, 100%) !important;
-    max-width: calc(100vw - 24px) !important;
-    max-height: min(90dvh, 100%) !important;
+    width: min(100vw - 16px, 100%) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: min(92dvh, 100%) !important;
     margin-left: auto !important;
     margin-right: auto !important;
     box-sizing: border-box !important;
+    border-radius: 16px !important;
   }
 
   .mx_AuthPage,
@@ -571,37 +538,172 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    padding-left: max(12px, env(safe-area-inset-left)) !important;
-    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    padding-left: max(14px, env(safe-area-inset-left)) !important;
+    padding-right: max(14px, env(safe-area-inset-right)) !important;
     box-sizing: border-box !important;
   }
 
   .mx_RoomHeader,
   .mx_LegacyRoomHeader,
-  .mx_RoomHeader_wrapper {
+  .mx_RoomHeader_wrapper,
+  .mx_RoomListHeader {
     padding-left: max(8px, env(safe-area-inset-left)) !important;
     padding-right: max(8px, env(safe-area-inset-right)) !important;
   }
 
   .mx_MessageComposer,
   .mx_BasicMessageComposer,
-  .mx_SendMessageComposer {
-    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  .mx_SendMessageComposer,
+  .mx_MessageComposer_wrapper {
+    padding-left: max(8px, env(safe-area-inset-left)) !important;
+    padding-right: max(8px, env(safe-area-inset-right)) !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
     box-sizing: border-box !important;
   }
 
-  /* 触控滚动 */
   .mx_RoomView_messagePanel,
   .mx_RoomList,
   .mx_LeftPanel,
-  .mx_Dialog_content {
+  .mx_Dialog_content,
+  .mx_SpacePanel {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
 
-  /* 窄屏滚动条更细，少占宽度 */
-  *::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  /* 触控更易点：只抬列表/Tab，绝不碰顶栏/列表头图标按钮 */
+  .mx_RoomListItemView,
+  .mx_RoomTile,
+  .mx_SpaceButton,
+  .mx_TabbedView_tabLabel {
+    min-height: 44px;
   }
+
+  .mx_AccessibleButton_kind_primary:not(:has(svg)),
+  .mx_Login_submit,
+  .mx_SSOButton,
+  .mx_Dialog_primary {
+    min-height: 44px !important;
+    padding: 10px 16px !important;
+  }
+
+  *::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .mx_RoomHeader_topic,
+  .mx_RoomSnippet_subtitle {
+    display: none !important;
+  }
+
+  .mx_EventTile {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+/* 窄屏顶栏：只做安全区/宽度，禁止 scale 与头像盒模型改动 */
+@media screen and (max-width: 900px) {
+  .mx_RoomHeader,
+  .mx_RoomHeader_wrapper,
+  .mx_LegacyRoomHeader {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding-left: max(8px, env(safe-area-inset-left)) !important;
+    padding-right: max(8px, env(safe-area-inset-right)) !important;
+  }
+}
+
+/*
+ * 左侧栏折叠分隔条（SeparatorView data-separator-type=bar）：
+ * Element 默认仅 12px + 旋转握把图标，看起来像隐晦「||」。
+ * 视觉交给注入的 #jingepi-left-panel-toggle；原条保留布局。
+ * 展开靠 pointerdown→pointerup（非 click）；收起靠 dblclick。pointer-events:none
+ * 仅挡用户点原条，程序化派发不受影响。
+ */
+[role="separator"][data-separator-type="bar"] {
+  width: 40px !important;
+  min-width: 40px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+[role="separator"][data-separator-type="bar"] svg {
+  display: none !important;
+}
+
+/* 展开态细边仍可拖拽调宽；略提高可发现性，不抢注入「收起」按钮 */
+[role="separator"][data-separator-type="border"] {
+  cursor: col-resize !important;
+}
+
+#jingepi-left-panel-toggle {
+  position: fixed;
+  z-index: 120;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 12px;
+  margin: 0;
+  border: 1px solid rgba(240, 185, 11, 0.45);
+  border-radius: 10px;
+  background: var(--jingepi-surface, #151209);
+  color: var(--jingepi-gold, #f0b90b);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transform: translateY(-50%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+#jingepi-left-panel-toggle:hover {
+  background: rgba(240, 185, 11, 0.12);
+  border-color: var(--jingepi-gold, #f0b90b);
+  color: var(--jingepi-gold-light, #fcd535);
+}
+
+#jingepi-left-panel-toggle:focus-visible {
+  outline: 2px solid var(--jingepi-gold, #f0b90b);
+  outline-offset: 2px;
+}
+
+#jingepi-left-panel-toggle[data-jingepi-panel-state="collapsed"] {
+  left: max(8px, env(safe-area-inset-left, 0px));
+  top: 50%;
+}
+
+/*
+ * 房间顶栏右侧：隐藏成员入口（FacePile 圆形头像堆 + 人数角标）。
+ * 勿动「⋯」更多（#jingepi-room-header-more）；勿改宽高以免牵连布局。
+ * 房间信息仍可从「⋯ → 房间信息」进入。
+ */
+.mx_RoomHeader .mx_FacePile,
+.mx_RoomHeader .mx_RoomHeader_members,
+.mx_RoomHeader_wrapper .mx_FacePile,
+.mx_RoomHeader_wrapper .mx_RoomHeader_members,
+.mx_LegacyRoomHeader .mx_FacePile,
+.mx_LegacyRoomHeader .mx_RoomHeader_members,
+.mx_RoomHeader button[aria-label*="成员"],
+.mx_RoomHeader button[aria-label*="Members"],
+.mx_RoomHeader button[aria-label*="members"],
+.mx_RoomHeader [role="button"][aria-label*="成员"],
+.mx_RoomHeader [role="button"][aria-label*="Members"],
+.mx_RoomHeader [role="button"][aria-label*="members"],
+.mx_LegacyRoomHeader button[aria-label*="成员"],
+.mx_LegacyRoomHeader button[aria-label*="Members"],
+.mx_LegacyRoomHeader button[aria-label*="members"] {
+  display: none !important;
 }

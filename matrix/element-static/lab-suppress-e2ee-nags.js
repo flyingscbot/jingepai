@@ -16,6 +16,10 @@
  * Synapse enable_set_avatar_url=false + 本脚本隐藏上传控件；金格改头像走 Admin API。
  * 10) 普通用户隐藏「新建房间 / 创建空间」入口（权限由 /api/matrix/capabilities +
  *     matrix_proxy 拦截 createRoom；私聊 DM 仍允许）
+ * 11) 房间顶栏：视频/语音/消息列/房间信息收入「更多」面板（无官方 config）
+ * 12) 房间顶栏隐藏成员 FacePile（圆形头像堆 + 人数）；保留「⋯」更多；
+ *     房间信息从「⋯ → 房间信息」进入
+ * 13) 左侧栏折叠分隔条（|| / SeparatorView bar）改为明确「展开/收起」按钮
  */
 (function () {
   var STYLE_ID = "jingepi-lab-e2ee-hide";
@@ -231,73 +235,100 @@
     "  font-family: \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", \"Hiragino Sans GB\", sans-serif;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary,",
-    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary,",
+    /* 金色主按钮：只给登录/对话框/SSO，勿染展开等图标按钮（会拉伸变形） */
     ".mx_Login_submit,",
     ".mx_Dialog_primary,",
     ".mx_Dialog button.mx_Dialog_primary,",
     ".mx_Dialog_buttons button.mx_Dialog_primary,",
-    "button.mx_AccessibleButton_kind_primary,",
-    ".cpd-button[data-kind='primary'],",
-    "button[data-kind='primary'] {",
+    ".mx_SSOButton,",
+    ".mx_SSOButton_default {",
     "  background-color: " + GOLD_BTN + " !important;",
     "  background: " + GOLD_BTN + " !important;",
     "  border-color: " + GOLD_BTN + " !important;",
     "  color: " + GOLD_ON + " !important;",
     "  --cpd-color-text-on-solid-primary: " + GOLD_ON + " !important;",
     "  --cpd-color-icon-on-solid-primary: " + GOLD_ON + " !important;",
+    "  border-radius: 14px !important;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary:hover,",
-    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary:hover,",
     ".mx_Login_submit:hover,",
     ".mx_Dialog_primary:hover,",
-    ".cpd-button[data-kind='primary']:hover,",
-    "button[data-kind='primary']:hover {",
+    ".mx_SSOButton:hover,",
+    ".mx_SSOButton_default:hover {",
     "  background-color: " + GOLD_HOVER + " !important;",
     "  background: " + GOLD_HOVER + " !important;",
     "  border-color: " + GOLD_HOVER + " !important;",
     "  color: " + GOLD_ON + " !important;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary:active,",
-    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary:active,",
     ".mx_Login_submit:active,",
-    ".cpd-button[data-kind='primary']:active,",
-    "button[data-kind='primary']:active {",
+    ".mx_Dialog_primary:active,",
+    ".mx_SSOButton:active,",
+    ".mx_SSOButton_default:active {",
     "  background-color: " + GOLD_PRESSED + " !important;",
     "  background: " + GOLD_PRESSED + " !important;",
     "  border-color: " + GOLD_PRESSED + " !important;",
     "  color: " + GOLD_ON + " !important;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary svg,",
-    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary svg,",
     ".mx_Login_submit svg,",
     ".mx_Dialog_primary svg,",
-    ".cpd-button[data-kind='primary'] svg,",
-    "button[data-kind='primary'] svg,",
-    ".mx_AccessibleButton_kind_primary svg path,",
-    ".mx_AccessibleButton.mx_AccessibleButton_kind_primary svg path,",
+    ".mx_SSOButton svg,",
     ".mx_Login_submit svg path,",
     ".mx_Dialog_primary svg path,",
-    ".cpd-button[data-kind='primary'] svg path,",
-    "button[data-kind='primary'] svg path {",
+    ".mx_SSOButton svg path {",
     "  color: " + GOLD_ON + " !important;",
     "  fill: currentColor !important;",
     "  stroke: currentColor;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary_outline,",
-    ".mx_AccessibleButton_kind_primary_outline.mx_AccessibleButton {",
+    /* outline 金色描边只给文字 CTA，勿染含 SVG 的展开/顶栏图标 */
+    ".mx_AccessibleButton_kind_primary_outline:not(:has(svg)),",
+    ".mx_AccessibleButton_kind_primary_outline.mx_AccessibleButton:not(:has(svg)) {",
     "  color: " + GOLD + " !important;",
     "  border-color: " + GOLD + " !important;",
     "}",
 
-    ".mx_AccessibleButton_kind_primary_outline:hover {",
+    ".mx_AccessibleButton_kind_primary_outline:not(:has(svg)):hover {",
     "  color: " + GOLD_HOVER + " !important;",
     "  border-color: " + GOLD_HOVER + " !important;",
     "  background-color: rgba(240, 185, 11, 0.12) !important;",
+    "}",
+
+    /* 顶栏 / 房间列表头图标：交还 Element，避免竖长黄椭圆与头像拉伸 */
+    ".mx_RoomHeader .cpd-button,",
+    ".mx_RoomHeader .mx_AccessibleButton,",
+    ".mx_RoomHeader button,",
+    ".mx_RoomHeader_wrapper .cpd-button,",
+    ".mx_RoomHeader_wrapper .mx_AccessibleButton,",
+    ".mx_RoomHeader_wrapper button,",
+    ".mx_LegacyRoomHeader .cpd-button,",
+    ".mx_LegacyRoomHeader .mx_AccessibleButton,",
+    ".mx_LegacyRoomHeader button,",
+    ".mx_RoomListHeader .cpd-button,",
+    ".mx_RoomListHeader .mx_AccessibleButton,",
+    ".mx_RoomListHeader button,",
+    ".mx_AccessibleButton_kind_primary:has(svg),",
+    ".mx_AccessibleButton_kind_primary_outline:has(svg),",
+    ".mx_AccessibleButton_kind_secondary:has(svg),",
+    ".cpd-button[data-kind='primary']:has(svg),",
+    ".cpd-button[data-kind='secondary']:has(svg),",
+    ".cpd-button[data-kind='tertiary']:has(svg) {",
+    "  width: revert-layer !important;",
+    "  height: revert-layer !important;",
+    "  min-width: revert-layer !important;",
+    "  min-height: revert-layer !important;",
+    "  max-width: none !important;",
+    "  max-height: none !important;",
+    "  padding: revert-layer !important;",
+    "  aspect-ratio: auto !important;",
+    "  border-radius: revert-layer !important;",
+    "  transform: none !important;",
+    "  background: revert-layer !important;",
+    "  background-color: revert-layer !important;",
+    "  border: revert-layer !important;",
+    "  border-color: revert-layer !important;",
+    "  color: revert-layer !important;",
     "}",
 
     "a,",
@@ -323,6 +354,149 @@
     ".mx_ShareType_badge {",
     "  background-color: " + GOLD + " !important;",
     "  color: " + GOLD_ON + " !important;",
+    "}",
+
+    "/* ---- 房间顶栏：隐藏成员 FacePile（保留「⋯」更多） ---- */",
+    ".mx_RoomHeader .mx_FacePile,",
+    ".mx_RoomHeader .mx_RoomHeader_members,",
+    ".mx_RoomHeader_wrapper .mx_FacePile,",
+    ".mx_RoomHeader_wrapper .mx_RoomHeader_members,",
+    ".mx_LegacyRoomHeader .mx_FacePile,",
+    ".mx_LegacyRoomHeader .mx_RoomHeader_members,",
+    ".mx_RoomHeader button[aria-label*='成员'],",
+    ".mx_RoomHeader button[aria-label*='Members'],",
+    ".mx_RoomHeader button[aria-label*='members'],",
+    ".mx_RoomHeader [role='button'][aria-label*='成员'],",
+    ".mx_RoomHeader [role='button'][aria-label*='Members'],",
+    ".mx_RoomHeader [role='button'][aria-label*='members'],",
+    ".mx_LegacyRoomHeader button[aria-label*='成员'],",
+    ".mx_LegacyRoomHeader button[aria-label*='Members'],",
+    ".mx_LegacyRoomHeader button[aria-label*='members'] {",
+    "  display: none !important;",
+    "}",
+
+    "/* ---- 房间顶栏：把视频/语音/消息列/信息收进「更多」 ---- */",
+    ".mx_RoomHeader [data-jingepi-header-overflow='1'],",
+    ".mx_LegacyRoomHeader [data-jingepi-header-overflow='1'] {",
+    "  display: none !important;",
+    "}",
+    "#jingepi-room-header-more {",
+    "  position: relative;",
+    "  display: inline-flex;",
+    "  align-items: center;",
+    "  flex-shrink: 0;",
+    "  z-index: 6;",
+    "}",
+    "#jingepi-room-header-more > button.jingepi-room-header-more-btn {",
+    "  display: inline-flex !important;",
+    "  align-items: center;",
+    "  justify-content: center;",
+    "  width: 32px !important;",
+    "  height: 32px !important;",
+    "  min-width: 32px !important;",
+    "  min-height: 32px !important;",
+    "  padding: 0 !important;",
+    "  margin: 0 !important;",
+    "  border: none !important;",
+    "  border-radius: 999px !important;",
+    "  background: transparent !important;",
+    "  color: " + TEXT + " !important;",
+    "  cursor: pointer;",
+    "  font-size: 18px;",
+    "  line-height: 1;",
+    "  letter-spacing: 0.02em;",
+    "}",
+    "#jingepi-room-header-more > button.jingepi-room-header-more-btn:hover,",
+    "#jingepi-room-header-more > button.jingepi-room-header-more-btn[aria-expanded='true'] {",
+    "  background: rgba(240, 185, 11, 0.12) !important;",
+    "  color: " + GOLD + " !important;",
+    "}",
+    "#jingepi-room-header-more-panel {",
+    "  display: none;",
+    "  position: absolute;",
+    "  top: calc(100% + 6px);",
+    "  right: 0;",
+    "  min-width: 168px;",
+    "  padding: 6px;",
+    "  flex-direction: column;",
+    "  gap: 2px;",
+    "  border-radius: 12px;",
+    "  border: 1px solid " + BORDER + ";",
+    "  background: " + PANEL_RAISED + ";",
+    "  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);",
+    "  z-index: 40;",
+    "}",
+    "#jingepi-room-header-more-panel[data-open='1'] {",
+    "  display: flex;",
+    "}",
+    "#jingepi-room-header-more-panel button {",
+    "  display: flex;",
+    "  align-items: center;",
+    "  width: 100%;",
+    "  gap: 10px;",
+    "  padding: 8px 10px;",
+    "  border: none;",
+    "  border-radius: 8px;",
+    "  background: transparent;",
+    "  color: " + TEXT + ";",
+    "  font-size: 13px;",
+    "  text-align: left;",
+    "  cursor: pointer;",
+    "  white-space: nowrap;",
+    "}",
+    "#jingepi-room-header-more-panel button:hover {",
+    "  background: rgba(240, 185, 11, 0.12);",
+    "  color: " + GOLD + ";",
+    "}",
+    "#jingepi-room-header-more-panel button[disabled] {",
+    "  opacity: 0.45;",
+    "  cursor: not-allowed;",
+    "}",
+
+    "/* ---- 左侧栏 || 分隔条 → 明确展开/收起按钮 ---- */",
+    "[role='separator'][data-separator-type='bar'] {",
+    "  width: 40px !important;",
+    "  min-width: 40px !important;",
+    "  opacity: 0 !important;",
+    "  pointer-events: none !important;",
+    "  border: none !important;",
+    "  background: transparent !important;",
+    "}",
+    "[role='separator'][data-separator-type='bar'] svg {",
+    "  display: none !important;",
+    "}",
+    "#jingepi-left-panel-toggle {",
+    "  position: fixed;",
+    "  z-index: 120;",
+    "  display: inline-flex;",
+    "  align-items: center;",
+    "  justify-content: center;",
+    "  box-sizing: border-box;",
+    "  min-width: 36px;",
+    "  min-height: 36px;",
+    "  height: 36px;",
+    "  padding: 0 12px;",
+    "  margin: 0;",
+    "  border: 1px solid rgba(240, 185, 11, 0.45);",
+    "  border-radius: 10px;",
+    "  background: " + SURFACE + ";",
+    "  color: " + GOLD + ";",
+    "  font-size: 13px;",
+    "  font-weight: 600;",
+    "  line-height: 1;",
+    "  white-space: nowrap;",
+    "  cursor: pointer;",
+    "  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);",
+    "  transform: translateY(-50%);",
+    "}",
+    "#jingepi-left-panel-toggle:hover {",
+    "  background: rgba(240, 185, 11, 0.12);",
+    "  border-color: " + GOLD + ";",
+    "  color: " + GOLD_LIGHT + ";",
+    "}",
+    "#jingepi-left-panel-toggle[data-jingepi-panel-state='collapsed'] {",
+    "  left: max(8px, env(safe-area-inset-left, 0px));",
+    "  top: 50%;",
     "}",
   ].join("\n");
 
@@ -743,6 +917,440 @@
     }
   }
 
+  /* 顶栏四键：视频 / 语音 / 消息列(线程) / 房间信息 → 「更多」；FacePile 由 CSS 隐藏 */
+  var HEADER_ACTION_DEFS = [
+    {
+      key: "video",
+      labelRe: /^(视频通话|Video call)$/i,
+      title: "视频通话",
+    },
+    {
+      key: "voice",
+      labelRe: /^(语音通话|Voice call)$/i,
+      title: "语音通话",
+    },
+    {
+      key: "threads",
+      labelRe: /^(消息列|Threads)$/i,
+      title: "消息列",
+    },
+    {
+      key: "info",
+      labelRe: /^(房间信息|Room info)$/i,
+      title: "房间信息",
+    },
+    {
+      key: "join",
+      labelRe: /^(加入视频通话|加入语音通话|Join video call|Join voice call)$/i,
+      title: "加入通话",
+    },
+  ];
+
+  var headerMoreOutsideBound = false;
+
+  function headerBtnLabel(btn) {
+    return (btn.getAttribute("aria-label") || btn.getAttribute("title") || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function isHeaderExcludedBtn(btn) {
+    if (!btn || btn.getAttribute("data-jingepi-header-more") === "1") return true;
+    if (btn.closest("#jingepi-room-header-more")) return true;
+    if (
+      btn.closest(
+        ".mx_RoomHeader_infoWrapper, .mx_RoomHeader_members, .mx_FacePile, .mx_RoomHeader_avatar"
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function classifyHeaderAction(btn) {
+    var label = headerBtnLabel(btn);
+    for (var i = 0; i < HEADER_ACTION_DEFS.length; i++) {
+      if (HEADER_ACTION_DEFS[i].labelRe.test(label)) {
+        return HEADER_ACTION_DEFS[i];
+      }
+    }
+    return null;
+  }
+
+  function collectHeaderActionButtons(header) {
+    var found = {};
+    var candidates = [];
+    var nodes = header.querySelectorAll("button, [role='button']");
+    for (var i = 0; i < nodes.length; i++) {
+      var btn = nodes[i];
+      if (isHeaderExcludedBtn(btn)) continue;
+      candidates.push(btn);
+      var def = classifyHeaderAction(btn);
+      if (def && !found[def.key]) found[def.key] = btn;
+    }
+
+    /* 禁用通话时 aria-label 会变成原因文案：按「消息列」前相邻图标按钮回退 */
+    if ((!found.video || !found.voice) && found.threads) {
+      var ti = candidates.indexOf(found.threads);
+      var before = [];
+      for (var j = 0; j < ti; j++) {
+        var b = candidates[j];
+        if (found.join === b || found.video === b || found.voice === b) continue;
+        if (b.classList && b.classList.contains("mx_RoomHeader_join_button")) {
+          continue;
+        }
+        if (!b.querySelector || !b.querySelector("svg")) continue;
+        if (classifyHeaderAction(b)) continue;
+        before.push(b);
+      }
+      var bi = 0;
+      if (!found.video && before[bi]) found.video = before[bi++];
+      if (!found.voice && before[bi]) found.voice = before[bi++];
+    }
+    return found;
+  }
+
+  function closeHeaderMorePanel() {
+    var panel = document.getElementById("jingepi-room-header-more-panel");
+    var btn = document.querySelector(
+      "#jingepi-room-header-more > button.jingepi-room-header-more-btn"
+    );
+    if (panel) panel.removeAttribute("data-open");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+
+  function ensureHeaderMoreOutsideClose() {
+    if (headerMoreOutsideBound) return;
+    headerMoreOutsideBound = true;
+    document.addEventListener(
+      "pointerdown",
+      function (ev) {
+        var wrap = document.getElementById("jingepi-room-header-more");
+        if (!wrap || !wrap.contains(ev.target)) closeHeaderMorePanel();
+      },
+      true
+    );
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") closeHeaderMorePanel();
+    });
+  }
+
+  function ensureHeaderMoreUi(header) {
+    var wrap = document.getElementById("jingepi-room-header-more");
+    if (wrap && !header.contains(wrap)) {
+      wrap.remove();
+      wrap = null;
+    }
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "jingepi-room-header-more";
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "jingepi-room-header-more-btn";
+      btn.setAttribute("data-jingepi-header-more", "1");
+      btn.setAttribute("aria-label", "更多");
+      btn.setAttribute("aria-haspopup", "menu");
+      btn.setAttribute("aria-expanded", "false");
+      btn.setAttribute("title", "更多");
+      btn.textContent = "⋯";
+      var panel = document.createElement("div");
+      panel.id = "jingepi-room-header-more-panel";
+      panel.setAttribute("role", "menu");
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var open = panel.getAttribute("data-open") === "1";
+        if (open) {
+          closeHeaderMorePanel();
+        } else {
+          panel.setAttribute("data-open", "1");
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+      wrap.appendChild(btn);
+      wrap.appendChild(panel);
+    }
+
+    var members = header.querySelector(".mx_RoomHeader_members");
+    var insertBefore = null;
+    if (members) {
+      insertBefore = members;
+      while (insertBefore.parentElement && insertBefore.parentElement !== header) {
+        insertBefore = insertBefore.parentElement;
+      }
+    }
+    if (wrap.parentElement !== header) {
+      if (insertBefore && insertBefore.parentElement === header) {
+        header.insertBefore(wrap, insertBefore);
+      } else {
+        header.appendChild(wrap);
+      }
+    } else if (
+      insertBefore &&
+      insertBefore.parentElement === header &&
+      wrap.nextSibling !== insertBefore
+    ) {
+      header.insertBefore(wrap, insertBefore);
+    }
+    ensureHeaderMoreOutsideClose();
+    return wrap;
+  }
+
+  function rebuildHeaderMorePanel(wrap, found) {
+    var panel = wrap.querySelector("#jingepi-room-header-more-panel");
+    if (!panel) return;
+    var order = ["video", "voice", "threads", "info", "join"];
+    var titles = {
+      video: "视频通话",
+      voice: "语音通话",
+      threads: "消息列",
+      info: "房间信息",
+      join: "加入通话",
+    };
+    var sigParts = [];
+    for (var i = 0; i < order.length; i++) {
+      var key = order[i];
+      var target = found[key];
+      if (!target) continue;
+      sigParts.push(
+        key +
+          ":" +
+          (target.disabled || target.getAttribute("aria-disabled") === "true"
+            ? "0"
+            : "1") +
+          ":" +
+          headerBtnLabel(target)
+      );
+    }
+    var sig = sigParts.join("|");
+    if (panel.getAttribute("data-jingepi-sig") === sig) return;
+    panel.setAttribute("data-jingepi-sig", sig);
+    panel.textContent = "";
+
+    for (var j = 0; j < order.length; j++) {
+      var k = order[j];
+      var src = found[k];
+      if (!src) continue;
+      var item = document.createElement("button");
+      item.type = "button";
+      item.setAttribute("role", "menuitem");
+      var label = headerBtnLabel(src);
+      var defTitle = titles[k];
+      if (!label || !classifyHeaderAction(src)) label = defTitle;
+      /* 禁用原因保留在菜单项上，便于理解为何不可点 */
+      item.textContent = label || defTitle;
+      var disabled =
+        !!src.disabled || src.getAttribute("aria-disabled") === "true";
+      if (disabled) item.disabled = true;
+      (function (targetBtn) {
+        item.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          closeHeaderMorePanel();
+          try {
+            targetBtn.click();
+          } catch (_e) {
+            /* ignore */
+          }
+        });
+      })(src);
+      panel.appendChild(item);
+    }
+
+    wrap.style.display = panel.childNodes.length ? "" : "none";
+  }
+
+  /* ---- 左侧栏 SeparatorView（|| 细条）→ 展开/收起按钮 ---- */
+  /*
+   * Element ResizerViewModel 不用 DOM click 展开：
+   * - 折叠(bar)：MouseClickHandler 在 pointerdown→pointerup（中间无 pointermove）时
+   *   调用 onSeparatorClick → panelHandle.resize(...)
+   * - 展开(border)：onDoubleClick → panelHandle.collapse()
+   * （Separator 传了 disableDoubleClick，仅关掉库自带双击，Element 自有 onDoubleClick 仍生效）
+   * 因此 s.click() / 拖拽模拟都会失效或很脆；必须派发上述官方事件序列。
+   */
+  function findLeftPanelSeparator() {
+    return (
+      document.querySelector("[role='separator'][data-separator-type]") ||
+      document.querySelector(
+        "[role='separator'][aria-label*='拖动'], [role='separator'][aria-label*='展开'], [role='separator'][aria-label*='expand'], [role='separator'][aria-label*='Expand']"
+      )
+    );
+  }
+
+  function leftPanelSeparatorPoint(sep) {
+    var rect = sep.getBoundingClientRect();
+    return {
+      x: rect.left + Math.max(rect.width, 1) / 2,
+      y: Math.min(
+        Math.max(rect.top + rect.height / 2, 40),
+        window.innerHeight - 40
+      ),
+    };
+  }
+
+  function fireLeftPanelPointer(target, type, x, y, buttons) {
+    var opts = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: x,
+      clientY: y,
+      screenX: x,
+      screenY: y,
+      button: 0,
+      buttons: buttons,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      pressure: buttons ? 0.5 : 0,
+    };
+    try {
+      target.dispatchEvent(new PointerEvent(type, opts));
+    } catch (_e) {
+      target.dispatchEvent(
+        new MouseEvent(type === "pointerdown" ? "mousedown" : "mouseup", opts)
+      );
+    }
+  }
+
+  /** 折叠态：pointerdown + pointerup（禁止 pointermove，否则被当成拖拽） */
+  function expandLeftPanelViaSeparator(sep) {
+    if (!sep) return;
+    var pt = leftPanelSeparatorPoint(sep);
+    /* bar 被 CSS 设为 pointer-events:none；临时放开以免个别路径走命中检测 */
+    sep.style.setProperty("pointer-events", "auto", "important");
+    try {
+      fireLeftPanelPointer(sep, "pointerdown", pt.x, pt.y, 1);
+      fireLeftPanelPointer(sep, "pointerup", pt.x, pt.y, 0);
+    } finally {
+      sep.style.removeProperty("pointer-events");
+    }
+  }
+
+  /** 展开态：触发 SeparatorView onDoubleClick → panelHandle.collapse() */
+  function collapseLeftPanelViaSeparator(sep) {
+    if (!sep) return;
+    var pt = leftPanelSeparatorPoint(sep);
+    var opts = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: pt.x,
+      clientY: pt.y,
+      screenX: pt.x,
+      screenY: pt.y,
+      button: 0,
+      buttons: 0,
+      detail: 2,
+    };
+    try {
+      sep.dispatchEvent(new MouseEvent("dblclick", opts));
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function enhanceLeftPanelToggle() {
+    var sep = findLeftPanelSeparator();
+    var btn = document.getElementById("jingepi-left-panel-toggle");
+    if (!sep) {
+      if (btn) btn.remove();
+      return;
+    }
+
+    var type = sep.getAttribute("data-separator-type") || "";
+    var collapsed = type === "bar";
+
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "jingepi-left-panel-toggle";
+      btn.type = "button";
+      btn.className = "jingepi-left-panel-toggle";
+      btn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var s = findLeftPanelSeparator();
+        if (!s) return;
+        if (s.getAttribute("data-separator-type") === "bar") {
+          expandLeftPanelViaSeparator(s);
+        } else {
+          collapseLeftPanelViaSeparator(s);
+        }
+      });
+      (document.body || document.documentElement).appendChild(btn);
+    }
+
+    var label = collapsed ? "展开" : "收起";
+    if (btn.textContent !== label) btn.textContent = label;
+    btn.setAttribute("aria-label", collapsed ? "展开侧栏" : "收起侧栏");
+    btn.setAttribute("title", label);
+    btn.setAttribute(
+      "data-jingepi-panel-state",
+      collapsed ? "collapsed" : "expanded"
+    );
+
+    var rect = sep.getBoundingClientRect();
+    if (collapsed) {
+      btn.style.left = "";
+      btn.style.top = "";
+      btn.style.right = "";
+    } else {
+      var left = Math.max(8, Math.round(rect.left - 4));
+      /* 贴在分隔条左侧，避免挡住聊天区 */
+      if (left > 48) left = Math.round(rect.left - btn.offsetWidth - 8);
+      btn.style.left = left + "px";
+      btn.style.top = "50%";
+      btn.style.right = "auto";
+    }
+  }
+
+  function collapseRoomHeaderActions() {
+    var headers = document.querySelectorAll(
+      "header.mx_RoomHeader, .mx_RoomHeader, .mx_LegacyRoomHeader"
+    );
+    if (!headers.length) {
+      var orphan = document.getElementById("jingepi-room-header-more");
+      if (orphan) orphan.remove();
+      return;
+    }
+
+    for (var h = 0; h < headers.length; h++) {
+      var header = headers[h];
+      var stale = header.querySelectorAll("[data-jingepi-header-overflow='1']");
+      for (var s = 0; s < stale.length; s++) {
+        stale[s].removeAttribute("data-jingepi-header-overflow");
+      }
+
+      var found = collectHeaderActionButtons(header);
+      var keys = Object.keys(found);
+      if (!keys.length) {
+        var empty = header.querySelector("#jingepi-room-header-more");
+        if (empty) empty.style.display = "none";
+        continue;
+      }
+
+      for (var i = 0; i < keys.length; i++) {
+        var btn = found[keys[i]];
+        btn.setAttribute("data-jingepi-header-overflow", "1");
+        /* Tooltip / Menu 壳若只包这一颗按钮，一并藏掉以免留空位 */
+        var parent = btn.parentElement;
+        if (
+          parent &&
+          parent !== header &&
+          !parent.classList.contains("mx_RoomHeader") &&
+          parent.children.length === 1 &&
+          !parent.querySelector(".mx_RoomHeader_members, .mx_FacePile")
+        ) {
+          parent.setAttribute("data-jingepi-header-overflow", "1");
+        }
+      }
+
+      var wrap = ensureHeaderMoreUi(header);
+      rebuildHeaderMorePanel(wrap, found);
+    }
+  }
+
   function suppress() {
     suppressToasts();
     hideEncryptionTabs();
@@ -752,6 +1360,8 @@
     hideThemeSwitcher();
     hideDisplayNameUi();
     hideCreateRoomUi();
+    collapseRoomHeaderActions();
+    enhanceLeftPanelToggle();
     forceGoldCssVars(document.documentElement);
     forceGoldCssVars(document.body);
     paintInlineGreens(document);

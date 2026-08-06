@@ -274,6 +274,10 @@ header > *{
 
     align-items:center;
 
+    align-self:center;
+
+    flex-shrink:0;
+
     line-height:1;
 
 }
@@ -289,6 +293,10 @@ header > *{
 
     align-items:center;
 
+    flex-shrink:0;
+
+    line-height:0;
+
 }
 
 
@@ -300,9 +308,13 @@ header > *{
 
     width:auto;
 
-    max-width:min(220px, 52vw);
+    max-width:none;
 
     object-fit:contain;
+
+    object-position:left center;
+
+    flex-shrink:0;
 
     image-rendering:-webkit-optimize-contrast;
 
@@ -721,7 +733,7 @@ nav a:hover::after{
     
         font-size:30px;
 
-        align-self:flex-start;
+        align-self:center;
 
         margin-right:auto;
     
@@ -733,7 +745,7 @@ nav a:hover::after{
 
         width:auto;
 
-        max-width:min(180px, 48vw);
+        max-width:none;
 
         object-fit:contain;
 
@@ -880,6 +892,9 @@ nav a:hover::after{
     margin-right:12px;
     padding:0 14px;
     height:32px;
+    width:auto;
+    max-width:none;
+    flex-shrink:0;
     line-height:1;
     box-sizing:border-box;
     border-radius:var(--radius-pill);
@@ -893,7 +908,7 @@ nav a:hover::after{
     font-weight:400;
     letter-spacing:.02em;
     white-space:nowrap;
-    overflow:hidden;
+    overflow:hidden; /* 圆角玻璃层裁切；勿加 max-width，否则文案被截断 */
     box-shadow:var(--glass-rim);
     transition:box-shadow .22s ease, color .22s ease;
 }
@@ -1147,15 +1162,19 @@ nav a:hover::after{
         top:50%;
         transform:translateY(-50%);
         margin:0;
-        padding:0 10px;
+        padding:0 12px;
         font-size:12px;
         font-weight:400;
-        max-width:min(42vw, 160px);
+        max-width:none;
+        width:auto;
+        overflow:hidden; /* 玻璃圆角裁切，宽度跟文字走 */
     }
 
     .header-switch span{
-        overflow:hidden;
-        text-overflow:ellipsis;
+        overflow:visible;
+        text-overflow:clip;
+        white-space:nowrap;
+        max-width:none;
     }
     
     
@@ -1872,21 +1891,36 @@ body:has(.float-nav) .panel-main{
    聊天室（嵌入 Element Web）
 ========================= */
 
+/* =========================
+   聊天室（嵌入 Element Web）— 对齐格外壳 + 手机适配
+========================= */
+
 body.chat-page{
     overflow:hidden;
     height:100%;
     max-height:100dvh;
+    background:#0f1419;
 }
 
 body.chat-page header{
     flex-shrink:0;
+    z-index:20;
+}
+
+/* chat 页隐藏顶栏圆形头像（.account）；进设置/面板用「切换至用户面板」 */
+body.chat-page .account{
+    display:none;
+    margin-left:0;
 }
 
 .chat-shell{
+    --chat-header-h:52px;
+    /* 默认视觉缩小：iframe 内容按比例缩放铺满容器（非整页 zoom） */
+    --chat-iframe-scale:0.88;
     position:relative;
     z-index:1;
-    height:calc(100vh - 52px);
-    height:calc(100dvh - 52px);
+    height:calc(100vh - var(--chat-header-h));
+    height:calc(100dvh - var(--chat-header-h));
     width:100%;
     max-width:100%;
     margin:0;
@@ -1903,48 +1937,109 @@ body.chat-page header{
 
 .chat-frame{
     display:block;
-    width:100%;
-    max-width:100%;
-    flex:1;
+    /* 反向放大布局尺寸，再 scale 回去，视觉铺满且热区与画面一致 */
+    width:calc(100% / var(--chat-iframe-scale));
+    max-width:none;
+    flex:0 0 auto;
+    align-self:flex-start;
     min-height:0;
+    height:calc(100% / var(--chat-iframe-scale));
     border:0;
     border-radius:0;
     box-shadow:none;
     outline:none;
     background:#0f1419;
-    /* 避免 iframe 内触控滚动被父级吞掉 */
     touch-action:manipulation;
+    transform:scale(var(--chat-iframe-scale));
+    transform-origin:top left;
 }
 
-@media screen and (max-width:768px){
+@media screen and (max-width:900px){
     body.chat-page{
-        /* 移动端顶栏可能换行变高 */
-        --chat-header-h: 56px;
+        /* 禁止整页橡皮筋滚动，把滚动留给 iframe 内 Element */
+        overscroll-behavior:none;
+        position:fixed;
+        inset:0;
+        width:100%;
     }
 
     body.chat-page header{
-        min-height:52px;
-        padding-left:max(12px, env(safe-area-inset-left));
-        padding-right:max(12px, env(safe-area-inset-right));
-        padding-top:env(safe-area-inset-top);
+        min-height:48px;
+        height:auto;
+        padding-top:env(safe-area-inset-top, 0px);
+        padding-bottom:0;
+        padding-left:max(16px, env(safe-area-inset-left));
+        padding-right:max(16px, env(safe-area-inset-right));
+        box-sizing:border-box;
+        align-items:center;
+    }
+
+    body.chat-page .logo{
+        align-self:center;
+        flex-shrink:0;
+    }
+
+    body.chat-page .header-switch{
+        /* 无头像时贴右，避免原 right:64px 留空 */
+        right:20px;
+        padding:0 12px;
+        font-size:12px;
+        max-width:none;
+        width:auto;
+        overflow:hidden;
     }
 
     body.chat-page .header-switch span{
-        /* 窄屏只保留图标旁短文案，避免顶栏撑高 */
-        max-width:4.5em;
+        overflow:visible;
+        text-overflow:clip;
+        white-space:nowrap;
+        max-width:none;
+        display:inline-flex;
+    }
+
+    /* 矮顶栏仍完整显示「金格Pi」：按高度约束，宽度随比例撑开 */
+    body.chat-page .logo-img{
+        height:32px;
+        max-height:none;
+        width:auto;
+        max-width:none;
     }
 
     .chat-shell{
-        height:calc(100vh - var(--chat-header-h, 56px) - env(safe-area-inset-top, 0px));
-        height:calc(100dvh - var(--chat-header-h, 56px) - env(safe-area-inset-top, 0px));
-        min-height:0;
+        --chat-header-h:48px;
+        --chat-iframe-scale:0.85;
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        top:var(--chat-header-h);
+        height:auto;
+        width:100%;
         padding-bottom:env(safe-area-inset-bottom, 0px);
+        box-sizing:border-box;
     }
 
     .chat-frame{
+        /* 继承反向宽高 + scale；按 shell 内容区铺满（含安全区 padding） */
+        width:calc(100% / var(--chat-iframe-scale));
+        height:calc(100% / var(--chat-iframe-scale));
         min-height:0;
-        /* iOS iframe 高度塌缩兜底 */
-        height:100%;
+    }
+}
+
+@media screen and (max-width:480px){
+    body.chat-page .header-switch span{
+        /* 极窄屏仅图标，完整文案在 aria-label */
+        display:none;
+    }
+
+    body.chat-page .header-switch{
+        width:36px;
+        min-width:36px;
+        max-width:36px;
+        padding:0;
+        justify-content:center;
+        gap:0;
     }
 }
 
