@@ -389,6 +389,11 @@ def is_super_admin_role(role: str | None) -> bool:
     return role == ROLE_SUPER_ADMIN
 
 
+def can_create_matrix_rooms(role: str | None) -> bool:
+    """最高管理 / 普通管理可建群聊与空间；普通用户不可。"""
+    return (role or "") in CONSOLE_ROLES
+
+
 
 
 
@@ -642,9 +647,13 @@ def ensure_avatar_file(user_id: str, seed: str) -> None:
 
     folder = ensure_profile_dir(user_id)
 
-    local_path = os.path.join(USERS_DIR, folder, "avatar.svg")
+    # 存 PNG：Synapse/Element 对 SVG 缩略图支持差，易导致 Matrix 头像裂图
+    local_path = os.path.join(USERS_DIR, folder, "avatar.png")
 
-    remote = f"https://api.dicebear.com/7.x/avataaars/svg?seed={urllib.parse.quote(seed)}"
+    remote = (
+        f"https://api.dicebear.com/7.x/avataaars/png"
+        f"?seed={urllib.parse.quote(seed)}&size=256"
+    )
 
     try:
 

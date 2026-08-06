@@ -2,7 +2,7 @@
  * 实训环境注入（Element nginx sub_filter）：
  * 1) 隐藏「验证此设备 / 恢复密钥 / 密钥存储 / 备份」类 Toast / Banner
  * 2) 隐藏设置页中的加密 / 密钥存储 / 安全备份 / 恢复 / 密码学整段 UI
- * 3) 隐藏设置页 MXID（保留显示名）
+ * 3) 隐藏设置页 MXID / 显示名称；隐藏改头像入口（显示名与头像由金格同步）
  * 4) 隐藏房间加密开关等仍可能露出的入口
  * 5) 隐藏「添加服务器 / Edit homeserver / Server picker」——
  *    disable_custom_urls 已锁登录切换；房间目录 NetworkDropdown 仍有 Add server，靠本脚本兜底
@@ -13,24 +13,45 @@
  *
  * Element Web 1.12.x：无 config 可关 Encryption 设置页与 VERIFY_THIS_SESSION Toast；
  * 亦无 UIFeature.themeSetting，主题锁定靠 default_theme + 本脚本。
+ * Synapse enable_set_avatar_url=false + 本脚本隐藏上传控件；金格改头像走 Admin API。
+ * 10) 普通用户隐藏「新建房间 / 创建空间」入口（权限由 /api/matrix/capabilities +
+ *     matrix_proxy 拦截 createRoom；私聊 DM 仍允许）
  */
 (function () {
   var STYLE_ID = "jingepi-lab-e2ee-hide";
   var THEME_LINK_ID = "jingepi-lab-theme-css";
+  var THEME_VARS_LINK_ID = "jingepi-lab-theme-vars-css";
   var FORCED_THEME = "custom-金格Pi";
-  var GOLD = "#f0b90b";
-  var GOLD_BTN = "#e0a80a";
-  var GOLD_HOVER = "#c99400";
-  var GOLD_PRESSED = "#c99400";
-  var GOLD_ON = "#fff6d1";
-  var SURFACE = "#12151c";
-  var PANEL = "#12151c";
-  var PANEL_RAISED = "#12151c";
-  var INPUT = "#161a22";
-  var HIGHLIGHT = "#241c0e";
-  var TEXT = "#f5f5f5";
-  var TEXT_MUTED = "#aaaaaa";
+  /* 跟随 jingepi-theme-vars.css（管理后台可改）；硬编码仅作 getComputedStyle 回退 */
+  var GOLD = "var(--jingepi-gold, #f0b90b)";
+  var GOLD_BTN = "var(--jingepi-btn, #e0a80a)";
+  var GOLD_HOVER = "var(--jingepi-btn-hover, #c99400)";
+  var GOLD_PRESSED = "var(--jingepi-gold-deep, #c99400)";
+  var GOLD_ON = "var(--jingepi-gold-on, #fff6d1)";
+  var SURFACE = "var(--jingepi-surface, #12151c)";
+  var PANEL = "var(--jingepi-panel, #12151c)";
+  var PANEL_RAISED = "var(--jingepi-panel-raised, #12151c)";
+  var INPUT = "var(--jingepi-input, #161a22)";
+  var HIGHLIGHT = "var(--jingepi-highlight, #241c0e)";
+  var TEXT = "var(--jingepi-text, #f5f5f5)";
+  var TEXT_MUTED = "var(--jingepi-text-muted, #aaaaaa)";
   var BORDER = "rgba(255, 255, 255, 0.06)";
+  var GOLD_LIGHT = "var(--jingepi-gold-light, #fcd535)";
+  var GOLD_STOP4 = "var(--jingepi-gold-stop4, #a67c00)";
+
+  /* null=未知；false=普通用户禁建群/空间；true=管理员 */
+  var canCreateRooms = null;
+
+  function resolvedColor(cssVar, fallback) {
+    try {
+      var v = getComputedStyle(document.documentElement)
+        .getPropertyValue(cssVar)
+        .trim();
+      return v || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
 
   var HIDE_CSS = [
     "/* ---- 设置页隐藏 MXID ---- */",
@@ -41,6 +62,39 @@
     ".mx_UserMenu .mx_CopyableText,",
     ".mx_UserMenu [data-testid='copyable-text'] {",
     "  display: none !important;",
+    "}",
+
+    "/* ---- 设置页隐藏「显示名称」整项（金格同步，用户不可见/不可改） ---- */",
+    ".mx_UserProfileSettings_profile_displayName,",
+    ".mx_UserProfileSettings_profile_controls_displayName,",
+    ".mx_UserProfileSettings [data-testid='account-display-name'],",
+    ".mx_UserProfileSettings [data-testid='displayname'],",
+    ".mx_UserProfileSettings [data-testid='display-name'],",
+    ".mx_AccountUserSettingsTab [data-testid='account-display-name'],",
+    ".mx_SettingsSubsection[data-jingepi-hide-displayname='1'],",
+    ".mx_Field[data-jingepi-hide-displayname='1'],",
+    "[data-jingepi-hide-displayname='1'] {",
+    "  display: none !important;",
+    "  pointer-events: none !important;",
+    "  height: 0 !important;",
+    "  margin: 0 !important;",
+    "  padding: 0 !important;",
+    "  overflow: hidden !important;",
+    "  border: 0 !important;",
+    "}",
+
+    "/* ---- 设置页隐藏改头像（金格为唯一来源） ---- */",
+    ".mx_UserProfileSettings input[type='file'],",
+    ".mx_AvatarSetting input[type='file'],",
+    ".mx_AvatarSetting_upload,",
+    ".mx_AvatarSetting_avatar .mx_AccessibleButton,",
+    ".mx_UserProfileSettings_profile .mx_AccessibleButton[aria-label*='头像'],",
+    ".mx_UserProfileSettings_profile .mx_AccessibleButton[aria-label*='Avatar'],",
+    ".mx_UserProfileSettings_profile .mx_AccessibleButton[aria-label*='avatar'],",
+    ".mx_UserProfileSettings_profile .mx_AccessibleButton[aria-label*='Upload'],",
+    ".mx_UserProfileSettings_profile .mx_AccessibleButton[aria-label*='上传'] {",
+    "  display: none !important;",
+    "  pointer-events: none !important;",
     "}",
 
     "/* ---- Encryption 设置整页 / 面板 ---- */",
@@ -110,6 +164,15 @@
     "  display: none !important;",
     "}",
 
+    "/* ---- 普通用户：隐藏新建房间 / 创建空间 ---- */",
+    "body[data-jingepi-no-create='1'] .mx_RoomListHeader_plusButton,",
+    "body[data-jingepi-no-create='1'] .mx_RoomListHeader_plusMenuButton,",
+    "body[data-jingepi-no-create='1'] [data-testid='room-list-options'],",
+    "body[data-jingepi-no-create='1'] [data-jingepi-hide-create='1'] {",
+    "  display: none !important;",
+    "  pointer-events: none !important;",
+    "}",
+
     "/* ---- 强制金格Pi主题：隐藏 Appearance 主题选择器 ---- */",
     ".mx_ThemeChoicePanel_ThemeSelectors,",
     ".mx_ThemeChoicePanel_themeSelector,",
@@ -130,7 +193,7 @@
     "  --accent-color: " + GOLD_BTN + " !important;",
     "  --primary-color: " + GOLD_BTN + " !important;",
     "  --secondary-content: " + GOLD_PRESSED + " !important;",
-    "  --tertiary-content: #fcd535 !important;",
+    "  --tertiary-content: " + GOLD_LIGHT + " !important;",
     "  --background: " + SURFACE + " !important;",
     "  --cpd-color-text-action-accent: " + GOLD + " !important;",
     "  --cpd-color-icon-accent-tertiary: " + GOLD + " !important;",
@@ -140,7 +203,7 @@
     "  --cpd-color-bg-accent-pressed: " + GOLD_PRESSED + " !important;",
     "  --cpd-color-bg-accent-selected: rgba(240, 185, 11, 0.22) !important;",
     "  --cpd-color-bg-accent-subtle: rgba(240, 185, 11, 0.16) !important;",
-    "  --cpd-color-bg-badge-accent: #fcd535 !important;",
+    "  --cpd-color-bg-badge-accent: " + GOLD_LIGHT + " !important;",
     "  --cpd-color-text-badge-accent: " + GOLD_ON + " !important;",
     "  --cpd-color-border-accent-primary: " + GOLD + " !important;",
     "  --cpd-color-border-accent-subtle: " + GOLD_PRESSED + " !important;",
@@ -152,7 +215,7 @@
     "  --cpd-color-gradient-action-stop1: " + GOLD_BTN + " !important;",
     "  --cpd-color-gradient-action-stop2: " + GOLD_HOVER + " !important;",
     "  --cpd-color-gradient-action-stop3: " + GOLD_PRESSED + " !important;",
-    "  --cpd-color-gradient-action-stop4: #a67c00 !important;",
+    "  --cpd-color-gradient-action-stop4: " + GOLD_STOP4 + " !important;",
     "  --cpd-color-bg-canvas-default: " + SURFACE + " !important;",
     "  --cpd-color-bg-subtle-primary: " + SURFACE + " !important;",
     "  --cpd-color-bg-subtle-secondary: " + SURFACE + " !important;",
@@ -162,7 +225,7 @@
     "  --cpd-color-separator-primary: " + BORDER + " !important;",
     "  --cpd-color-separator-secondary: rgba(255, 255, 255, 0.04) !important;",
     "  --cpd-color-border-focused: " + GOLD + " !important;",
-    "  --cpd-color-text-link-external: #fcd535 !important;",
+    "  --cpd-color-text-link-external: " + GOLD_LIGHT + " !important;",
     "  --cpd-color-text-success-primary: " + GOLD + " !important;",
     "  --cpd-color-icon-success-primary: " + GOLD + " !important;",
     "  font-family: \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", \"Hiragino Sans GB\", sans-serif;",
@@ -297,6 +360,8 @@
   }
 
   function paintInlineGreens(root) {
+    var goldHex = resolvedColor("--jingepi-gold", "#f0b90b");
+    var pressedHex = resolvedColor("--jingepi-gold-deep", "#c99400");
     var nodes = (root || document).querySelectorAll
       ? (root || document).querySelectorAll("[style]")
       : [];
@@ -311,23 +376,38 @@
         continue;
       }
       el.style.cssText = st
-        .replace(/#0[Dd][Bb][Dd]8[Bb]/gi, GOLD)
-        .replace(/#03[Bb]381/gi, GOLD)
-        .replace(/#00[Cc]073/gi, GOLD)
-        .replace(/#0[Ee][Cc][Dd]8[Cc]/gi, GOLD)
-        .replace(/#8[Ee]41[Ff]2/gi, GOLD)
-        .replace(/#7[Ee]57[Cc]2/gi, GOLD_PRESSED);
+        .replace(/#0[Dd][Bb][Dd]8[Bb]/gi, goldHex)
+        .replace(/#03[Bb]381/gi, goldHex)
+        .replace(/#00[Cc]073/gi, goldHex)
+        .replace(/#0[Ee][Cc][Dd]8[Cc]/gi, goldHex)
+        .replace(/#8[Ee]41[Ff]2/gi, goldHex)
+        .replace(/#7[Ee]57[Cc]2/gi, pressedHex);
     }
   }
 
   function ensureThemeStylesheet() {
-    if (document.getElementById(THEME_LINK_ID)) return;
-    if (document.querySelector('link[href*="lab-jingepi-theme.css"]')) return;
+    var head = document.head || document.documentElement;
+    if (
+      !document.getElementById(THEME_VARS_LINK_ID) &&
+      !document.querySelector('link[href*="jingepi-theme-vars.css"]')
+    ) {
+      var vlink = document.createElement("link");
+      vlink.id = THEME_VARS_LINK_ID;
+      vlink.rel = "stylesheet";
+      vlink.href = "jingepi-theme-vars.css";
+      head.appendChild(vlink);
+    }
+    if (
+      document.getElementById(THEME_LINK_ID) ||
+      document.querySelector('link[href*="lab-jingepi-theme.css"]')
+    ) {
+      return;
+    }
     var link = document.createElement("link");
     link.id = THEME_LINK_ID;
     link.rel = "stylesheet";
     link.href = "lab-jingepi-theme.css";
-    (document.head || document.documentElement).appendChild(link);
+    head.appendChild(link);
   }
 
   function injectCss() {
@@ -358,11 +438,20 @@
   var ADD_SERVER_RE =
     /添加服务器|添加新服务器|添加一个服务器|添加其它服务器|切换服务器|更换服务器|更改服务器|编辑服务器|Add a server|Add server|Add new server|Add another server|Change server|Edit server|Other homeserver|其它服务器|其他服务器|自定义服务器|Custom server/i;
 
+  /* 新建群聊 / 空间（不含「开始私聊 / Start chat」） */
+  var CREATE_ROOM_RE =
+    /新建房间|创建房间|新建群聊|创建群聊|创建空间|新建空间|Explore rooms|Browse rooms|Create a? ?new room|Create room|New room|Create a? ?space|New space|Add space|添加空间/i;
+  var CREATE_ROOM_SKIP_RE =
+    /开始聊天|开始私聊|私信|Start chat|Start a chat|Direct message|Message|发送私信/i;
+
   /* 外观页内：主题选择、匹配系统主题（勿匹配整页「外观/Appearance」标题） */
   var THEME_SECTION_RE =
     /^(主题|Theme|匹配系统主题|Match system theme|跟随系统主题|Use system theme|自定义主题|Custom themes?)$/i;
   var THEME_MENU_RE =
     /^(主题|Theme|浅色|深色|Light|Dark|匹配系统主题|Match system theme)$/i;
+
+  /* 账户设置：显示名称（Synapse enable_set_displayname=false；UI 再藏一层） */
+  var DISPLAY_NAME_RE = /^(显示名称|Display Name|Display name)$/i;
 
   function forceJinGeTheme() {
     try {
@@ -381,6 +470,39 @@
       }
     } catch (_e) {
       /* ignore */
+    }
+  }
+
+  function hideDisplayNameUi() {
+    var roots = document.querySelectorAll(
+      ".mx_UserProfileSettings, .mx_AccountUserSettingsTab, .mx_SettingsTab, .mx_tabpanel"
+    );
+    for (var r = 0; r < roots.length; r++) {
+      var root = roots[r];
+      var labels = root.querySelectorAll(
+        "label, .mx_Field_label, .mx_SettingsSubsection_heading, .mx_SettingsSubsectionHeading_heading, h2, h3, h4, [role='heading'], span, p, legend"
+      );
+      for (var i = 0; i < labels.length; i++) {
+        var el = labels[i];
+        var text = (el.textContent || "").replace(/\s+/g, " ").trim();
+        if (!DISPLAY_NAME_RE.test(text)) continue;
+        // 只藏 Field / Subsection，避免误藏整块头像区 profile_controls
+        var wrap =
+          el.closest(".mx_Field, .mx_SettingsSubsection, .mx_SettingsFlag") ||
+          el.parentElement;
+        if (wrap) {
+          wrap.setAttribute("data-jingepi-hide-displayname", "1");
+        }
+      }
+      var inputs = root.querySelectorAll(
+        "input[placeholder*='显示名称'], input[placeholder*='Display name'], input[placeholder*='Display Name'], input[name='displayname'], input[name='displayName'], input[aria-label*='显示名称'], input[aria-label*='Display name'], input[aria-label*='Display Name'], textarea[aria-label*='显示名称'], textarea[aria-label*='Display name']"
+      );
+      for (var j = 0; j < inputs.length; j++) {
+        var inp = inputs[j];
+        var box =
+          inp.closest(".mx_Field, .mx_SettingsSubsection") || inp.parentElement || inp;
+        box.setAttribute("data-jingepi-hide-displayname", "1");
+      }
     }
   }
 
@@ -540,6 +662,87 @@
     }
   }
 
+  function matrixAccessToken() {
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i) || "";
+        if (k.indexOf("mx_access_token") === 0 || k === "access_token") {
+          var v = localStorage.getItem(k);
+          if (v && v.length > 8) return v;
+        }
+      }
+      var raw = localStorage.getItem("mx_local_settings");
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.access_token === "string") return s.access_token;
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+    return null;
+  }
+
+  function applyCreateCapability(allowed) {
+    canCreateRooms = !!allowed;
+    try {
+      if (canCreateRooms) {
+        document.body.removeAttribute("data-jingepi-no-create");
+      } else {
+        document.body.setAttribute("data-jingepi-no-create", "1");
+      }
+    } catch (_e2) {
+      /* ignore */
+    }
+  }
+
+  function refreshCreateCapability() {
+    var headers = { Accept: "application/json" };
+    var tok = matrixAccessToken();
+    if (tok) headers.Authorization = "Bearer " + tok;
+    fetch("/api/matrix/capabilities", {
+      method: "GET",
+      credentials: "include",
+      headers: headers,
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || data.success === false) {
+          applyCreateCapability(false);
+          return;
+        }
+        applyCreateCapability(!!(data.can_create_room || data.can_create_space));
+      })
+      .catch(function () {
+        /* 失败时不强制隐藏管理员入口；服务端仍会拦截 */
+      });
+  }
+
+  function hideCreateRoomUi() {
+    if (canCreateRooms !== false) return;
+    try {
+      document.body.setAttribute("data-jingepi-no-create", "1");
+    } catch (_e) {
+      /* ignore */
+    }
+    var nodes = document.querySelectorAll(
+      "button, a, [role='button'], [role='menuitem'], [role='option'], .mx_AccessibleButton, .mx_MenuItem, li"
+    );
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var text = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length > 64) continue;
+      if (CREATE_ROOM_SKIP_RE.test(text)) continue;
+      if (!CREATE_ROOM_RE.test(text)) continue;
+      var wrap =
+        el.closest(
+          "[role='menuitem'], [role='option'], .mx_IconizedContextMenu_item, .mx_AccessibleButton, button, a, li"
+        ) || el;
+      wrap.setAttribute("data-jingepi-hide-create", "1");
+    }
+  }
+
   function suppress() {
     suppressToasts();
     hideEncryptionTabs();
@@ -547,6 +750,8 @@
     hideRoomEncryptionToggles();
     hideAddServerUi();
     hideThemeSwitcher();
+    hideDisplayNameUi();
+    hideCreateRoomUi();
     forceGoldCssVars(document.documentElement);
     forceGoldCssVars(document.body);
     paintInlineGreens(document);
@@ -557,6 +762,8 @@
   function start() {
     forceJinGeTheme();
     injectCss();
+    refreshCreateCapability();
+    setInterval(refreshCreateCapability, 30000);
     obs.observe(document.documentElement, {
       childList: true,
       subtree: true,

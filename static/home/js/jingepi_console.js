@@ -403,5 +403,226 @@
         });
     }
 
+    function switchTab(tabId) {
+        document.querySelectorAll(".console-tab").forEach(function (btn) {
+            var on = btn.getAttribute("data-tab") === tabId;
+            btn.classList.toggle("is-active", on);
+            btn.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        document.querySelectorAll(".console-tab-panel").forEach(function (panel) {
+            var on = panel.getAttribute("data-tab-panel") === tabId;
+            panel.classList.toggle("is-active", on);
+            if (on) {
+                panel.removeAttribute("hidden");
+            } else {
+                panel.setAttribute("hidden", "");
+            }
+        });
+        var createBtn = document.getElementById("btnCreateUser");
+        if (createBtn) {
+            createBtn.style.display = tabId === "users" ? "" : "none";
+        }
+        // Matrix 主题 Tab 已从控制台 UI 隐藏；API 仍可用，见 ADMIN.txt
+        if (tabId === "matrix-theme") {
+            loadTheme();
+        }
+    }
+
+    document.querySelectorAll(".console-tab").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            switchTab(btn.getAttribute("data-tab"));
+        });
+    });
+
+    function normalizeHexInput(v) {
+        var s = String(v || "").trim();
+        if (!s) return "";
+        if (s.charAt(0) !== "#") s = "#" + s;
+        if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+            s =
+                "#" +
+                s.charAt(1) +
+                s.charAt(1) +
+                s.charAt(2) +
+                s.charAt(2) +
+                s.charAt(3) +
+                s.charAt(3);
+        }
+        if (!/^#[0-9a-fA-F]{6}$/.test(s)) return "";
+        return s.toLowerCase();
+    }
+
+    function syncThemeRowPreview(row) {
+        var hex = row.querySelector(".theme-hex");
+        var picker = row.querySelector(".theme-picker");
+        var swatch = row.querySelector(".theme-swatch");
+        var norm = normalizeHexInput(hex && hex.value);
+        if (!norm) return;
+        if (hex) hex.value = norm;
+        if (picker) picker.value = norm;
+        if (swatch) swatch.style.background = norm;
+    }
+
+    function renderTheme(items) {
+        var root = document.getElementById("themeGroups");
+        var meta = document.getElementById("themeMeta");
+        if (!root) return;
+        if (!items || !items.length) {
+            root.innerHTML = '<p class="console-empty">暂无主题色</p>';
+            return;
+        }
+        var byGroup = {};
+        var order = [];
+        items.forEach(function (it) {
+            var g = it.group || "accent";
+            if (!byGroup[g]) {
+                byGroup[g] = [];
+                order.push({ id: g, label: it.group_label || g });
+            }
+            byGroup[g].push(it);
+        });
+        root.innerHTML = order
+            .map(function (g) {
+                var rows = byGroup[g.id]
+                    .map(function (it) {
+                        var val = escapeHtml(it.value || it.default || "#000000");
+                        return (
+                            '<tr class="theme-row" data-key="' +
+                            escapeHtml(it.key) +
+                            '">' +
+                            "<td>" +
+                            escapeHtml(it.label) +
+                            '<div class="theme-key">' +
+                            escapeHtml(it.css || it.key) +
+                            "</div></td>" +
+                            '<td><input type="color" class="theme-picker" value="' +
+                            val +
+                            '" aria-label="' +
+                            escapeHtml(it.label) +
+                            '"></td>' +
+                            '<td><input type="text" class="theme-hex settings-input" maxlength="7" value="' +
+                            val +
+                            '" spellcheck="false"></td>' +
+                            '<td><span class="theme-swatch" style="background:' +
+                            val +
+                            '"></span></td>' +
+                            "</tr>"
+                        );
+                    })
+                    .join("");
+                return (
+                    '<div class="theme-group">' +
+                    "<h4>" +
+                    escapeHtml(g.label) +
+                    "</h4>" +
+                    '<div class="console-table-scroll"><table class="console-table theme-table">' +
+                    "<thead><tr><th>名称</th><th>取色</th><th>十六进制</th><th>预览</th></tr></thead>" +
+                    "<tbody>" +
+                    rows +
+                    "</tbody></table></div></div>"
+                );
+            })
+            .join("");
+        if (meta) {
+            meta.textContent = "共 " + items.length + " 项可调颜色";
+        }
+    }
+
+    function collectThemeColors() {
+        var colors = {};
+        var bad = null;
+        document.querySelectorAll(".theme-row").forEach(function (row) {
+            var key = row.getAttribute("data-key");
+            var hex = row.querySelector(".theme-hex");
+            var norm = normalizeHexInput(hex && hex.value);
+            if (!norm) {
+                bad = key;
+                return;
+            }
+            colors[key] = norm;
+        });
+        if (bad) {
+            return { error: "颜色「" + bad + "」格式无效，请使用 #RRGGBB" };
+        }
+        return { colors: colors };
+    }
+
+    function loadTheme() {
+        var themeTip = document.getElementById("themeTip");
+        tip(themeTip, "");
+        return api("/api/admin/matrix-theme")
+            .then(function (data) {
+                if (!data.success) {
+                    tip(themeTip, data.message || "加载失败", false);
+                    return;
+                }
+                renderTheme(data.items || []);
+            })
+            .catch(function () {
+                tip(themeTip, "网络错误", false);
+            });
+    }
+
+    var themeGroups = document.getElementById("themeGroups");
+    if (themeGroups) {
+        themeGroups.addEventListener("input", function (e) {
+            var t = e.target;
+            var row = t.closest(".theme-row");
+            if (!row) return;
+            if (t.classList.contains("theme-picker")) {
+                var hex = row.querySelector(".theme-hex");
+                if (hex) hex.value = t.value;
+                syncThemeRowPreview(row);
+            } else if (t.classList.contains("theme-hex")) {
+                var norm = normalizeHexInput(t.value);
+                if (norm) {
+                    t.value = norm;
+                    syncThemeRowPreview(row);
+                }
+            }
+        });
+    }
+
+    document.getElementById("btnThemeSave") &&
+        document.getElementById("btnThemeSave").addEventListener("click", function () {
+            var themeTip = document.getElementById("themeTip");
+            var packed = collectThemeColors();
+            if (packed.error) {
+                tip(themeTip, packed.error, false);
+                return;
+            }
+            api("/api/admin/matrix-theme", {
+                method: "PUT",
+                body: { colors: packed.colors },
+            }).then(function (data) {
+                tip(
+                    themeTip,
+                    data.message || (data.success ? "已保存" : "保存失败"),
+                    !!data.success
+                );
+                if (data.success && data.items) {
+                    renderTheme(data.items);
+                }
+            });
+        });
+
+    document.getElementById("btnThemeReset") &&
+        document.getElementById("btnThemeReset").addEventListener("click", function () {
+            if (!window.confirm("确认恢复全部主题色为默认值？")) return;
+            var themeTip = document.getElementById("themeTip");
+            api("/api/admin/matrix-theme/reset", { method: "POST", body: {} }).then(
+                function (data) {
+                    tip(
+                        themeTip,
+                        data.message || (data.success ? "已恢复默认" : "失败"),
+                        !!data.success
+                    );
+                    if (data.success && data.items) {
+                        renderTheme(data.items);
+                    }
+                }
+            );
+        });
+
     loadUsers();
 })();

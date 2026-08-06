@@ -10,6 +10,7 @@ import user_db
 import mbti_ai
 import mbti_log
 import trade_history
+import matrix_theme
 from element_proxy import register_element_proxy
 from matrix_proxy import register_matrix_proxy
 from oidc_provider import init_oidc
@@ -35,6 +36,7 @@ else:
 app.register_blueprint(home_bp)
 
 user_db.bootstrap()
+matrix_theme.ensure_seeded()
 init_oidc(app)
 register_element_proxy(app)
 register_matrix_proxy(app)
@@ -244,6 +246,11 @@ def api_update_avatar():
         return jsonify({"success": False, "message": str(e)})
     except Exception:
         return jsonify({"success": False, "message": "上传失败，请稍后重试"})
+    # 金格本地头像 → Synapse 媒体库 mxc → Admin API 设 avatar_url
+    try:
+        synapse_admin.set_avatar(user["id"])
+    except Exception:
+        app.logger.exception("同步 Matrix avatar 失败（金格头像已更新）")
     return jsonify({"success": True, "message": "头像已更新", "avatar": url})
 
 
@@ -555,6 +562,44 @@ def chat():
     )
 
 
+@app.route("/api/matrix/capabilities", methods=["GET"])
+def api_matrix_capabilities():
+    """Element 用于隐藏建群/建空间入口；服务端 createRoom 仍会再校验。
+
+    鉴权：金格 Session，或 Matrix Bearer（localpart = users.id）。
+    """
+    from matrix_proxy import resolve_jingepi_user_from_matrix_token
+
+    user = None
+    uid = session.get("user_id")
+    if uid:
+        user = user_db.get_user_by_id(uid)
+    if user is None:
+        user = resolve_jingepi_user_from_matrix_token()
+
+    if user is None or not user.get("is_active", True):
+        return jsonify(
+            {
+                "success": True,
+                "can_create_room": False,
+                "can_create_space": False,
+                "role": None,
+            }
+        )
+
+    allowed = user_db.can_create_matrix_rooms(user.get("role"))
+    return jsonify(
+        {
+            "success": True,
+            "can_create_room": allowed,
+            "can_create_space": allowed,
+            "role": user.get("role"),
+            "role_label": user.get("role_label")
+            or user_db.ROLE_LABELS.get(user.get("role") or "", ""),
+        }
+    )
+
+
 @app.route("/jingepi-console")
 @admin_required
 def jingepi_console():
@@ -713,6 +758,62 @@ def api_admin_delete_user(user_id):
             "user": deleted,
         }
     )
+
+
+def _require_super_admin_api():
+    actor = _current_user()
+    if not _actor_is_super_admin(actor):
+        return _admin_api_denied(403, "仅最高管理可管理 Matrix 主题")
+    return None
+
+
+@app.route("/api/admin/matrix-theme", methods=["GET"])
+@admin_required
+def api_admin_matrix_theme_get():
+    denied = _require_super_admin_api()
+    if denied:
+        return denied
+    return jsonify(matrix_theme.api_payload())
+
+
+@app.route("/api/admin/matrix-theme", methods=["PUT"])
+@admin_required
+def api_admin_matrix_theme_put():
+    denied = _require_super_admin_api()
+    if denied:
+        return denied
+    data = request.get_json(silent=True) or {}
+    colors = data.get("colors")
+    if not isinstance(colors, dict) or not colors:
+        return jsonify({"success": False, "message": "请提交 colors 对象"}), 400
+    try:
+        saved = matrix_theme.save_colors(colors)
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception:
+        app.logger.exception("保存 Matrix 主题失败")
+        return jsonify({"success": False, "message": "保存失败，请稍后重试"}), 500
+    payload = matrix_theme.api_payload()
+    payload["message"] = "主题色已保存；请对 Element 硬刷新后查看"
+    payload["colors"] = saved
+    return jsonify(payload)
+
+
+@app.route("/api/admin/matrix-theme/reset", methods=["POST"])
+@admin_required
+def api_admin_matrix_theme_reset():
+    denied = _require_super_admin_api()
+    if denied:
+        return denied
+    try:
+        saved = matrix_theme.reset_colors()
+    except Exception:
+        app.logger.exception("重置 Matrix 主题失败")
+        return jsonify({"success": False, "message": "重置失败，请稍后重试"}), 500
+    payload = matrix_theme.api_payload()
+    payload["message"] = "已恢复默认主题色；请对 Element 硬刷新后查看"
+    payload["colors"] = saved
+    return jsonify(payload)
 
 
 @app.route("/logout")

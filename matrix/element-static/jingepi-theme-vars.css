@@ -1,0 +1,47 @@
+/* 金格Pi Element 主题变量 — 由管理后台生成，请勿手改；改色请用 /jingepi-console */
+:root,
+html,
+body,
+.cpd-theme-dark,
+.cpd-theme-light,
+[class*="cpd-theme-"] {
+  --jingepi-bg: #000000;
+  --jingepi-surface: #151209;
+  --jingepi-panel: #383323;
+  --jingepi-panel-raised: #12151c;
+  --jingepi-input: #161a22;
+  --jingepi-highlight: #241c0e;
+  --jingepi-blue: #dfc251;
+  --jingepi-text: #f5f5f5;
+  --jingepi-text-muted: #fff6d1;
+  --jingepi-gold-on: #241c0e;
+  --jingepi-border: #12151c;
+  --jingepi-border-strong: #12151c;
+  --jingepi-btn: #e0a80a;
+  --jingepi-btn-hover: #c99400;
+  --jingepi-gold-deep: #c99400;
+  --jingepi-gold-hover: #d4a017;
+  --jingepi-gold: #f0b90b;
+  --jingepi-gold-light: #fcd535;
+  --jingepi-gold-stop4: #a67c00;
+  --jingepi-warning: #ff4b55;
+  --accent: #e0a80a;
+  --accent-color: #e0a80a;
+  --primary-color: #e0a80a;
+  --secondary-content: #c99400;
+  --tertiary-content: #fcd535;
+  --background: #151209;
+  --system: #f0b90b;
+  --cpd-color-bg-action-primary-rest: #e0a80a;
+  --cpd-color-bg-action-primary-hovered: #c99400;
+  --cpd-color-bg-action-primary-pressed: #c99400;
+  --cpd-color-bg-accent-rest: #e0a80a;
+  --cpd-color-bg-accent-hovered: #c99400;
+  --cpd-color-bg-accent-pressed: #c99400;
+  --cpd-color-text-on-solid-primary: #241c0e;
+  --cpd-color-icon-on-solid-primary: #241c0e;
+  --cpd-color-gradient-action-stop1: #e0a80a;
+  --cpd-color-gradient-action-stop2: #c99400;
+  --cpd-color-gradient-action-stop3: #c99400;
+  --cpd-color-gradient-action-stop4: #a67c00;
+}

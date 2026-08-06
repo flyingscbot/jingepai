@@ -2,6 +2,8 @@
  * 金格Pi × Element Web — 视觉对齐静态注入
  * 与 static/home/css/style.css 同系：炭灰/深蓝灰底 + 金强调 + Noto Sans SC
  * 由 element-nginx sub_filter 注入；配合 element-config.json custom_themes「金格Pi」
+ *
+ * 颜色值来自先注入的 jingepi-theme-vars.css（管理后台可改）；本文件只做映射与组件覆盖。
  */
 
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap");
@@ -12,29 +14,12 @@ body,
 .cpd-theme-dark,
 .cpd-theme-light,
 [class*="cpd-theme-"] {
-  /* 单一表面色：页面 / 侧栏 / 主区 / 对话框 / 登录卡全部 #12151c（炭灰蓝灰，非 #000） */
-  --jingepi-bg: #12151c;
-  --jingepi-surface: #12151c;
-  --jingepi-panel: #12151c;
-  --jingepi-panel-raised: #12151c;
-  --jingepi-input: #161a22;
-  --jingepi-highlight: #241c0e;
-  --jingepi-border: #2e3440;
-  --jingepi-border-strong: #3a4250;
-  --jingepi-text: #f5f5f5;
-  --jingepi-text-muted: #aaaaaa;
-  --jingepi-gold-light: #fcd535;
-  --jingepi-gold: #f0b90b;
-  --jingepi-gold-hover: #d4a017;
-  --jingepi-gold-deep: #c99400;
-  /* 实心金按钮内文字/图标：极淡黄（非白、非灰、非土黄） */
-  --jingepi-gold-on: #fff6d1;
-  --jingepi-blue: #172554;
+  /* --jingepi-* 色值由 jingepi-theme-vars.css（先注入）提供；此处只做映射与字体 */
   --jingepi-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
 
-  --accent: #e0a80a !important;
-  --accent-color: #e0a80a !important;
-  --primary-color: #e0a80a !important;
+  --accent: var(--jingepi-btn) !important;
+  --accent-color: var(--jingepi-btn) !important;
+  --primary-color: var(--jingepi-btn) !important;
   --secondary-content: var(--jingepi-gold-deep) !important;
   --tertiary-content: var(--jingepi-gold-light) !important;
   --background: var(--jingepi-surface) !important;
@@ -43,8 +28,8 @@ body,
   --cpd-color-text-action-accent: var(--jingepi-gold) !important;
   --cpd-color-icon-accent-tertiary: var(--jingepi-gold) !important;
   --cpd-color-icon-accent-primary: var(--jingepi-gold) !important;
-  --cpd-color-bg-accent-rest: #e0a80a !important;
-  --cpd-color-bg-accent-hovered: #c99400 !important;
+  --cpd-color-bg-accent-rest: var(--jingepi-btn) !important;
+  --cpd-color-bg-accent-hovered: var(--jingepi-btn-hover) !important;
   --cpd-color-bg-accent-pressed: var(--jingepi-gold-deep) !important;
   --cpd-color-bg-accent-selected: rgba(240, 185, 11, 0.22) !important;
   --cpd-color-bg-accent-subtle: rgba(240, 185, 11, 0.16) !important;
@@ -53,15 +38,15 @@ body,
   --cpd-color-border-accent-primary: var(--jingepi-gold) !important;
   --cpd-color-border-accent-subtle: var(--jingepi-gold-deep) !important;
   --cpd-color-border-focused: var(--jingepi-gold) !important;
-  --cpd-color-bg-action-primary-rest: #e0a80a !important;
-  --cpd-color-bg-action-primary-hovered: #c99400 !important;
+  --cpd-color-bg-action-primary-rest: var(--jingepi-btn) !important;
+  --cpd-color-bg-action-primary-hovered: var(--jingepi-btn-hover) !important;
   --cpd-color-bg-action-primary-pressed: var(--jingepi-gold-deep) !important;
   --cpd-color-text-on-solid-primary: var(--jingepi-gold-on) !important;
   --cpd-color-icon-on-solid-primary: var(--jingepi-gold-on) !important;
-  --cpd-color-gradient-action-stop1: #e0a80a !important;
-  --cpd-color-gradient-action-stop2: #c99400 !important;
+  --cpd-color-gradient-action-stop1: var(--jingepi-btn) !important;
+  --cpd-color-gradient-action-stop2: var(--jingepi-btn-hover) !important;
   --cpd-color-gradient-action-stop3: var(--jingepi-gold-deep) !important;
-  --cpd-color-gradient-action-stop4: #a67c00 !important;
+  --cpd-color-gradient-action-stop4: var(--jingepi-gold-stop4) !important;
 
   /* Compound 画布/subtle 全部对齐同一表面，消灭 inset 色差块 */
   --cpd-color-bg-canvas-default: var(--jingepi-surface) !important;
@@ -176,7 +161,7 @@ body::after,
   outline: none !important;
 }
 
-/* 整页单一底色 #12151c；氛围渐变极淡，避免中间卡与页面形成色阶矩形 */
+/* 整页底色用 --jingepi-bg；氛围渐变极淡，避免中间卡与页面形成色阶矩形 */
 body,
 .mx_AuthPage,
 .mx_MatrixChat,
@@ -184,7 +169,7 @@ body,
   background:
     radial-gradient(circle at top right, rgba(75, 59, 18, 0.18) 0%, transparent 40%),
     radial-gradient(circle at bottom left, rgba(23, 37, 84, 0.14) 0%, transparent 36%),
-    var(--jingepi-surface) !important;
+    var(--jingepi-bg) !important;
   color: var(--jingepi-text) !important;
 }
 
@@ -335,12 +320,12 @@ body,
 button.mx_AccessibleButton_kind_primary,
 .cpd-button[data-kind="primary"],
 button[data-kind="primary"] {
-  background-color: #e0a80a !important;
-  background: #e0a80a !important;
-  border-color: #e0a80a !important;
-  color: #fff6d1 !important;
-  --cpd-color-text-on-solid-primary: #fff6d1 !important;
-  --cpd-color-icon-on-solid-primary: #fff6d1 !important;
+  background-color: var(--jingepi-btn) !important;
+  background: var(--jingepi-btn) !important;
+  border-color: var(--jingepi-btn) !important;
+  color: var(--jingepi-gold-on) !important;
+  --cpd-color-text-on-solid-primary: var(--jingepi-gold-on) !important;
+  --cpd-color-icon-on-solid-primary: var(--jingepi-gold-on) !important;
 }
 
 .mx_AccessibleButton_kind_primary:hover,
@@ -349,10 +334,10 @@ button[data-kind="primary"] {
 .mx_Dialog_primary:hover,
 .cpd-button[data-kind="primary"]:hover,
 button[data-kind="primary"]:hover {
-  background-color: #c99400 !important;
-  background: #c99400 !important;
-  border-color: #c99400 !important;
-  color: #fff6d1 !important;
+  background-color: var(--jingepi-btn-hover) !important;
+  background: var(--jingepi-btn-hover) !important;
+  border-color: var(--jingepi-btn-hover) !important;
+  color: var(--jingepi-gold-on) !important;
 }
 
 .mx_AccessibleButton_kind_primary:active,
@@ -363,7 +348,7 @@ button[data-kind="primary"]:active {
   background-color: var(--jingepi-gold-deep) !important;
   background: var(--jingepi-gold-deep) !important;
   border-color: var(--jingepi-gold-deep) !important;
-  color: #fff6d1 !important;
+  color: var(--jingepi-gold-on) !important;
 }
 
 .mx_AccessibleButton_kind_primary svg,
@@ -378,7 +363,7 @@ button[data-kind="primary"] svg,
 .mx_Dialog_primary svg path,
 .cpd-button[data-kind="primary"] svg path,
 button[data-kind="primary"] svg path {
-  color: #fff6d1 !important;
+  color: var(--jingepi-gold-on) !important;
   fill: currentColor !important;
   stroke: currentColor;
 }
@@ -509,14 +494,114 @@ a:hover {
 
 .mx_SSOButton,
 .mx_SSOButton_default {
-  background-color: #e0a80a !important;
-  border-color: #e0a80a !important;
-  color: #fff6d1 !important;
+  background-color: var(--jingepi-btn) !important;
+  border-color: var(--jingepi-btn) !important;
+  color: var(--jingepi-gold-on) !important;
 }
 
 .mx_SSOButton:hover,
 .mx_SSOButton_default:hover {
-  background-color: #c99400 !important;
-  border-color: #c99400 !important;
-  color: #fff6d1 !important;
+  background-color: var(--jingepi-btn-hover) !important;
+  border-color: var(--jingepi-btn-hover) !important;
+  color: var(--jingepi-gold-on) !important;
+}
+
+/* =========================================================
+   移动端适配（不破坏 Element 自带窄屏房间列表 ↔ 聊天切换）
+   ========================================================= */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media screen and (max-width: 768px) {
+  html,
+  body,
+  #matrixchat,
+  .mx_MatrixChat,
+  .mx_MatrixChat_wrapper {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  body,
+  #matrixchat,
+  .mx_MatrixChat,
+  .mx_MatrixChat_wrapper {
+    height: 100% !important;
+    min-height: 100% !important;
+    min-height: 100dvh !important;
+  }
+
+  .mx_MainSplit,
+  .mx_LeftPanel,
+  .mx_LeftPanel_wrapper,
+  .mx_LeftPanel_wrapperPanel,
+  .mx_RoomView,
+  .mx_RoomView_body,
+  .mx_RoomView_timeline,
+  .mx_RoomView_messagePanel,
+  .mx_SpacePanel,
+  .mx_RightPanel {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* 对话框 / 设置：避免桌面固定宽在手机上溢出 */
+  .mx_Dialog,
+  .mx_Dialog_fixedWidth,
+  .mx_Dialog_wrapper,
+  .mx_SettingsDialog,
+  .mx_Dialog_border {
+    width: min(100vw - 24px, 100%) !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: min(90dvh, 100%) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  .mx_AuthPage,
+  .mx_AuthPage_modal,
+  .mx_AuthBody,
+  .mx_Login {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding-left: max(12px, env(safe-area-inset-left)) !important;
+    padding-right: max(12px, env(safe-area-inset-right)) !important;
+    box-sizing: border-box !important;
+  }
+
+  .mx_RoomHeader,
+  .mx_LegacyRoomHeader,
+  .mx_RoomHeader_wrapper {
+    padding-left: max(8px, env(safe-area-inset-left)) !important;
+    padding-right: max(8px, env(safe-area-inset-right)) !important;
+  }
+
+  .mx_MessageComposer,
+  .mx_BasicMessageComposer,
+  .mx_SendMessageComposer {
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 触控滚动 */
+  .mx_RoomView_messagePanel,
+  .mx_RoomList,
+  .mx_LeftPanel,
+  .mx_Dialog_content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* 窄屏滚动条更细，少占宽度 */
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
 }

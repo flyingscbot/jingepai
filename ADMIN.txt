@@ -50,6 +50,10 @@ Flask shell 手动提升（备选）
   - 保护：不可删除/降级/停用最后一个活跃的 super_admin
   - 改用户名时尽量同步 Matrix displayname
   - 停用时尽量同步 Matrix deactivated
+  - 改头像时尽量同步 Matrix avatar（媒体库上传 + Admin API）
+  - 「Matrix 主题」控制台 Tab 已隐藏；后端仍保留：
+      GET/PUT /api/admin/matrix-theme 、POST /api/admin/matrix-theme/reset
+      （仅最高管理；写入 jingepi-theme-vars.css；普通管理 403）
 
 注意
   - 不要在 base.html / 交易 / 聊天页头加入口链接

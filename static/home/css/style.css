@@ -1874,6 +1874,8 @@ body:has(.float-nav) .panel-main{
 
 body.chat-page{
     overflow:hidden;
+    height:100%;
+    max-height:100dvh;
 }
 
 body.chat-page header{
@@ -1884,7 +1886,9 @@ body.chat-page header{
     position:relative;
     z-index:1;
     height:calc(100vh - 52px);
+    height:calc(100dvh - 52px);
     width:100%;
+    max-width:100%;
     margin:0;
     padding:0;
     overflow:hidden;
@@ -1900,6 +1904,7 @@ body.chat-page header{
 .chat-frame{
     display:block;
     width:100%;
+    max-width:100%;
     flex:1;
     min-height:0;
     border:0;
@@ -1907,13 +1912,39 @@ body.chat-page header{
     box-shadow:none;
     outline:none;
     background:#0f1419;
+    /* 避免 iframe 内触控滚动被父级吞掉 */
+    touch-action:manipulation;
 }
 
 @media screen and (max-width:768px){
+    body.chat-page{
+        /* 移动端顶栏可能换行变高 */
+        --chat-header-h: 56px;
+    }
+
+    body.chat-page header{
+        min-height:52px;
+        padding-left:max(12px, env(safe-area-inset-left));
+        padding-right:max(12px, env(safe-area-inset-right));
+        padding-top:env(safe-area-inset-top);
+    }
+
+    body.chat-page .header-switch span{
+        /* 窄屏只保留图标旁短文案，避免顶栏撑高 */
+        max-width:4.5em;
+    }
+
     .chat-shell{
-        height:calc(100vh - 52px);
-        /* 移动端顶栏 height:auto，给一点余量 */
-        min-height:calc(100dvh - 64px);
+        height:calc(100vh - var(--chat-header-h, 56px) - env(safe-area-inset-top, 0px));
+        height:calc(100dvh - var(--chat-header-h, 56px) - env(safe-area-inset-top, 0px));
+        min-height:0;
+        padding-bottom:env(safe-area-inset-bottom, 0px);
+    }
+
+    .chat-frame{
+        min-height:0;
+        /* iOS iframe 高度塌缩兜底 */
+        height:100%;
     }
 }
 

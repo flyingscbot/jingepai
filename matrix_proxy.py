@@ -3,10 +3,14 @@
 Keeps Element SSO on one origin so:
 - iframe /chat can show Synapse SSO pages (strip X-Frame-Options)
 - browsers accept OIDC session cookies on plain HTTP (strip Secure from Set-Cookie)
+
+Also enforces lab policies (deactivate / room_keys / createRoom for非管理员).
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import urllib.error
 import urllib.request
@@ -15,6 +19,9 @@ from urllib.parse import urljoin
 from flask import Blueprint, Response, request, stream_with_context
 
 import auth_config
+import user_db
+
+logger = logging.getLogger(__name__)
 
 matrix_proxy_bp = Blueprint("matrix_proxy", __name__)
 
@@ -119,6 +126,12 @@ _ROOM_KEYS_RE = re.compile(
     re.I,
 )
 
+# Create room / space: POST /_matrix/client/{r0|v3|unstable}/createRoom
+_CREATE_ROOM_RE = re.compile(
+    r"^/_matrix/client/(?:r0|v3|unstable)/createRoom/?$",
+    re.I,
+)
+
 
 def _blocked_deactivate_response() -> Response:
     """Lab policy: users must not self-deactivate (SSO accounts are IdP-managed)."""
@@ -138,6 +151,95 @@ def _blocked_room_keys_response() -> Response:
     )
 
 
+def _blocked_create_room_response() -> Response:
+    return Response(
+        '{"errcode":"M_FORBIDDEN","error":"Creating group chats and spaces requires an admin account"}',
+        status=403,
+        mimetype="application/json",
+    )
+
+
+def _bearer_token() -> str | None:
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        tok = auth[7:].strip()
+        return tok or None
+    tok = request.args.get("access_token")
+    return tok.strip() if tok else None
+
+
+def _whoami_user_id(access_token: str) -> str | None:
+    """Resolve MXID via Synapse whoami (direct upstream, not through Flask)."""
+    url = _upstream("/_matrix/client/v3/account/whoami")
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with _OPENER.open(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        uid = data.get("user_id")
+        return uid if isinstance(uid, str) else None
+    except Exception as exc:
+        logger.warning("whoami failed: %s", exc)
+        return None
+
+
+def _mxid_localpart(mxid: str) -> str | None:
+    if not mxid.startswith("@") or ":" not in mxid:
+        return None
+    return mxid[1:].split(":", 1)[0]
+
+
+def resolve_jingepi_user_from_matrix_token() -> dict | None:
+    """用当前请求的 Matrix access_token 解析金格用户（localpart = users.id）。"""
+    token = _bearer_token()
+    if not token:
+        return None
+    mxid = _whoami_user_id(token)
+    if not mxid:
+        return None
+    localpart = _mxid_localpart(mxid)
+    if not localpart:
+        return None
+    return user_db.get_user_by_id(localpart)
+
+
+def _create_room_is_restricted(body: bytes | None) -> bool:
+    """True = 群聊或空间（普通用户禁止）；False = 私聊 DM（允许）。"""
+    if not body:
+        return True
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return True
+    if not isinstance(data, dict):
+        return True
+    creation = data.get("creation_content") or {}
+    if isinstance(creation, dict) and creation.get("type") == "m.space":
+        return True
+    if data.get("type") == "m.space":
+        return True
+    if data.get("is_direct") is True:
+        return False
+    return True
+
+
+def _should_block_create_room(body: bytes | None) -> bool:
+    if not _create_room_is_restricted(body):
+        return False
+    user = resolve_jingepi_user_from_matrix_token()
+    if user is None:
+        return True
+    if not user.get("is_active", True):
+        return True
+    return not user_db.can_create_matrix_rooms(user.get("role"))
+
+
 def _proxy(subpath: str):
     if not auth_config.SYNAPSE_PROXY_ENABLED:
         return Response("Synapse proxy disabled", status=404)
@@ -148,11 +250,16 @@ def _proxy(subpath: str):
     if _ROOM_KEYS_RE.match(path):
         return _blocked_room_keys_response()
 
+    data = request.get_data() if request.method in ("POST", "PUT", "PATCH") else None
+
+    if request.method == "POST" and _CREATE_ROOM_RE.match(path):
+        if _should_block_create_room(data):
+            return _blocked_create_room_response()
+
     url = _upstream(path)
     if request.query_string:
         url = f"{url}?{request.query_string.decode('latin-1')}"
 
-    data = request.get_data() if request.method in ("POST", "PUT", "PATCH") else None
     req = urllib.request.Request(
         url,
         data=data if data else None,

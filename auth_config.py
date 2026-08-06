@@ -59,7 +59,7 @@ ELEMENT_PROXY_ENABLED = os.environ.get("ELEMENT_PROXY_ENABLED", "1") == "1"
 # 关闭反代时 iframe 直连此地址
 ELEMENT_URL = os.environ.get("ELEMENT_URL", "http://127.0.0.1:8081").rstrip("/")
 
-# Synapse Admin API：金格改用户名时即时同步 Matrix displayname
+# Synapse Admin API：金格改用户名/头像时即时同步 Matrix displayname / avatar
 # 须与 matrix/homeserver.yaml 的 registration_shared_secret 一致
 SYNAPSE_REGISTRATION_SHARED_SECRET = os.environ.get(
     "SYNAPSE_REGISTRATION_SHARED_SECRET",

@@ -104,6 +104,17 @@ def _ensure_rsa_key() -> tuple[str, str]:
     return priv_path.read_text(encoding="utf-8"), pub_path.read_text(encoding="utf-8")
 
 
+def _absolute_picture_url(user: dict) -> str:
+    """Synapse 容器需能拉取的头像绝对 URL（相对路径用 OIDC_ISSUER 拼）。"""
+    rel = user_db.avatar_url(user["id"], user["username"])
+    if rel.startswith("http://") or rel.startswith("https://"):
+        return rel
+    base = auth_config.OIDC_ISSUER.rstrip("/")
+    if not rel.startswith("/"):
+        rel = "/" + rel
+    return base + rel
+
+
 def _user_info(user: dict) -> UserInfo:
     localpart = auth_config.matrix_localpart_from_user_id(user["id"])
     return UserInfo(
@@ -111,7 +122,7 @@ def _user_info(user: dict) -> UserInfo:
             "sub": user["id"],
             "name": user["username"],
             "preferred_username": localpart,
-            "picture": user_db.avatar_url(user["id"], user["username"]),
+            "picture": _absolute_picture_url(user),
         }
     )
 

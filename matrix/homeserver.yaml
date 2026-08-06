@@ -27,6 +27,11 @@ database:
 
 log_config: "/data/matrix.localhost.log.config"
 media_store_path: /data/media_store
+# Synapse ≥1.144 默认 enable_authenticated_media=true：新上传媒体仅可走
+# /_matrix/client/v1/media/*（需 Bearer）。Element 头像仍大量用旧
+# /_matrix/media/v3/{download,thumbnail}（img / allow_redirect），会 404 裂图。
+# 实训关闭认证媒体，使金格 Admin API 上传的头像可被旧端点下载。
+enable_authenticated_media: false
 registration_shared_secret: "jingepi-dev-registration-secret-change-me"
 report_stats: false
 macaroon_secret_key: "jingepi-dev-macaroon-secret-change-me"
@@ -42,8 +47,9 @@ password_config:
 # 注意：Synapse 无官方配置可关闭用户自助 POST /account/deactivate；
 # 实训由 Flask matrix_proxy 在 :1000 拦截该接口（见 SETUP.txt）。
 
-# 禁止客户端改显示名；由 OIDC 用金格用户名下发，并在每次 SSO 登录同步
+# 禁止客户端改显示名 / 头像；由金格 OIDC + Admin API 下发并同步
 enable_set_displayname: false
+enable_set_avatar_url: false
 sso:
   update_profile_information: true
 
@@ -114,8 +120,10 @@ oidc_providers:
     user_mapping_provider:
       config:
         # preferred_username = 金格 users.id（uuid4.hex）；display name = 金格 username
+        # picture = 金格头像绝对 URL（host.docker.internal），SSO 时写入 Matrix avatar
         localpart_template: "{{ user.preferred_username }}"
         display_name_template: "{{ user.name }}"
+        picture_claim: "picture"
     allow_existing_users: true
 
 trusted_key_servers: []

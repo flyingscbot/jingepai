@@ -22,39 +22,44 @@
                 {% if is_super_admin %}最高管理{% else %}普通管理{% endif %}
                 · {{ user.username }}
             </span>
-            <button type="button" class="settings-btn" id="btnCreateUser">新建用户</button>
+            <button type="button" class="settings-btn" id="btnCreateUser" data-tab-show="users">新建用户</button>
         </div>
     </div>
 
-    <section class="console-toolbar panel-card">
-        <label class="console-search">
-            <span>按用户名筛选</span>
-            <input type="search" id="searchInput" class="settings-input" placeholder="输入用户名关键字…" autocomplete="off">
-        </label>
-        <button type="button" class="settings-btn-secondary" id="btnRefresh">刷新</button>
-        <p class="console-meta" id="listMeta">加载中…</p>
-    </section>
+    {# Matrix 主题 Tab 已隐藏；API GET/PUT /api/admin/matrix-theme 仍可用，见 ADMIN.txt #}
 
-    <section class="console-table-wrap panel-card">
-        <div class="console-table-scroll">
-            <table class="console-table" id="usersTable">
-                <thead>
-                    <tr>
-                        <th>用户名</th>
-                        <th>角色</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
-                        <th>用户 ID</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTbody">
-                    <tr><td colspan="6" class="console-empty">加载中…</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <p class="settings-tip" id="listTip"></p>
-    </section>
+    <div class="console-tab-panel is-active" data-tab-panel="users">
+        <section class="console-toolbar panel-card">
+            <label class="console-search">
+                <span>按用户名筛选</span>
+                <input type="search" id="searchInput" class="settings-input" placeholder="输入用户名关键字…" autocomplete="off">
+            </label>
+            <button type="button" class="settings-btn-secondary" id="btnRefresh">刷新</button>
+            <p class="console-meta" id="listMeta">加载中…</p>
+        </section>
+
+        <section class="console-table-wrap panel-card">
+            <div class="console-table-scroll">
+                <table class="console-table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>用户名</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>用户 ID</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTbody">
+                        <tr><td colspan="6" class="console-empty">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="settings-tip" id="listTip"></p>
+        </section>
+    </div>
+
 </main>
 
 <!-- 新建用户 -->
