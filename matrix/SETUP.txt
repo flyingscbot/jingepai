@@ -1,8 +1,6 @@
-金格Pi × 自建 Matrix（OIDC B2）对接说明
+金格Pi × 自建 Matrix（OIDC）对接说明
 
 =====================================
-
-
 
 当前状态（本机已跑通）
 
@@ -10,53 +8,34 @@
 
 - Synapse: http://127.0.0.1:8008  （docker compose，healthy）
 
-- Element Web: http://127.0.0.1:8081  （upstream；金格反代 /element/；备用客户端；主题/E2EE 实训补丁仍保留）
-
 - FluffyChat Web: http://127.0.0.1:8082  （ghcr.io/etkecc/fluffychat-web；同源反代 /fluffychat/）
+  （聊天客户端已从 Element 换为 FluffyChat。）
+  金格主题：fluffychat-config.json 的 colorSchemeSeedInt=#f0b90b（Material3 种子色）；
+  fluffy-static/lab-jingepi-fluffy.{css,js} + 注入 index（炭黑壳层/闪屏）；
+  Flask fluffy_proxy 对 /fluffychat/ HTML 再注入一次（同源 /chat 生效）。
+  限制：Flutter CanvasKit 主 UI 在 canvas 上，无法用 CSS 做玻璃按钮材质。
+  改主题后：docker compose recreate fluffychat，并对 /fluffychat/ 硬刷新
+  （必要时清站点 localStorage 后重开）。
 
-- /chat iframe 默认：http://127.0.0.1:1000/fluffychat/（CHAT_CLIENT=fluffy）
-  切回 Element：环境变量 CHAT_CLIENT=element；Element 仍在 /element/
+- /chat iframe：http://127.0.0.1:1000/fluffychat/
   FluffyChat SSO 回调：/auth.html（Flask 反代到上游 auth.html）
 
 - 登录仅允许金格Pi OIDC SSO（已关闭密码/访客/开放注册；/login 仅 SSO/token）
 
-- 禁止添加/切换其它 Matrix homeserver（单服锁定）：
-  Element disable_custom_urls=true（登录页无 Server picker「编辑」）；
-  default_server_config.base_url=http://127.0.0.1:1000、
-  default_server_name=matrix.localhost、room_directory.servers 仅 matrix.localhost、
-  default_federate=false；
-  lab-suppress-e2ee-nags.js 兜底隐藏「添加服务器 / Add server」
-  （房间目录 NetworkDropdown 不受 disable_custom_urls 控制）。
-  改配置后需 recreate Element，并对 /element/ 硬刷新（必要时清站点数据）。
-
-- 实训全面禁用 E2EE，无恢复密钥 / 安全备份 / 数字身份流程：
+- 实训全面禁用 E2EE：
   Synapse encryption_enabled_by_default_for_room_type=off；
   extra_well_known_client_content.io.element.e2ee.force_disable=true（及 default=false）；
   default_power_level_content_override 将 m.room.encryption 提到 PL 999；
-  Element force_verification=false、UIFeature.advancedEncryption=false、
-  default_server_config.io.element.e2ee.force_disable=true；
-  （Element 1.12+ 已移除 secure_backup_required 等配置，无单独 UIFeature 可关
-  Encryption / Key storage 设置页。）
-  Element nginx 注入 lab-suppress-e2ee-nags.js：隐藏验证 Toast、密钥存储 /
-  安全备份 / 恢复 / 加密设置侧栏与面板、房间加密开关文案，并隐藏设置页 MXID
-  （保留显示名）。
-  Flask :1000 反代拦截全部 /_matrix/client/*/room_keys/*（403；Synapse 无官方
-  关备份 API 配置）。不拦截 login/sync/keys/{upload,query,claim}。
-  自检：GET http://127.0.0.1:1000/.well-known/matrix/client 与
-  http://127.0.0.1:8008/.well-known/matrix/client 均应含 force_disable。
-  若仍见旧加密 UI：对该站点硬刷新，并清除站点数据
-  （http://127.0.0.1:1000/element/ → 站点信息 → 清除 Cookie/网站数据）后
-  重新金格Pi登录。旧账号可另跑 matrix/reset-lab-crypto.ps1 清服务端
-  cross-signing。
+  Flask :1000 反代拦截全部 /_matrix/client/*/room_keys/*（403）。
+  自检：GET http://127.0.0.1:1000/.well-known/matrix/client 应含 force_disable。
+  若仍见旧加密 UI：硬刷新并清除 /fluffychat/ 站点数据后重新金格Pi登录。
+  旧账号可另跑 matrix/reset-lab-crypto.ps1 清服务端 cross-signing。
 
 - OIDC Issuer（容器侧）: http://host.docker.internal:1000
 
 - OIDC 浏览器公开基址: http://127.0.0.1:1000
 
 - 金格 Flask 必须监听 0.0.0.0:1000（供容器经 host.docker.internal 回调）
-
-
-
 
 
 架构
@@ -71,10 +50,7 @@
 
                  ▼
 
-         Element :8081 ──Flask 反代──► /element/  ← /chat 同源 iframe
-
-
-
+         FluffyChat :8082 ──Flask 反代──► /fluffychat/  ← /chat 同源 iframe
 
 
 一、日常启动
@@ -87,7 +63,7 @@
 
    若 VS Code / Cursor 调试器仍绑 127.0.0.1，请改 launch 参数或改用上面命令重启。
 
-2) 启动 Matrix（含 Element）：
+2) 启动 Matrix（Synapse + FluffyChat）：
 
      cd matrix
 
@@ -97,12 +73,9 @@
 
      http://127.0.0.1:1000/chat
 
-   （iframe 加载同源 /element/；也可点「在新标签打开聊天室」）
+   （iframe 加载同源 /fluffychat/）
 
    选择「金格Pi」→ 用实训账号登录
-
-
-
 
 
 二、对外根地址：domain.txt（推荐）与环境变量
@@ -129,7 +102,6 @@
   其它可选环境变量：
 
   OIDC_ISSUER=http://host.docker.internal:1000
-
    仅 Synapse 容器内访问；穿透时勿改成穿透域名。
 
   MATRIX_SERVER_NAME=matrix.localhost
@@ -138,23 +110,15 @@
 
   OIDC_MATRIX_CLIENT_SECRET=change-me-synapse-oidc-secret
 
-  OIDC_MATRIX_REDIRECT_URIS=…
-
-   默认已含 {PUBLIC_BASE_URL}/_synapse/client/oidc/callback；
-   一般不必手写。
-
   AUTHLIB_INSECURE_TRANSPORT=1
 
-  ELEMENT_PROXY_ENABLED=1
-
-  ELEMENT_UPSTREAM=http://127.0.0.1:8081
-
-  ELEMENT_PROXY_PATH=/element
-
-  ELEMENT_URL=http://localhost:8081
+  FLUFFY_PROXY_ENABLED=1
+  FLUFFY_UPSTREAM=http://127.0.0.1:8082
+  FLUFFY_PROXY_PATH=/fluffychat
+  FLUFFY_URL=http://localhost:8082
 
 
-二½、内网穿透（手机 Element 连不上时）
+二½、内网穿透
 
 --------------------
 
@@ -165,7 +129,7 @@
 
 1) 写穿透根到仓库根 domain.txt（见 domain.txt.example）：
      https://xxxx.ngrok-free.app
-   （不要带 /element；优先 HTTPS）
+   （不要带 /fluffychat；优先 HTTPS）
 
 2) 一键同步并启动（读 domain.txt → apply → recreate → Flask）：
      python start_with_domain.py
@@ -174,16 +138,15 @@
 
    Windows 快捷：.\start_with_domain.ps1
    macOS/Linux 快捷：./start_with_domain.sh
-   （.ps1 / .sh 只调 Python，核心逻辑在 start_with_domain.py）
 
    或分步：
      python matrix/apply_public_base.py
      cd matrix
-     docker compose up -d --force-recreate synapse element
+     docker compose up -d --force-recreate synapse fluffychat
      python main.py
-   （Flask 会从 domain.txt 读 PUBLIC_BASE_URL，不依赖 .ps1；须 0.0.0.0:1000）
+   （Flask 会从 domain.txt 读 PUBLIC_BASE_URL；须 0.0.0.0:1000）
 
-3) 手机 Element Homeserver URL = 穿透根（同上，不要 /element）
+3) 客户端 Homeserver URL = 穿透根（同上，不要 /fluffychat）
 
 4) 自检：
      GET https://xxxx.ngrok-free.app/.well-known/matrix/client
@@ -191,38 +154,23 @@
 
 改 domain.txt 后怎么重启：
   - 只影响 Flask well-known / OIDC 浏览器 URL → 重启 Flask 即可
-    （python main.py 或 python start_with_domain.py --skip-compose --skip-apply）
-  - Synapse public_baseurl / Element base_url 也要跟上 → 必须再跑
-    apply_public_base，并对 synapse（及 element）**force-recreate**。
+  - Synapse public_baseurl / FluffyChat defaultHomeserver 也要跟上 → 必须再跑
+    apply_public_base，并对 synapse + fluffychat **force-recreate**。
     仅 docker compose restart 不够：Synapse 在启动时读 yaml。
     便捷：python start_with_domain.py（默认会 apply + recreate）
 
-常见坑：
-  - Android 明文 HTTP 被拦 → 用 HTTPS 穿透
-  - ngrok 浏览器警告页 → 先用浏览器点一次 Visit Site
-  - OIDC redirect_uri 未白名单 → 写好 domain.txt 后重启 Flask
-    （默认会加入穿透回调）
-  - Cookie Secure / 明文 HTTP：本地开发会去 Secure；HTTPS 穿透一般可登录
-  - 改了 homeserver.yaml 后未 recreate synapse → SSO 仍跳 127.0.0.1
 
-
-
-
-
-三、Element 同源反代
+三、FluffyChat 同源反代
 
 --------------------
 
-- 默认 ELEMENT_PROXY_ENABLED=1：Flask 把 /element/* 转发到 ELEMENT_UPSTREAM
+- 默认 FLUFFY_PROXY_ENABLED=1：Flask 把 /fluffychat/* 转发到 FLUFFY_UPSTREAM
 
-- /chat 的 iframe 使用相对路径 /element/（与金格同端口、同站点）
+- /chat 的 iframe 使用相对路径 /fluffychat/（与金格同端口、同站点）
 
-- 关闭反代：ELEMENT_PROXY_ENABLED=0，则回退到 ELEMENT_URL（跨源 iframe）
+- 关闭反代：FLUFFY_PROXY_ENABLED=0，则回退到 FLUFFY_URL（跨源 iframe）
 
-- 自检：浏览器打开 http://127.0.0.1:1000/element/ 应看到 Element（需上游 :8081 已起）
-
-
-
+- 自检：浏览器打开 http://127.0.0.1:1000/fluffychat/ 应看到 FluffyChat（需上游 :8082 已起）
 
 
 四、Cursor Simple Browser / Cookie
@@ -231,109 +179,70 @@
 
 - Cursor 内置 Simple Browser 对第三方 Cookie、Secure+SameSite=None（明文 HTTP）更严
 
-- 同源 /element/ + 本地 Session 使用 Secure=False、SameSite=Lax，便于 HTTP 实训
+- 同源 /fluffychat/ + 本地 Session 使用 Secure=False、SameSite=Lax，便于 HTTP 实训
 
-- 若 iframe 内 SSO 仍失败：点「在新标签打开聊天室」（顶层导航更易完成 OIDC）
+- 若 iframe 内 SSO 仍失败：顶层打开 /fluffychat/ 完成 OIDC
 
 - 仍不行时请改用本机 Chrome/Edge 打开 http://127.0.0.1:1000/chat
 
 - 生产务必 HTTPS、去掉 skip_verification，并更换所有 change-me 密钥
 
 
-
-
-
 五、其它说明
 
 ------------
 
-- MXID localpart = 金格 users.id（uuid4.hex，32 位小写十六进制），形如
-  @a1b2c3d4e5f6...（32 位）:matrix.localhost；显示名 = 金格 username。
-  Synapse enable_set_displayname=false / enable_set_avatar_url=false，
-  客户端不可改显示名与头像；
-  sso.update_profile_information=true，每次 SSO 登录用金格用户名同步显示名，
-  并用 OIDC picture（绝对 URL，host.docker.internal）尽量同步头像
-  （OIDC userinfo 每次从 DB 读当前 username / 头像路径，非缓存）。
-  金格「用户设置」改用户名时，Flask 另调 Synapse Admin API
-  PUT /_synapse/admin/v2/users/@<id>:matrix.localhost {displayname}
-  即时更新，无需重新登录 Matrix。
-  金格改头像时：Flask 读本地 users/<id>/avatar.* → POST 媒体库得 mxc://
-  → Admin API 设 avatar_url，Element 刷新后两边一致。
-  注意：Synapse 默认认证媒体会使 /_matrix/media/v3/* 对新媒体 404；
+- MXID localpart = 金格 users.id（uuid4.hex，32 位小写十六进制）；显示名 = 金格 username。
+  Synapse enable_set_displayname=false / enable_set_avatar_url=false；
+  sso.update_profile_information=true，每次 SSO 用金格用户名/头像同步。
+  金格改用户名/头像时经 Synapse Admin API 即时同步。
   homeserver.yaml 已设 enable_authenticated_media: false（实训）。
   裂图修复后可重推：python -c "import synapse_admin; print(synapse_admin.sync_avatars_from_disk())"
-  Element 设置页隐藏「显示名称」与改头像（lab-suppress）；服务端仍同步 displayname。
-  Admin token：首次自动用 registration_shared_secret 注册 @jingepi-admin，
-  缓存到 matrix/data/jingepi-admin.access_token；或设环境变量
-  SYNAPSE_ADMIN_ACCESS_TOKEN / 跑 matrix/bootstrap-admin.ps1。
-  Element 无单独「隐藏改名/改头像」UIFeature，以服务端禁用 + lab-suppress 为准。
-  实训强制主题 custom-金格Pi（default_theme + setting_defaults.theme，
-  use_system_theme=false）；Element 1.12 无 UIFeature.themeSetting，
-  lab-suppress-e2ee-nags.js 隐藏外观页主题选择器并写回 localStorage；
-  lab-jingepi-theme.css + config compound 对齐金格炭黑/金表面与 Noto Sans SC，
-  并覆盖 Compound accent / primary CTA 默认绿为 #f0b90b。
-  实训隐藏「停用账户」与「个人信息」相关 UI：UIFeature.deactivate /
-  identityServer / thirdPartyId=false；Synapse 无官方关停用 API 的配置，
-  Flask :1000 反代拦截 POST /_matrix/client/*/account/deactivate（403）。
-  同步拦截 /_matrix/client/*/room_keys/*（密钥备份创建/读写，403）。
+  Admin token：首次自动注册 @jingepi-admin，缓存到 matrix/data/jingepi-admin.access_token；
+  或设 SYNAPSE_ADMIN_ACCESS_TOKEN / 跑 matrix/bootstrap-admin.ps1。
+
+- 实训隐藏停用账户：Flask 拦截 POST /_matrix/client/*/account/deactivate（403）。
   建群/建空间：仅金格角色 admin / super_admin 可 POST createRoom（非 is_direct）；
-  普通 user 被 matrix_proxy 403；私聊 DM（is_direct）仍允许。Element 经
-  /api/matrix/capabilities 隐藏新建房间/空间入口。
+  普通 user 被 matrix_proxy 403；私聊 DM 仍允许。
+  /api/matrix/capabilities 供客户端隐藏新建入口。
 
 - 环境变量补充：
   SYNAPSE_REGISTRATION_SHARED_SECRET（默认与 homeserver.yaml 一致）
   SYNAPSE_ADMIN_ACCESS_TOKEN（可选，跳过自动注册）
 
-- 迁移注意：已有 Matrix 账号通过 OIDC sub（金格 id）绑定，再次 SSO 仍进旧
-  MXID（形如 @u<截断uuid>:…），不会自动改成新 localpart。仅新注册用户为
-  @<完整32位hex>:matrix.localhost。若要统一新格式：管理员删除旧 Matrix 用户
-  后重新 SSO，或 docker compose down -v 清空 synapse-pg 后重建实训环境。
-
-- Element 已配置 CSP frame-ancestors，允许被金格页面 iframe
-
-- homeserver.yaml：discover: false，authorization_endpoint 用 PUBLIC_BASE_URL
-
-  （本机默认 127.0.0.1；穿透用 apply_public_base.py），
+- homeserver.yaml：discover: false，authorization_endpoint 用 PUBLIC_BASE_URL；
   token/jwks/userinfo 仍用 host.docker.internal；skip_verification: true 仅本地 HTTP
 
 - 若 SSO 仍跳到 host.docker.internal：检查 Flask 是否仍绑 127.0.0.1，并
-
   docker compose restart synapse
 
 - 若 SSO 仍跳到 127.0.0.1：检查 domain.txt / PUBLIC_BASE_URL /
-  public_baseurl / authorization_endpoint 是否已改成穿透根，并
-  force-recreate synapse（见 python start_with_domain.py）
-
-- 镜像拉取困难时可配 registry-mirrors（Docker Desktop / daemon.json）
+  public_baseurl / authorization_endpoint，并 force-recreate synapse
 
 同源 Synapse 反代（已默认开启）
 --------------------------------
-- Element / SSO / Client API 全部走 http://127.0.0.1:1000
+- FluffyChat / SSO / Client API 全部走 http://127.0.0.1:1000
 - Flask 反代 /_matrix 与 /_synapse 到 127.0.0.1:8008
-- public_baseurl 与 element base_url 均为 http://127.0.0.1:1000
+- public_baseurl 与 FluffyChat defaultHomeserver 均为 http://127.0.0.1:1000
 - OIDC callback: http://127.0.0.1:1000/_synapse/client/oidc/callback
 - 代理会去掉 Secure Cookie，并允许 iframe frame-ancestors
 
 推荐打开：
-  http://127.0.0.1:1000/element/   （全屏，SSO 最稳）
-  或 http://127.0.0.1:1000/chat     （iframe；可用「全屏打开聊天室」）
+  http://127.0.0.1:1000/fluffychat/   （全屏）
+  或 http://127.0.0.1:1000/chat       （iframe）
 
 测试账号（本地）：sso_test / 123456
 
 金格账号管理后台（无导航入口）：
   浏览器打开 http://127.0.0.1:1000/jingepi-console
-  需 role=admin 或 super_admin；首次可用环境变量 JINGEPI_ADMIN_USERNAME
-  在尚无最高管理时启动提升为 super_admin。详见 ADMIN.txt。
-  详见仓库根目录 ADMIN.txt。
+  需 role=admin 或 super_admin；详见仓库根目录 ADMIN.txt。
 
 改主题 / displayname / avatar 后：
-  cd matrix && docker compose up -d --force-recreate element
+  cd matrix && docker compose up -d --force-recreate fluffychat
   （改了 homeserver.yaml 时：docker compose up -d --force-recreate synapse）
-  （Flask --reload 会加载新 hook；否则手动重启 python main.py）
-  浏览器对 http://127.0.0.1:1000/element/ 硬刷新（Ctrl+F5）；
-  若仍见旧主题/旧头像：站点信息 → 清除 Cookie/网站数据后重新金格Pi登录。
+  浏览器对 http://127.0.0.1:1000/fluffychat/ 硬刷新（Ctrl+F5）。
 
 测头像同步：
   1) 金格登录 → 用户设置 → 上传 png/jpg/webp 头像
-  2) 打开 Element（已 SSO 过的账号），硬刷新；房间列表/个人资料应显示新头像
-  3) 若 Matrix 用户尚未 SSO 创建，首次金格Pi登录后再看头像（SSO picture 也会拉一次）
+  2) 打开 FluffyChat（已 SSO 过的账号），硬刷新；房间列表/个人资料应显示新头像
+  3) 若 Matrix 用户尚未 SSO 创建，首次金格Pi登录后再看头像

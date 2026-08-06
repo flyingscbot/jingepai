@@ -33,7 +33,6 @@ import mbti_ai
 import mbti_log
 import trade_history
 import matrix_theme
-from element_proxy import register_element_proxy
 from fluffy_proxy import register_fluffy_proxy
 from matrix_proxy import register_matrix_proxy
 from oidc_provider import init_oidc
@@ -61,7 +60,6 @@ app.register_blueprint(home_bp)
 user_db.bootstrap()
 matrix_theme.ensure_seeded()
 init_oidc(app)
-register_element_proxy(app)
 register_fluffy_proxy(app)
 register_matrix_proxy(app)
 # 不显示功能 TAB 的页面
@@ -578,20 +576,18 @@ def api_trade_history_delete():
 @app.route("/chat")
 @login_required
 def chat():
-    # 默认嵌入 FluffyChat；CHAT_CLIENT=element 可切回 Element（/element/ 仍保留备用）
-    element_url = auth_config.chat_embed_path()
+    # 嵌入 FluffyChat（同源 /fluffychat/）
+    chat_url = auth_config.chat_embed_path()
     return render_template(
         "chat.html",
-        element_url=element_url,
-        element_proxy_enabled=auth_config.ELEMENT_PROXY_ENABLED,
+        chat_url=chat_url,
         fluffy_proxy_enabled=auth_config.FLUFFY_PROXY_ENABLED,
-        chat_client=auth_config.CHAT_CLIENT,
     )
 
 
 @app.route("/api/matrix/capabilities", methods=["GET"])
 def api_matrix_capabilities():
-    """Element 用于隐藏建群/建空间入口；服务端 createRoom 仍会再校验。
+    """客户端用于隐藏建群/建空间入口；服务端 createRoom 仍会再校验。
 
     鉴权：金格 Session，或 Matrix Bearer（localpart = users.id）。
     """
@@ -821,7 +817,7 @@ def api_admin_matrix_theme_put():
         app.logger.exception("保存 Matrix 主题失败")
         return jsonify({"success": False, "message": "保存失败，请稍后重试"}), 500
     payload = matrix_theme.api_payload()
-    payload["message"] = "主题色已保存；请对 Element 硬刷新后查看"
+    payload["message"] = "主题色已保存；请对 /fluffychat/ 硬刷新后查看"
     payload["colors"] = saved
     return jsonify(payload)
 
@@ -838,7 +834,7 @@ def api_admin_matrix_theme_reset():
         app.logger.exception("重置 Matrix 主题失败")
         return jsonify({"success": False, "message": "重置失败，请稍后重试"}), 500
     payload = matrix_theme.api_payload()
-    payload["message"] = "已恢复默认主题色；请对 Element 硬刷新后查看"
+    payload["message"] = "已恢复默认主题色；请对 /fluffychat/ 硬刷新后查看"
     payload["colors"] = saved
     return jsonify(payload)
 

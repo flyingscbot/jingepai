@@ -1,5 +1,5 @@
 # 实训：清除 Synapse 上残留的 cross-signing / 密钥备份元数据，
-# 避免 Element 因旧加密身份不断弹出「验证此设备」。
+# 避免客户端因旧加密身份不断弹出「验证此设备」。
 # 用法（在 matrix 目录）：.\reset-lab-crypto.ps1
 # 可选：.\reset-lab-crypto.ps1 -UserId "@uXXXX:matrix.localhost"
 # 清除后请用户在浏览器清一次站点数据并重新 SSO 登录。
@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) { throw "psql failed" }
 Write-Host @"
 
 Done.
-Users must clear Element site data once, then login again via JinGePi SSO:
-  Open http://127.0.0.1:1000/element/
+Users must clear FluffyChat site data once, then login again via JinGePi SSO:
+  Open http://127.0.0.1:1000/fluffychat/
   -> site info (lock icon) -> Cookies and site data -> Clear data
 "@

@@ -1,18 +1,26 @@
 /**
  * 金格Pi × FluffyChat Web — 壳层 / DOM 层主题
  *
- * 限制：FluffyChat Web 使用 Flutter CanvasKit，主 UI（按钮、列表、输入栏）
- * 画在 canvas 上，CSS 无法绘制玻璃按钮的 hover/active。画布内交互反馈依赖
- * config colorSchemeSeedInt + Material3 ColorScheme 状态层（hover/press/focus/disabled）。
+ * 限制：FluffyChat Web 使用 Flutter CanvasKit，主 UI（按钮、列表、输入栏、
+ * 对话框）画在 canvas 上。画布内圆角由源码 AppConfig.borderRadius(=18) /
+ * spaceBorderRadius(=11) 写死，config.json / CSS / localStorage 均无法覆盖。
  *
- * 本文件覆盖：html/body 炭黑氛围、启动闪屏、flutter-view 外框、语义/无障碍 DOM、
- * 文本编辑 overlay input、滚动条、选区、焦点环等可触及的 DOM 层。
+ * 本文件覆盖 DOM 层：与主站相同的页面背景、圆角 token（大/中/小）、闪屏、
+ * 文本编辑 overlay、语义树按钮、滚动条、焦点环等。
  */
 
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
 
 :root {
+  /* 与 static/home/css/style.css body 背景一致 */
   --jp-bg: #050505;
+  --jp-page-bg:
+    radial-gradient(circle at top right, #4b3b12 0%, transparent 35%),
+    radial-gradient(circle at bottom left, #172554 0%, transparent 30%),
+    var(--jp-bg);
+  --jp-grid-line: rgba(255, 255, 255, 0.03);
+  --jp-grid-size: 50px;
+
   --jp-gold: #f0b90b;
   --jp-gold-mid: #e0a80a;
   --jp-gold-deep: #c99400;
@@ -56,7 +64,18 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.38),
     inset 0 -1px 0 rgba(0, 0, 0, 0.22),
     0 0 18px rgba(240, 185, 11, 0.28);
+
+  /*
+   * 圆角三档（壳层 DOM；与金格 Element lab 对齐）
+   * sm=10 / control=12 / panel=16 / pill
+   * 画布内仍为 Fluffy 硬编码 18 / 11，无法改。
+   */
+  --jp-radius-sm: 10px;
   --jp-radius-control: 12px;
+  --jp-radius-md: 12px;
+  --jp-radius-panel: 16px;
+  --jp-radius-pill: 999px;
+
   --jp-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
     sans-serif;
   color-scheme: dark;
@@ -68,7 +87,7 @@ html {
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: var(--jp-bg);
+  background: var(--jp-page-bg);
 }
 
 html,
@@ -81,19 +100,29 @@ body {
   min-height: 100dvh;
   font-family: var(--jp-font) !important;
   color: var(--jp-text);
-  background:
-    radial-gradient(ellipse 70% 50% at 85% -5%, rgba(75, 59, 18, 0.45) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 40% at 8% 100%, rgba(23, 37, 84, 0.28) 0%, transparent 50%),
-    var(--jp-bg) !important;
+  background: var(--jp-page-bg) !important;
   -webkit-font-smoothing: antialiased;
 }
 
-/* 启动闪屏：Flutter 未就绪时避免白屏 */
+/* 主站同款金融网格（固定层，衬在 canvas 后方） */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--jp-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--jp-grid-line) 1px, transparent 1px);
+  background-size: var(--jp-grid-size) var(--jp-grid-size);
+}
+
+/* 启动闪屏：与主站同底 + 网格，Flutter 未就绪时避免白屏 */
 body::before {
   content: "金格Pi";
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -104,10 +133,17 @@ body::before {
   letter-spacing: 0.12em;
   color: rgba(240, 185, 11, 0.72);
   text-shadow: 0 0 28px rgba(240, 185, 11, 0.35);
-  background:
-    radial-gradient(ellipse 70% 50% at 85% -5%, rgba(75, 59, 18, 0.45) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 40% at 8% 100%, rgba(23, 37, 84, 0.28) 0%, transparent 50%),
-    var(--jp-bg);
+  background-color: var(--jp-bg);
+  background-image:
+    linear-gradient(var(--jp-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--jp-grid-line) 1px, transparent 1px),
+    radial-gradient(circle at top right, #4b3b12 0%, transparent 35%),
+    radial-gradient(circle at bottom left, #172554 0%, transparent 30%);
+  background-size:
+    var(--jp-grid-size) var(--jp-grid-size),
+    var(--jp-grid-size) var(--jp-grid-size),
+    auto,
+    auto;
   transition: opacity 0.35s ease, visibility 0.35s ease;
 }
 
@@ -120,17 +156,27 @@ body:has(flt-glass-pane)::before {
 
 flutter-view,
 flt-glass-pane,
-flt-scene-host,
+flt-scene-host {
+  position: relative;
+  z-index: 1;
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* CanvasKit 帧通常不透明；透明声明仅影响未绘制边角/加载瞬间 */
 canvas {
   position: relative;
   z-index: 1;
   outline: none !important;
+  background: transparent !important;
 }
 
-/* Flutter 文本编辑 overlay：caret / 选区 / 字体 */
+/* Flutter 文本编辑 overlay：caret / 选区 / 字体 / 圆角 */
 input,
 textarea,
-[contenteditable="true"] {
+[contenteditable="true"],
+flt-text-editing-host input,
+flt-text-editing-host textarea {
   font-family: var(--jp-font) !important;
   caret-color: var(--jp-gold) !important;
   color: var(--jp-text) !important;
@@ -145,6 +191,7 @@ textarea:focus-visible,
 [contenteditable="true"]:focus-visible {
   outline: 2px solid rgba(240, 185, 11, 0.55) !important;
   outline-offset: 2px;
+  border-radius: var(--jp-radius-control);
   box-shadow: 0 0 0 4px rgba(240, 185, 11, 0.18) !important;
 }
 
@@ -180,11 +227,12 @@ textarea[disabled] {
 
 *::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--jp-radius-pill);
 }
 
 *::-webkit-scrollbar-thumb {
   background: rgba(240, 185, 11, 0.4);
-  border-radius: 999px;
+  border-radius: var(--jp-radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -201,8 +249,7 @@ textarea[disabled] {
 
 /*
  * 无障碍语义树中的可聚焦节点（若开启 semantics）：
- * 尽量给 DOM 层按钮/开关提供金格玻璃反馈。CanvasKit 下多数时候透明，
- * 但 HTML renderer / 部分平台辅助层仍会露出。
+ * 尽量给 DOM 层按钮/列表项/对话框提供统一圆角。
  */
 flt-semantics-host [role="button"],
 flt-semantics-host button,
@@ -226,6 +273,33 @@ a[href].jingepi-dom-btn {
     border-color 0.18s ease,
     opacity 0.18s ease;
   cursor: pointer;
+}
+
+flt-semantics-host [role="listitem"],
+flt-semantics [role="listitem"],
+flt-semantics-host [role="option"],
+flt-semantics [role="option"] {
+  border-radius: var(--jp-radius-control);
+}
+
+flt-semantics-host [role="dialog"],
+flt-semantics [role="dialog"],
+flt-semantics-host [role="alertdialog"],
+flt-semantics [role="alertdialog"],
+flt-semantics-host [role="document"],
+.jingepi-dom-panel {
+  border-radius: var(--jp-radius-panel) !important;
+}
+
+flt-semantics-host [role="textbox"],
+flt-semantics [role="textbox"],
+flt-semantics-host [role="searchbox"],
+flt-semantics [role="searchbox"],
+flt-semantics-host input,
+flt-semantics input,
+flt-semantics-host textarea,
+flt-semantics textarea {
+  border-radius: var(--jp-radius-control) !important;
 }
 
 flt-semantics-host [role="button"]:hover,
@@ -257,6 +331,7 @@ flt-semantics [role="button"]:focus-visible,
 flt-semantics button:focus-visible {
   outline: 2px solid rgba(240, 185, 11, 0.7) !important;
   outline-offset: 2px;
+  border-radius: var(--jp-radius-control);
   box-shadow:
     var(--jp-glass-rim),
     0 0 0 4px rgba(240, 185, 11, 0.22) !important;
@@ -284,6 +359,7 @@ flt-semantics-host [role="button"][aria-label*="继续"] {
   border: 1px solid rgba(255, 255, 255, 0.28) !important;
   color: var(--jp-gold-on) !important;
   box-shadow: var(--jp-glass-rim-gold) !important;
+  border-radius: var(--jp-radius-control) !important;
 }
 
 flt-semantics-host [role="button"][aria-label*="登录"]:hover,
@@ -323,7 +399,7 @@ flt-semantics-host a:focus-visible,
 flt-semantics a:focus-visible {
   outline: 2px solid rgba(240, 185, 11, 0.65);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: var(--jp-radius-sm);
 }
 
 /* auth.html 等极简页 */

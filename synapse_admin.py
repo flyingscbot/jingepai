@@ -38,7 +38,7 @@ _AVATAR_MIME = {
     ".svg": "image/svg+xml",
 }
 
-# Synapse/Element 对 SVG 缩略图支持很差（thumbnail 常 400 → 头像裂图），
+# Synapse/Matrix 客户端对 SVG 缩略图支持很差（thumbnail 常 400 → 头像裂图），
 # 上传到 Matrix 前须栅格化为 PNG。
 _MATRIX_SAFE_AVATAR_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
@@ -354,6 +354,10 @@ def set_displayname(user_id: str, displayname: str) -> bool:
     )
     if code in (200, 201):
         logger.info("已同步 Matrix displayname %s → %s", mxid, displayname)
+        try:
+            ensure_fluffy_wallpaper_for_mxid(mxid)
+        except Exception as exc:
+            logger.warning("displayname 后写壁纸失败: %s", exc)
         return True
 
     # 用户尚未在 Synapse 创建（未 SSO）——可忽略
@@ -376,6 +380,10 @@ def set_displayname(user_id: str, displayname: str) -> bool:
             )
             if code2 in (200, 201):
                 logger.info("已同步 Matrix displayname %s → %s", mxid, displayname)
+                try:
+                    ensure_fluffy_wallpaper_for_mxid(mxid)
+                except Exception as exc:
+                    logger.warning("displayname 后写壁纸失败: %s", exc)
                 return True
             logger.warning("displayname 同步重试失败: %s %s", code2, raw2[:200])
             return False
@@ -557,6 +565,162 @@ def set_deactivated(user_id: str, deactivated: bool = True) -> bool:
 
     logger.warning("Matrix 停用同步失败: %s %s %s", mxid, code, raw[:200])
     return False
+
+
+# 金格Pi FluffyChat 聊天壁纸（主站同款炭黑+双光晕+网格）
+_WALLPAPER_PNG = auth_config.BASE_DIR / "matrix" / "fluffy-static" / "jingepi-chat-wallpaper.png"
+_WALLPAPER_MXC_CACHE = auth_config.BASE_DIR / "matrix" / "data" / "jingepi-wallpaper.mxc"
+_FLUFFY_ACCOUNT_CONFIG = "im.fluffychat.account_config"
+_WALLPAPER_OPACITY = 1.0
+_WALLPAPER_BLUR = 0.0
+# mxid → 已写入的 wallpaper mxc（进程内防抖）
+_wallpaper_ensured: dict[str, str] = {}
+
+
+def _read_wallpaper_mxc_cache() -> str | None:
+    try:
+        if _WALLPAPER_MXC_CACHE.is_file():
+            mxc = _WALLPAPER_MXC_CACHE.read_text(encoding="utf-8").strip()
+            if mxc.startswith("mxc://"):
+                return mxc
+    except OSError:
+        pass
+    return None
+
+
+def _write_wallpaper_mxc_cache(mxc: str) -> None:
+    try:
+        _WALLPAPER_MXC_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        _WALLPAPER_MXC_CACHE.write_text(mxc.strip() + "\n", encoding="utf-8")
+    except OSError as exc:
+        logger.warning("无法写入 wallpaper mxc 缓存: %s", exc)
+
+
+def ensure_wallpaper_mxc() -> str | None:
+    """上传金格壁纸 PNG 到 Synapse 媒体库，返回 mxc://（带磁盘缓存）。"""
+    cached = _read_wallpaper_mxc_cache()
+    if cached:
+        return cached
+    token = ensure_admin_token()
+    if not token:
+        logger.warning("无 Synapse admin token，无法上传 Fluffy 壁纸")
+        return None
+    if not _WALLPAPER_PNG.is_file():
+        logger.warning("壁纸文件不存在: %s", _WALLPAPER_PNG)
+        return None
+    try:
+        data = _WALLPAPER_PNG.read_bytes()
+    except OSError as exc:
+        logger.warning("读取壁纸失败: %s", exc)
+        return None
+    if not data:
+        return None
+    mxc = upload_media(data, "image/png", "jingepi-chat-wallpaper.png", token)
+    if mxc:
+        _write_wallpaper_mxc_cache(mxc)
+        logger.info("已上传 Fluffy 壁纸 %s", mxc)
+    return mxc
+
+
+def _login_as_user(mxid: str, admin_token: str) -> str | None:
+    """Admin API：以目标用户身份签发临时 access_token。"""
+    url = (
+        f"{_synapse_base()}/_synapse/admin/v1/users/"
+        f"{urllib.parse.quote(mxid, safe='')}/login"
+    )
+    code, body, raw = _http_json("POST", url, body={}, token=admin_token)
+    if code in (200, 201) and isinstance(body, dict):
+        tok = body.get("access_token")
+        if isinstance(tok, str) and tok:
+            return tok
+    logger.warning("login-as 失败 %s: %s %s", mxid, code, (raw or "")[:200])
+    return None
+
+
+def _get_fluffy_account_config(mxid: str, admin_token: str) -> dict | None:
+    url = (
+        f"{_synapse_base()}/_synapse/admin/v1/users/"
+        f"{urllib.parse.quote(mxid, safe='')}/accountdata"
+    )
+    code, body, _ = _http_json("GET", url, token=admin_token)
+    if code != 200 or not isinstance(body, dict):
+        return None
+    account = body.get("account_data")
+    if not isinstance(account, dict):
+        return None
+    global_data = account.get("global")
+    if not isinstance(global_data, dict):
+        return None
+    cfg = global_data.get(_FLUFFY_ACCOUNT_CONFIG)
+    return cfg if isinstance(cfg, dict) else None
+
+
+def _put_fluffy_wallpaper(mxid: str, user_token: str, mxc: str) -> bool:
+    url = (
+        f"{_synapse_base()}/_matrix/client/v3/user/"
+        f"{urllib.parse.quote(mxid, safe='')}/account_data/"
+        f"{urllib.parse.quote(_FLUFFY_ACCOUNT_CONFIG, safe='')}"
+    )
+    payload = {
+        "wallpaper_url": mxc,
+        "wallpaper_opacity": _WALLPAPER_OPACITY,
+        "wallpaper_blur": _WALLPAPER_BLUR,
+    }
+    code, _, raw = _http_json("PUT", url, body=payload, token=user_token)
+    if code in (200, 201):
+        return True
+    logger.warning("写入 Fluffy account_config 失败 %s: %s %s", mxid, code, (raw or "")[:200])
+    return False
+
+
+def ensure_fluffy_wallpaper_for_mxid(mxid: str, *, force: bool = False) -> bool:
+    """确保该 Matrix 用户的 FluffyChat 聊天壁纸为金格主站同款。
+
+    壁纸存在 account_data ``im.fluffychat.account_config``（mxc URI），
+    CSS 无法盖住 CanvasKit 画布；须走客户端壁纸通道。
+    """
+    if not isinstance(mxid, str) or not mxid.startswith("@"):
+        return False
+    mxc = ensure_wallpaper_mxc()
+    if not mxc:
+        return False
+    if not force and _wallpaper_ensured.get(mxid) == mxc:
+        return True
+
+    admin_token = ensure_admin_token()
+    if not admin_token:
+        return False
+
+    if not force:
+        existing = _get_fluffy_account_config(mxid, admin_token)
+        if (
+            isinstance(existing, dict)
+            and existing.get("wallpaper_url") == mxc
+            and float(existing.get("wallpaper_opacity") or 0) >= 0.99
+        ):
+            _wallpaper_ensured[mxid] = mxc
+            return True
+
+    user_token = _login_as_user(mxid, admin_token)
+    if not user_token:
+        return False
+    ok = _put_fluffy_wallpaper(mxid, user_token, mxc)
+    if ok:
+        _wallpaper_ensured[mxid] = mxc
+        logger.info("已设置 Fluffy 壁纸 %s → %s", mxid, mxc)
+    return ok
+
+
+def ensure_fluffy_wallpaper(user_id: str, *, force: bool = False) -> bool:
+    """金格 users.id → 写入 FluffyChat 壁纸 account_data。"""
+    try:
+        localpart = auth_config.matrix_localpart_from_user_id(user_id)
+    except ValueError as exc:
+        logger.warning("ensure_fluffy_wallpaper: %s", exc)
+        return False
+    return ensure_fluffy_wallpaper_for_mxid(
+        auth_config.matrix_mxid(localpart), force=force
+    )
 
 
 def erase_user(user_id: str) -> bool:

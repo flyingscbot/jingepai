@@ -647,7 +647,7 @@ def ensure_avatar_file(user_id: str, seed: str) -> None:
 
     folder = ensure_profile_dir(user_id)
 
-    # 存 PNG：Synapse/Element 对 SVG 缩略图支持差，易导致 Matrix 头像裂图
+    # 存 PNG：Synapse/Matrix 客户端对 SVG 缩略图支持差，易导致 Matrix 头像裂图
     local_path = os.path.join(USERS_DIR, folder, "avatar.png")
 
     remote = (

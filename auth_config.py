@@ -35,10 +35,10 @@ def _read_domain_file(path: Path | None = None) -> str:
     return ""
 
 
-# 对外公开根地址（本机浏览器 / 手机 Element / 内网穿透域名）。
+# 对外公开根地址（本机浏览器 / 手机客户端 / 内网穿透域名）。
 # 优先级：环境变量 PUBLIC_BASE_URL / OIDC_PUBLIC_BASE → 仓库根 domain.txt → 本机默认。
 # 例：https://xxxx.ngrok-free.app 或 http://127.0.0.1:1000
-# 不要带 /element、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
+# 不要带 /fluffychat、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
 PUBLIC_BASE_URL = _rstrip_slash(
     os.environ.get("PUBLIC_BASE_URL")
     or os.environ.get("OIDC_PUBLIC_BASE")
@@ -100,25 +100,13 @@ OIDC_KEY_DIR = Path(os.environ.get("OIDC_KEY_DIR", str(BASE_DIR / "oidc_keys")))
 # 开发期允许 HTTP（生产务必关）
 AUTHLIB_INSECURE_TRANSPORT = os.environ.get("AUTHLIB_INSECURE_TRANSPORT", "1") == "1"
 
-# Element Web：默认经 Flask 同端口反代，避免 /chat iframe 跨源
-
 # Synapse 同源反代（浏览器只打 :1000，OIDC/Client API 不离开本源）
 SYNAPSE_UPSTREAM = _rstrip_slash(
     os.environ.get("SYNAPSE_UPSTREAM", "http://127.0.0.1:8008")
 )
 SYNAPSE_PROXY_ENABLED = os.environ.get("SYNAPSE_PROXY_ENABLED", "1") == "1"
 
-ELEMENT_UPSTREAM = _rstrip_slash(
-    os.environ.get("ELEMENT_UPSTREAM", "http://127.0.0.1:8081")
-)
-ELEMENT_PROXY_PATH = (os.environ.get("ELEMENT_PROXY_PATH", "/element") or "/element").rstrip(
-    "/"
-) or "/element"
-ELEMENT_PROXY_ENABLED = os.environ.get("ELEMENT_PROXY_ENABLED", "1") == "1"
-# 关闭反代时 iframe 直连此地址
-ELEMENT_URL = _rstrip_slash(os.environ.get("ELEMENT_URL", "http://127.0.0.1:8081"))
-
-# FluffyChat Web（默认经 Flask 同端口反代；/chat 主客户端）
+# FluffyChat Web（默认经 Flask 同端口反代；/chat 唯一客户端）
 FLUFFY_UPSTREAM = _rstrip_slash(
     os.environ.get("FLUFFY_UPSTREAM", "http://127.0.0.1:8082")
 )
@@ -127,8 +115,6 @@ FLUFFY_PROXY_PATH = (
 ).rstrip("/") or "/fluffychat"
 FLUFFY_PROXY_ENABLED = os.environ.get("FLUFFY_PROXY_ENABLED", "1") == "1"
 FLUFFY_URL = _rstrip_slash(os.environ.get("FLUFFY_URL", "http://127.0.0.1:8082"))
-# /chat 嵌入目标：fluffy（默认）或 element（备用）
-CHAT_CLIENT = (os.environ.get("CHAT_CLIENT", "fluffy") or "fluffy").strip().lower()
 
 # Synapse Admin API：金格改用户名/头像时即时同步 Matrix displayname / avatar
 # 须与 matrix/homeserver.yaml 的 registration_shared_secret 一致
@@ -177,13 +163,6 @@ def frame_ancestors_csp_value() -> str:
     return "frame-ancestors " + " ".join(parts)
 
 
-def element_embed_path() -> str:
-    """给 /chat iframe 用的 Element 地址（优先同源相对路径）。"""
-    if ELEMENT_PROXY_ENABLED:
-        return ELEMENT_PROXY_PATH + "/"
-    return ELEMENT_URL + "/"
-
-
 def fluffy_embed_path() -> str:
     """给 /chat iframe 用的 FluffyChat 地址（优先同源相对路径）。"""
     if FLUFFY_PROXY_ENABLED:
@@ -192,9 +171,7 @@ def fluffy_embed_path() -> str:
 
 
 def chat_embed_path() -> str:
-    """/chat iframe 当前客户端（默认 FluffyChat，可用 CHAT_CLIENT=element 切回）。"""
-    if CHAT_CLIENT in ("element", "element-web"):
-        return element_embed_path()
+    """/chat iframe 嵌入 FluffyChat（已停用 Element）。"""
     return fluffy_embed_path()
 
 

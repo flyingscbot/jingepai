@@ -32,7 +32,7 @@ database:
 log_config: "/data/matrix.localhost.log.config"
 media_store_path: /data/media_store
 # Synapse ≥1.144 默认 enable_authenticated_media=true：新上传媒体仅可走
-# /_matrix/client/v1/media/*（需 Bearer）。Element 头像仍大量用旧
+# /_matrix/client/v1/media/*（需 Bearer）。多数客户端头像仍大量用旧
 # /_matrix/media/v3/{download,thumbnail}（img / allow_redirect），会 404 裂图。
 # 实训关闭认证媒体，使金格 Admin API 上传的头像可被旧端点下载。
 enable_authenticated_media: false
@@ -61,8 +61,9 @@ sso:
 # 须加引号：裸 off 会被 YAML 解析成布尔 False
 encryption_enabled_by_default_for_room_type: "off"
 
-# 告知 Element：强制禁用 E2EE（新建房间不可加密；忽略 default）
+# 告知客户端：强制禁用 E2EE（新建房间不可加密；忽略 default）
 # Synapse 在 public_baseurl 下提供 GET /.well-known/matrix/client
+# （well-known 键名 io.element.e2ee 为社区约定，与已停用的 Element Web 无关）
 extra_well_known_client_content:
   "io.element.e2ee":
     default: false

@@ -1,6 +1,6 @@
 ﻿"""Same-origin reverse proxy for Synapse client/OIDC under Flask :1000.
 
-Keeps Element SSO on one origin so:
+Keeps Matrix SSO on one origin so:
 - iframe /chat can show Synapse SSO pages (strip X-Frame-Options)
 - browsers accept OIDC session cookies on plain HTTP (strip Secure from Set-Cookie)
 
@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import urllib.error
 import urllib.request
 from urllib.parse import quote, urljoin
@@ -19,11 +20,16 @@ from urllib.parse import quote, urljoin
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 import auth_config
+import synapse_admin
 import user_db
 
 logger = logging.getLogger(__name__)
 
 matrix_proxy_bp = Blueprint("matrix_proxy", __name__)
+
+# access_token → 已写过壁纸（避免每个 /sync 都 login-as）
+_wallpaper_token_seen: set[str] = set()
+_wallpaper_lock = threading.Lock()
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -149,6 +155,41 @@ _CREATE_ROOM_RE = re.compile(
     re.I,
 )
 
+# Sync：首次带 token 的 sync 时后台写入金格 Fluffy 壁纸 account_data
+_SYNC_RE = re.compile(
+    r"^/_matrix/client/(?:r0|v3|unstable)/sync/?$",
+    re.I,
+)
+
+
+def _queue_fluffy_wallpaper_for_request() -> None:
+    """首次 sync 时确保聊天壁纸（CanvasKit 不吃 CSS，须走 account_config）。
+
+    已写入过则立刻返回；否则同步写完再放行 sync，保证首屏 account_data 含壁纸。
+    """
+    token = _bearer_token()
+    if not token:
+        return
+    with _wallpaper_lock:
+        if token in _wallpaper_token_seen:
+            return
+        _wallpaper_token_seen.add(token)
+
+    try:
+        mxid = _whoami_user_id(token)
+        if not mxid:
+            with _wallpaper_lock:
+                _wallpaper_token_seen.discard(token)
+            return
+        ok = synapse_admin.ensure_fluffy_wallpaper_for_mxid(mxid)
+        if not ok:
+            with _wallpaper_lock:
+                _wallpaper_token_seen.discard(token)
+    except Exception as exc:
+        logger.warning("fluffy wallpaper ensure: %s", exc)
+        with _wallpaper_lock:
+            _wallpaper_token_seen.discard(token)
+
 
 def _blocked_deactivate_response() -> Response:
     """Lab policy: users must not self-deactivate (SSO accounts are IdP-managed)."""
@@ -273,6 +314,9 @@ def _proxy(subpath: str):
         if _should_block_create_room(data):
             return _blocked_create_room_response()
 
+    if request.method == "GET" and _SYNC_RE.match(path):
+        _queue_fluffy_wallpaper_for_request()
+
     # Re-encode decoded PATH_INFO (# in #alias:server) before urllib upstream fetch.
     url = _upstream(_encode_path_for_upstream(path))
     if request.query_string:
@@ -337,7 +381,7 @@ def proxy_matrix_well_known(subpath: str):
     """Expose Matrix client/server well-known on the Flask origin (:1000).
 
     ``m.homeserver.base_url`` 一律用 ``PUBLIC_BASE_URL``（穿透/公网根），
-    避免手机 Element 仍被导向 127.0.0.1。E2EE 禁用标志与 Synapse
+    避免手机客户端仍被导向 127.0.0.1。E2EE 禁用标志与 Synapse
     extra_well_known_client_content 对齐；上游失败时仍返回本地默认。
     不与 OIDC ``/.well-known/openid-configuration`` 冲突。
     """

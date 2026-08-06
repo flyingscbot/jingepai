@@ -1,4 +1,4 @@
-# 自建 Matrix（Synapse）+ Element Web + FluffyChat Web + 金格 OIDC
+# 自建 Matrix（Synapse）+ FluffyChat Web + 金格 OIDC
 # 使用前请先启动金格 Flask（默认 http://host.docker.internal:1000）
 
 services:
@@ -34,20 +34,6 @@ services:
     extra_hosts:
       # 让容器能访问宿主机上的金格 OIDC（Windows/macOS Docker Desktop）
       - "host.docker.internal:host-gateway"
-
-  element:
-    image: docker.io/vectorim/element-web:latest
-    restart: unless-stopped
-    depends_on:
-      - synapse
-    volumes:
-      - ./element-config.json:/app/config.json:ro
-      - ./element-nginx:/etc/nginx/conf.d:ro
-      - ./element-templates-empty:/etc/nginx/templates:ro
-      # 实训：隐藏验证 Toast / 密钥存储 / 备份 / 加密设置 + 设置页 MXID（Element 1.12+ 无 config 可关）
-      - ./element-static:/lab-static:ro
-    ports:
-      - "8081:80"
 
   # 社区预构建镜像（官方无独立 Docker Hub 名；源码 Dockerfile 也可自建）
   # 配置挂到 /home/sws/public/config.json；容器内监听 8080

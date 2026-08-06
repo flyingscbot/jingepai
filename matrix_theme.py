@@ -1,4 +1,4 @@
-"""Matrix / Element 主题色管理：JSON 持久化 + 生成 jingepi-theme-vars.css。"""
+"""Matrix 主题色管理：JSON 持久化 + 生成 jingepi-theme-vars.css（管理后台用）。"""
 
 from __future__ import annotations
 
@@ -8,10 +8,9 @@ import re
 from typing import Any
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-ELEMENT_STATIC = os.path.join(ROOT, "matrix", "element-static")
-COLORS_JSON = os.path.join(ELEMENT_STATIC, "jingepi-theme-colors.json")
-VARS_CSS = os.path.join(ELEMENT_STATIC, "jingepi-theme-vars.css")
-ELEMENT_CONFIG = os.path.join(ROOT, "matrix", "element-config.json")
+THEME_DIR = os.path.join(ROOT, "matrix", "theme")
+COLORS_JSON = os.path.join(THEME_DIR, "jingepi-theme-colors.json")
+VARS_CSS = os.path.join(THEME_DIR, "jingepi-theme-vars.css")
 
 HEX_RE = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -67,7 +66,7 @@ def normalize_hex(value: str) -> str | None:
 
 
 def _ensure_dir() -> None:
-    os.makedirs(ELEMENT_STATIC, exist_ok=True)
+    os.makedirs(THEME_DIR, exist_ok=True)
 
 
 def load_colors() -> dict[str, str]:
@@ -108,7 +107,6 @@ def save_colors(colors: dict[str, str]) -> dict[str, str]:
         f.write("\n")
     os.replace(tmp, COLORS_JSON)
     write_vars_css(merged)
-    _maybe_patch_element_config(merged)
     return merged
 
 
@@ -119,38 +117,20 @@ def reset_colors() -> dict[str, str]:
 def write_vars_css(colors: dict[str, str] | None = None) -> None:
     c = colors or load_colors()
     lines = [
-        "/* 金格Pi Element 主题变量 — 由管理后台生成，请勿手改；改色请用 /jingepi-console */",
+        "/* 金格Pi 主题变量 — 由管理后台生成，请勿手改；改色请用 /jingepi-console */",
         ":root,",
         "html,",
-        "body,",
-        ".cpd-theme-dark,",
-        ".cpd-theme-light,",
-        '[class*="cpd-theme-"] {',
+        "body {",
     ]
     for d in COLOR_DEFS:
         lines.append(f"  {d['css']}: {c[d['key']]};")
-    # 同步常用 accent / Compound 入口，便于先于 lab CSS 生效
     lines.extend(
         [
             f"  --accent: {c['btn']};",
             f"  --accent-color: {c['btn']};",
             f"  --primary-color: {c['btn']};",
-            f"  --secondary-content: {c['gold_deep']};",
-            f"  --tertiary-content: {c['gold_light']};",
             f"  --background: {c['surface']};",
             f"  --system: {c['gold']};",
-            f"  --cpd-color-bg-action-primary-rest: {c['btn']};",
-            f"  --cpd-color-bg-action-primary-hovered: {c['btn_hover']};",
-            f"  --cpd-color-bg-action-primary-pressed: {c['gold_deep']};",
-            f"  --cpd-color-bg-accent-rest: {c['btn']};",
-            f"  --cpd-color-bg-accent-hovered: {c['btn_hover']};",
-            f"  --cpd-color-bg-accent-pressed: {c['gold_deep']};",
-            f"  --cpd-color-text-on-solid-primary: {c['gold_on']};",
-            f"  --cpd-color-icon-on-solid-primary: {c['gold_on']};",
-            f"  --cpd-color-gradient-action-stop1: {c['btn']};",
-            f"  --cpd-color-gradient-action-stop2: {c['btn_hover']};",
-            f"  --cpd-color-gradient-action-stop3: {c['gold_deep']};",
-            f"  --cpd-color-gradient-action-stop4: {c['gold_stop4']};",
             "}",
             "",
         ]
@@ -161,94 +141,6 @@ def write_vars_css(colors: dict[str, str] | None = None) -> None:
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(text)
     os.replace(tmp, VARS_CSS)
-
-
-def _maybe_patch_element_config(colors: dict[str, str]) -> None:
-    """尽力同步 element-config.json 自定义主题关键色（热更新弱，硬刷新后生效）。"""
-    if not os.path.isfile(ELEMENT_CONFIG):
-        return
-    try:
-        with open(ELEMENT_CONFIG, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        themes = (
-            cfg.get("setting_defaults", {})
-            .get("custom_themes", [])
-        )
-        if not themes:
-            return
-        theme = themes[0]
-        cols = theme.setdefault("colors", {})
-        cols["accent-color"] = colors["btn"]
-        cols["accent"] = colors["btn"]
-        cols["primary-color"] = colors["btn"]
-        cols["warning-color"] = colors["warning"]
-        cols["sidebar-color"] = colors["surface"]
-        cols["roomlist-background-color"] = colors["surface"]
-        cols["roomlist-text-color"] = colors["text"]
-        cols["roomlist-text-secondary-color"] = colors["text_muted"]
-        cols["roomlist-highlights-color"] = colors["highlight"]
-        cols["timeline-background-color"] = colors["surface"]
-        cols["timeline-text-color"] = colors["text"]
-        cols["timeline-text-secondary-color"] = colors["text_muted"]
-        cols["timeline-highlights-color"] = colors["highlight"]
-        cols["secondary-content"] = colors["gold_deep"]
-        cols["tertiary-content"] = colors["gold_light"]
-        cols["system"] = colors["gold"]
-        compound = theme.setdefault("compound", {})
-        for k in (
-            "--cpd-color-bg-canvas-default",
-            "--cpd-color-bg-canvas-disabled",
-            "--cpd-color-bg-subtle-primary",
-            "--cpd-color-bg-subtle-secondary",
-            "--cpd-color-bg-subtle-tertiary",
-            "--cpd-color-bg-canvas-default-level-1",
-            "--cpd-color-bg-subtle-secondary-level-0",
-            "--cpd-color-gradient-info-stop2",
-        ):
-            compound[k] = colors["surface"]
-        compound["--cpd-color-text-primary"] = colors["text"]
-        compound["--cpd-color-text-secondary"] = colors["text_muted"]
-        compound["--cpd-color-text-action-accent"] = colors["gold"]
-        compound["--cpd-color-text-link-external"] = colors["gold_light"]
-        compound["--cpd-color-text-on-solid-primary"] = colors["gold_on"]
-        compound["--cpd-color-text-badge-accent"] = colors["gold_on"]
-        compound["--cpd-color-text-critical-primary"] = colors["warning"]
-        compound["--cpd-color-icon-primary"] = colors["text"]
-        compound["--cpd-color-icon-secondary"] = colors["text_muted"]
-        compound["--cpd-color-icon-accent-tertiary"] = colors["gold"]
-        compound["--cpd-color-icon-accent-primary"] = colors["gold"]
-        compound["--cpd-color-icon-on-solid-primary"] = colors["gold_on"]
-        compound["--cpd-color-icon-critical-primary"] = colors["warning"]
-        compound["--cpd-color-bg-action-primary-rest"] = colors["btn"]
-        compound["--cpd-color-bg-action-primary-hovered"] = colors["btn_hover"]
-        compound["--cpd-color-bg-action-primary-pressed"] = colors["gold_deep"]
-        compound["--cpd-color-bg-action-secondary-rest"] = colors["input"]
-        compound["--cpd-color-bg-action-secondary-pressed"] = colors["highlight"]
-        compound["--cpd-color-bg-accent-rest"] = colors["btn"]
-        compound["--cpd-color-bg-accent-hovered"] = colors["btn_hover"]
-        compound["--cpd-color-bg-accent-pressed"] = colors["gold_deep"]
-        compound["--cpd-color-bg-badge-accent"] = colors["gold_light"]
-        compound["--cpd-color-bg-badge-default"] = colors["input"]
-        compound["--cpd-color-bg-badge-primary"] = colors["gold"]
-        compound["--cpd-color-bg-badge-secondary"] = colors["border"]
-        compound["--cpd-color-border-accent-primary"] = colors["gold"]
-        compound["--cpd-color-border-accent-subtle"] = colors["gold_deep"]
-        compound["--cpd-color-border-focused"] = colors["gold"]
-        compound["--cpd-color-border-interactive-primary"] = colors["border_strong"]
-        compound["--cpd-color-border-interactive-secondary"] = colors["border"]
-        compound["--cpd-color-border-interactive-hovered"] = colors["gold_deep"]
-        compound["--cpd-color-border-disabled"] = colors["border"]
-        compound["--cpd-color-gradient-action-stop1"] = colors["btn"]
-        compound["--cpd-color-gradient-action-stop2"] = colors["btn_hover"]
-        compound["--cpd-color-gradient-action-stop3"] = colors["gold_deep"]
-        compound["--cpd-color-gradient-action-stop4"] = colors["gold_stop4"]
-        tmp = ELEMENT_CONFIG + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-            f.write("\n")
-        os.replace(tmp, ELEMENT_CONFIG)
-    except (OSError, json.JSONDecodeError, TypeError, KeyError, IndexError):
-        pass
 
 
 def ensure_seeded() -> dict[str, str]:
