@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import urllib.error
 import urllib.request
 from urllib.parse import urljoin
@@ -54,10 +55,15 @@ def _filter_response_headers(upstream_headers) -> list[tuple[str, str]]:
         if lk in _HOP_BY_HOP:
             continue
         if lk == "content-security-policy":
+            fa = auth_config.frame_ancestors_csp_value()
             if "frame-ancestors" not in value.lower():
-                value = (
-                    value.rstrip(" ;")
-                    + "; frame-ancestors 'self' http://127.0.0.1:1000 http://localhost:1000"
+                value = value.rstrip(" ;") + "; " + fa
+            else:
+                value = re.sub(
+                    r"frame-ancestors[^;]*",
+                    fa,
+                    value,
+                    flags=re.I,
                 )
             out.append((key, value))
             continue

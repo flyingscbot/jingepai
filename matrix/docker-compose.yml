@@ -1,4 +1,4 @@
-# 自建 Matrix（Synapse）+ Element Web + 金格 OIDC
+# 自建 Matrix（Synapse）+ Element Web + FluffyChat Web + 金格 OIDC
 # 使用前请先启动金格 Flask（默认 http://host.docker.internal:1000）
 
 services:
@@ -48,6 +48,22 @@ services:
       - ./element-static:/lab-static:ro
     ports:
       - "8081:80"
+
+  # 社区预构建镜像（官方无独立 Docker Hub 名；源码 Dockerfile 也可自建）
+  # 配置挂到 /home/sws/public/config.json；容器内监听 8080
+  fluffychat:
+    image: ghcr.io/etkecc/fluffychat-web:v2.8.0
+    restart: unless-stopped
+    depends_on:
+      - synapse
+    volumes:
+      - ./fluffychat-config.json:/home/sws/public/config.json:ro
+      # 金格壳层主题（直接访问 :8082 也能加载；/fluffychat/ 由 Flask 注入同源）
+      - ./fluffy-static/lab-jingepi-fluffy.css:/home/sws/public/lab-jingepi-fluffy.css:ro
+      - ./fluffy-static/lab-jingepi-fluffy.js:/home/sws/public/lab-jingepi-fluffy.js:ro
+      - ./fluffy-static/index.html:/home/sws/public/index.html:ro
+    ports:
+      - "8082:8080"
 
 volumes:
   synapse-pg:

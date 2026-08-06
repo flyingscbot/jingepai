@@ -1,0 +1,355 @@
+/**
+ * 金格Pi × FluffyChat Web — 壳层 / DOM 层主题
+ *
+ * 限制：FluffyChat Web 使用 Flutter CanvasKit，主 UI（按钮、列表、输入栏）
+ * 画在 canvas 上，CSS 无法绘制玻璃按钮的 hover/active。画布内交互反馈依赖
+ * config colorSchemeSeedInt + Material3 ColorScheme 状态层（hover/press/focus/disabled）。
+ *
+ * 本文件覆盖：html/body 炭黑氛围、启动闪屏、flutter-view 外框、语义/无障碍 DOM、
+ * 文本编辑 overlay input、滚动条、选区、焦点环等可触及的 DOM 层。
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
+
+:root {
+  --jp-bg: #050505;
+  --jp-gold: #f0b90b;
+  --jp-gold-mid: #e0a80a;
+  --jp-gold-deep: #c99400;
+  --jp-gold-light: #fcd535;
+  --jp-gold-on: #241c0e;
+  --jp-text: #f5f5f5;
+  --jp-text-muted: #aaaaaa;
+  --jp-surface: #151209;
+  --jp-glass-border: 1px solid rgba(255, 255, 255, 0.14);
+  --jp-glass-border-gold: 1px solid rgba(240, 185, 11, 0.42);
+  --jp-glass-bg:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(80, 80, 86, 0.08) 38%,
+      rgba(0, 0, 0, 0.16) 100%
+    ),
+    rgba(36, 36, 40, 0.38);
+  --jp-glass-bg-hover:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(90, 90, 96, 0.12) 38%,
+      rgba(0, 0, 0, 0.18) 100%
+    ),
+    rgba(44, 44, 48, 0.48);
+  --jp-glass-gold-bg:
+    linear-gradient(
+      160deg,
+      rgba(252, 213, 53, 0.88) 0%,
+      rgba(240, 185, 11, 0.82) 45%,
+      rgba(201, 148, 0, 0.78) 100%
+    );
+  --jp-glass-blur: blur(22px) saturate(160%) brightness(1.04);
+  --jp-glass-rim:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset -1px 0 0 rgba(0, 0, 0, 0.2);
+  --jp-glass-rim-gold:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 0 18px rgba(240, 185, 11, 0.28);
+  --jp-radius-control: 12px;
+  --jp-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
+    sans-serif;
+  color-scheme: dark;
+}
+
+html {
+  height: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--jp-bg);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  font-family: var(--jp-font) !important;
+  color: var(--jp-text);
+  background:
+    radial-gradient(ellipse 70% 50% at 85% -5%, rgba(75, 59, 18, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 40% at 8% 100%, rgba(23, 37, 84, 0.28) 0%, transparent 50%),
+    var(--jp-bg) !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 启动闪屏：Flutter 未就绪时避免白屏 */
+body::before {
+  content: "金格Pi";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: var(--jp-font);
+  font-weight: 600;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  letter-spacing: 0.12em;
+  color: rgba(240, 185, 11, 0.72);
+  text-shadow: 0 0 28px rgba(240, 185, 11, 0.35);
+  background:
+    radial-gradient(ellipse 70% 50% at 85% -5%, rgba(75, 59, 18, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 40% at 8% 100%, rgba(23, 37, 84, 0.28) 0%, transparent 50%),
+    var(--jp-bg);
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+body.jingepi-fluffy-ready::before,
+body:has(flutter-view)::before,
+body:has(flt-glass-pane)::before {
+  opacity: 0;
+  visibility: hidden;
+}
+
+flutter-view,
+flt-glass-pane,
+flt-scene-host,
+canvas {
+  position: relative;
+  z-index: 1;
+  outline: none !important;
+}
+
+/* Flutter 文本编辑 overlay：caret / 选区 / 字体 */
+input,
+textarea,
+[contenteditable="true"] {
+  font-family: var(--jp-font) !important;
+  caret-color: var(--jp-gold) !important;
+  color: var(--jp-text) !important;
+  background: transparent !important;
+  border-radius: var(--jp-radius-control);
+}
+
+input:focus,
+textarea:focus,
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable="true"]:focus-visible {
+  outline: 2px solid rgba(240, 185, 11, 0.55) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(240, 185, 11, 0.18) !important;
+}
+
+input:disabled,
+textarea:disabled,
+input[disabled],
+textarea[disabled] {
+  opacity: 0.42 !important;
+  caret-color: transparent !important;
+  cursor: not-allowed !important;
+}
+
+::selection {
+  background: rgba(240, 185, 11, 0.35);
+  color: var(--jp-text);
+}
+
+::-moz-selection {
+  background: rgba(240, 185, 11, 0.35);
+  color: var(--jp-text);
+}
+
+/* 滚动条（DOM 层） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 185, 11, 0.45) rgba(255, 255, 255, 0.06);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(240, 185, 11, 0.4);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 185, 11, 0.62);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(201, 148, 0, 0.75);
+  background-clip: padding-box;
+}
+
+/*
+ * 无障碍语义树中的可聚焦节点（若开启 semantics）：
+ * 尽量给 DOM 层按钮/开关提供金格玻璃反馈。CanvasKit 下多数时候透明，
+ * 但 HTML renderer / 部分平台辅助层仍会露出。
+ */
+flt-semantics-host [role="button"],
+flt-semantics-host button,
+flt-semantics [role="button"],
+flt-semantics button,
+a[href].jingepi-dom-btn {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--jp-radius-control) !important;
+  border: var(--jp-glass-border) !important;
+  background: var(--jp-glass-bg) !important;
+  box-shadow: var(--jp-glass-rim) !important;
+  color: var(--jp-text) !important;
+  backdrop-filter: var(--jp-glass-blur);
+  -webkit-backdrop-filter: var(--jp-glass-blur);
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.15s ease,
+    transform 0.12s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+  cursor: pointer;
+}
+
+flt-semantics-host [role="button"]:hover,
+flt-semantics-host button:hover,
+flt-semantics [role="button"]:hover,
+flt-semantics button:hover {
+  background: var(--jp-glass-bg-hover) !important;
+  border-color: rgba(240, 185, 11, 0.5) !important;
+  box-shadow:
+    var(--jp-glass-rim),
+    0 0 16px rgba(240, 185, 11, 0.2) !important;
+  filter: brightness(1.06);
+}
+
+flt-semantics-host [role="button"]:active,
+flt-semantics-host button:active,
+flt-semantics [role="button"]:active,
+flt-semantics button:active {
+  transform: scale(0.97);
+  filter: brightness(0.92);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+flt-semantics-host [role="button"]:focus-visible,
+flt-semantics-host button:focus-visible,
+flt-semantics [role="button"]:focus-visible,
+flt-semantics button:focus-visible {
+  outline: 2px solid rgba(240, 185, 11, 0.7) !important;
+  outline-offset: 2px;
+  box-shadow:
+    var(--jp-glass-rim),
+    0 0 0 4px rgba(240, 185, 11, 0.22) !important;
+}
+
+flt-semantics-host [role="button"][aria-disabled="true"],
+flt-semantics-host button:disabled,
+flt-semantics [role="button"][aria-disabled="true"],
+flt-semantics button:disabled {
+  opacity: 0.4 !important;
+  filter: grayscale(0.25) brightness(0.85);
+  cursor: not-allowed !important;
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: var(--jp-glass-rim) !important;
+}
+
+/* 主操作语义节点（若带 primary / filled 提示） */
+flt-semantics-host [role="button"][aria-label*="登录"],
+flt-semantics-host [role="button"][aria-label*="Login"],
+flt-semantics-host [role="button"][aria-label*="SSO"],
+flt-semantics-host [role="button"][aria-label*="Continue"],
+flt-semantics-host [role="button"][aria-label*="继续"] {
+  background: var(--jp-glass-gold-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  color: var(--jp-gold-on) !important;
+  box-shadow: var(--jp-glass-rim-gold) !important;
+}
+
+flt-semantics-host [role="button"][aria-label*="登录"]:hover,
+flt-semantics-host [role="button"][aria-label*="Login"]:hover,
+flt-semantics-host [role="button"][aria-label*="SSO"]:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 0 22px rgba(240, 185, 11, 0.42),
+    0 8px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+flt-semantics-host [role="button"][aria-label*="登录"]:active,
+flt-semantics-host [role="button"][aria-label*="Login"]:active,
+flt-semantics-host [role="button"][aria-label*="SSO"]:active {
+  filter: brightness(0.94);
+  transform: scale(0.97);
+}
+
+flt-semantics-host [role="switch"],
+flt-semantics [role="switch"] {
+  accent-color: var(--jp-gold);
+}
+
+flt-semantics-host a,
+flt-semantics a {
+  color: var(--jp-gold-light) !important;
+}
+
+flt-semantics-host a:hover,
+flt-semantics a:hover {
+  color: var(--jp-gold) !important;
+  text-decoration: underline;
+}
+
+flt-semantics-host a:focus-visible,
+flt-semantics a:focus-visible {
+  outline: 2px solid rgba(240, 185, 11, 0.65);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* auth.html 等极简页 */
+body > title + p,
+body > p {
+  font-family: var(--jp-font);
+  color: var(--jp-text-muted);
+  text-align: center;
+  margin-top: 20vh;
+}
+
+@media (max-width: 720px) {
+  body::before {
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  flt-semantics-host [role="button"],
+  flt-semantics-host button {
+    transition: none !important;
+  }
+
+  flt-semantics-host [role="button"]:active,
+  flt-semantics-host button:active {
+    transform: none;
+  }
+}

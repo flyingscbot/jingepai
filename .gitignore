@@ -6,6 +6,9 @@ venv/
 .venv/
 env/
 
+# 内网穿透根（本地填写；保留 domain.txt.example）
+domain.txt
+
 .vscode
 .idea/
 

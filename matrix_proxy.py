@@ -14,9 +14,9 @@ import logging
 import re
 import urllib.error
 import urllib.request
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
-from flask import Blueprint, Response, request, stream_with_context
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 import auth_config
 import user_db
@@ -57,6 +57,17 @@ def _upstream(path_and_query: str) -> str:
     return urljoin(base, path_and_query.lstrip("/"))
 
 
+def _encode_path_for_upstream(path: str) -> str:
+    """Re-percent-encode path so urllib does not treat Matrix room aliases as fragments.
+
+    Flask/Werkzeug decode ``%23lobby%3A…`` → ``#lobby:…`` in PATH_INFO.
+    Passing that string to ``urllib.request`` makes ``#…`` a URL fragment, so Synapse
+    sees ``GET /_matrix/client/v3/directory/room/`` and returns M_INVALID_PARAM.
+    Keep ``/`` unencoded; encode everything else (``#``, ``?``, ``@``, ``!``, ``:``, …).
+    """
+    return quote(path, safe="/")
+
+
 def _filter_request_headers() -> dict[str, str]:
     headers: dict[str, str] = {}
     for key, value in request.headers:
@@ -64,11 +75,18 @@ def _filter_request_headers() -> dict[str, str]:
         if lk in _HOP_BY_HOP:
             continue
         headers[key] = value
-    # Synapse public_baseurl is :1000 — must present Host as browser-facing
-    # or Synapse 302-loops back to the same SSO URL forever.
+    # Synapse public_baseurl 是浏览器可见根 — Host / Proto 必须与穿透一致，
+    # 否则 SSO 302 会指回错误 scheme/host。
     headers["Host"] = request.host
     headers["X-Forwarded-Host"] = request.host
-    headers["X-Forwarded-Proto"] = request.scheme
+    fwd_proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "http").split(",")[0].strip()
+    if auth_config.PUBLIC_BASE_URL.startswith("https://"):
+        fwd_proto = "https"
+    elif auth_config.PUBLIC_BASE_URL.startswith("http://"):
+        # 本机明文或 HTTP 穿透
+        if fwd_proto not in ("http", "https"):
+            fwd_proto = "http"
+    headers["X-Forwarded-Proto"] = fwd_proto
     headers["X-Forwarded-For"] = request.remote_addr or "127.0.0.1"
     headers["Accept-Encoding"] = "identity"
     return headers
@@ -93,17 +111,16 @@ def _filter_response_headers(upstream_headers) -> list[tuple[str, str]]:
             continue
         if lk == "content-security-policy":
             # Replace deny frame-ancestors so Continue page can render in iframe
+            # （含 PUBLIC_BASE_URL / 穿透域名）
+            fa = auth_config.frame_ancestors_csp_value() + ";"
             value = re.sub(
                 r"frame-ancestors[^;]*;?",
-                "frame-ancestors 'self' http://127.0.0.1:1000 http://localhost:1000;",
+                fa,
                 value,
                 flags=re.I,
             )
             if "frame-ancestors" not in value.lower():
-                value = (
-                    value.rstrip(" ;")
-                    + "; frame-ancestors 'self' http://127.0.0.1:1000 http://localhost:1000"
-                )
+                value = value.rstrip(" ;") + "; " + fa.rstrip(";")
             out.append((key, value))
             continue
         if lk == "set-cookie":
@@ -256,7 +273,8 @@ def _proxy(subpath: str):
         if _should_block_create_room(data):
             return _blocked_create_room_response()
 
-    url = _upstream(path)
+    # Re-encode decoded PATH_INFO (# in #alias:server) before urllib upstream fetch.
+    url = _upstream(_encode_path_for_upstream(path))
     if request.query_string:
         url = f"{url}?{request.query_string.decode('latin-1')}"
 
@@ -316,12 +334,49 @@ def proxy_synapse(subpath: str):
     methods=["GET", "HEAD", "OPTIONS"],
 )
 def proxy_matrix_well_known(subpath: str):
-    """Expose Synapse client/server well-known on the Flask origin (:1000).
+    """Expose Matrix client/server well-known on the Flask origin (:1000).
 
-    Element and probes use http://127.0.0.1:1000/.well-known/matrix/client
-    (includes io.element.e2ee.force_disable from extra_well_known_client_content).
-    Does not overlap OIDC /.well-known/openid-configuration.
+    ``m.homeserver.base_url`` 一律用 ``PUBLIC_BASE_URL``（穿透/公网根），
+    避免手机 Element 仍被导向 127.0.0.1。E2EE 禁用标志与 Synapse
+    extra_well_known_client_content 对齐；上游失败时仍返回本地默认。
+    不与 OIDC ``/.well-known/openid-configuration`` 冲突。
     """
+    kind = subpath.strip("/")
+    if kind == "client":
+        body: dict = {
+            "m.homeserver": {"base_url": auth_config.PUBLIC_BASE_URL},
+            "io.element.e2ee": {"default": False, "force_disable": True},
+        }
+        try:
+            upstream = _OPENER.open(
+                urllib.request.Request(
+                    _upstream("/.well-known/matrix/client"),
+                    headers={"Accept": "application/json"},
+                    method="GET",
+                ),
+                timeout=5,
+            )
+            try:
+                raw = upstream.read()
+                data = json.loads(raw.decode("utf-8", errors="replace"))
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        if k == "m.homeserver":
+                            continue
+                        body[k] = v
+                    # 保证 e2ee 强制禁用不被上游覆盖丢
+                    e2ee = body.get("io.element.e2ee")
+                    if not isinstance(e2ee, dict):
+                        e2ee = {}
+                    e2ee.setdefault("default", False)
+                    e2ee["force_disable"] = True
+                    body["io.element.e2ee"] = e2ee
+            finally:
+                upstream.close()
+        except Exception:
+            logger.debug("well-known upstream merge skipped", exc_info=True)
+        body["m.homeserver"] = {"base_url": auth_config.PUBLIC_BASE_URL}
+        return jsonify(body)
     return _proxy("/.well-known/matrix/" + subpath)
 
 

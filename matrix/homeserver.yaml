@@ -3,6 +3,10 @@
 
 server_name: "matrix.localhost"
 pid_file: /data/homeserver.pid
+# 对外公开根（与 Flask PUBLIC_BASE_URL / 仓库根 domain.txt 一致）。
+# 内网穿透：写 domain.txt 后执行 python matrix/apply_public_base.py
+# 或：.\\start_with_domain.ps1
+# 改完后必须：docker compose up -d --force-recreate synapse（restart 不够）
 public_baseurl: "http://127.0.0.1:1000/"
 
 listeners:
@@ -103,7 +107,8 @@ default_power_level_content_override:
 
 # 金格 OIDC（Issuer 需与 Flask OIDC_ISSUER 一致，容器内用 host.docker.internal）
 # skip_verification: 仅本地 HTTP issuer；生产请去掉并改用 HTTPS
-# 浏览器走 authorization_endpoint(127.0.0.1)；Synapse 容器走 token/jwks(host.docker.internal)
+# 浏览器/手机走 authorization_endpoint(=PUBLIC_BASE_URL)；Synapse 容器走 token/jwks(host.docker.internal)
+# 穿透时只改 authorization_endpoint 为 https://穿透根/oauth/authorize，issuer/token/jwks 勿改穿透域名
 oidc_providers:
   - idp_id: jingepi
     idp_name: "金格Pi"

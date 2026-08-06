@@ -345,8 +345,8 @@ def _current_session_user():
 
 @oidc_bp.get("/.well-known/openid-configuration")
 def openid_configuration():
-    # issuer / token / jwks：容器经 host.docker.internal 访问
-    # authorization_endpoint：浏览器走 127.0.0.1，避免 host.docker.internal 拒绝连接
+    # issuer / token / jwks：容器经 host.docker.internal 访问（OIDC_ISSUER）
+    # authorization_endpoint：浏览器/手机走 PUBLIC_BASE_URL（本机或穿透域名）
     iss = auth_config.OIDC_ISSUER
     public = auth_config.OIDC_PUBLIC_BASE
     return jsonify(

@@ -1,8 +1,30 @@
 from flask import Flask, request, jsonify, session, redirect, url_for, render_template, send_from_directory, abort
 from functools import wraps
 import datetime
+import importlib.util
 import os
 import re
+from pathlib import Path
+
+# 须在 import auth_config 之前：读 domain.txt、必要时同步 yaml/json，并写入 PUBLIC_BASE_URL
+def _sync_domain_before_auth_config() -> None:
+    apply_path = Path(__file__).resolve().parent / "matrix" / "apply_public_base.py"
+    if not apply_path.is_file():
+        print(f"[domain] 未找到 {apply_path}，跳过 Matrix 配置同步")
+        return
+    spec = importlib.util.spec_from_file_location("apply_public_base", apply_path)
+    if spec is None or spec.loader is None:
+        print("[domain] 无法加载 apply_public_base，跳过同步")
+        return
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        mod.sync_for_flask_start(recreate_on_change=True)
+    except Exception as e:
+        print(f"[domain] 启动同步失败（Flask 仍会启动）: {e}")
+
+
+_sync_domain_before_auth_config()
 
 import auth_config
 from home import home_bp
@@ -12,6 +34,7 @@ import mbti_log
 import trade_history
 import matrix_theme
 from element_proxy import register_element_proxy
+from fluffy_proxy import register_fluffy_proxy
 from matrix_proxy import register_matrix_proxy
 from oidc_provider import init_oidc
 import synapse_admin
@@ -39,6 +62,7 @@ user_db.bootstrap()
 matrix_theme.ensure_seeded()
 init_oidc(app)
 register_element_proxy(app)
+register_fluffy_proxy(app)
 register_matrix_proxy(app)
 # 不显示功能 TAB 的页面
 _NO_TAB_ENDPOINTS = (
@@ -554,11 +578,14 @@ def api_trade_history_delete():
 @app.route("/chat")
 @login_required
 def chat():
-    element_url = auth_config.element_embed_path()
+    # 默认嵌入 FluffyChat；CHAT_CLIENT=element 可切回 Element（/element/ 仍保留备用）
+    element_url = auth_config.chat_embed_path()
     return render_template(
         "chat.html",
         element_url=element_url,
         element_proxy_enabled=auth_config.ELEMENT_PROXY_ENABLED,
+        fluffy_proxy_enabled=auth_config.FLUFFY_PROXY_ENABLED,
+        chat_client=auth_config.CHAT_CLIENT,
     )
 
 
@@ -847,4 +874,6 @@ def register_page():
 
 if __name__ == "__main__":
     # 需 0.0.0.0 以便 Docker 内 Synapse 经 host.docker.internal 访问 OIDC
+    # 启动早期已 sync domain.txt → yaml/json（有变才 recreate）；auth_config 读 PUBLIC_BASE_URL
+    print(f"[jingepi] PUBLIC_BASE_URL = {auth_config.PUBLIC_BASE_URL}")
     app.run(host="0.0.0.0", port=1000, debug=True, use_reloader=True)

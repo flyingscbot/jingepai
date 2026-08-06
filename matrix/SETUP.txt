@@ -10,9 +10,13 @@
 
 - Synapse: http://127.0.0.1:8008  （docker compose，healthy）
 
-- Element Web: http://127.0.0.1:8081  （upstream；金格默认反代为 /element/；默认语言简体中文 setting_defaults.language=zh-hans；show_labs_settings=false 关闭实验室；默认主题 custom-金格Pi 炭黑/深蓝底 + 金强调 #f0b90b/#fcd535/#c99400，强制锁定不可切换；Noto Sans SC + Compound 表面/CTA 由 element-config compound + lab-jingepi-theme.css / lab-suppress 对齐金格站）
+- Element Web: http://127.0.0.1:8081  （upstream；金格反代 /element/；备用客户端；主题/E2EE 实训补丁仍保留）
 
-- /chat iframe 默认同源：http://127.0.0.1:1000/element/
+- FluffyChat Web: http://127.0.0.1:8082  （ghcr.io/etkecc/fluffychat-web；同源反代 /fluffychat/）
+
+- /chat iframe 默认：http://127.0.0.1:1000/fluffychat/（CHAT_CLIENT=fluffy）
+  切回 Element：环境变量 CHAT_CLIENT=element；Element 仍在 /element/
+  FluffyChat SSO 回调：/auth.html（Flask 反代到上游 auth.html）
 
 - 登录仅允许金格Pi OIDC SSO（已关闭密码/访客/开放注册；/login 仅 SSO/token）
 
@@ -101,13 +105,32 @@
 
 
 
-二、环境变量（可选）
+二、对外根地址：domain.txt（推荐）与环境变量
 
 --------------------
 
+  穿透根会变：请把当前穿透根写进仓库根 **domain.txt**（一行 URL，无尾斜杠、
+  无路径）。Flask **每次启动**都会读；缺失或空文件回退本机默认。
+
+  优先级：
+    1) 环境变量 PUBLIC_BASE_URL（或旧名 OIDC_PUBLIC_BASE）
+    2) 仓库根 domain.txt
+    3) 默认 http://127.0.0.1:1000
+
+  示例：复制 domain.txt.example → domain.txt，改成你的穿透根，例如：
+     https://xxxx.ngrok-free.app
+
+  domain.txt 已加入 .gitignore，不要把真实穿透 URL 提交进 git。
+  本机开发可不建该文件，自动用 127.0.0.1:1000。
+
+  Flask（python main.py）启动时由 auth_config 直接读 domain.txt，
+  不依赖 start_with_domain.ps1 / .sh。
+
+  其它可选环境变量：
+
   OIDC_ISSUER=http://host.docker.internal:1000
 
-  OIDC_PUBLIC_BASE=http://127.0.0.1:1000
+   仅 Synapse 容器内访问；穿透时勿改成穿透域名。
 
   MATRIX_SERVER_NAME=matrix.localhost
 
@@ -115,7 +138,10 @@
 
   OIDC_MATRIX_CLIENT_SECRET=change-me-synapse-oidc-secret
 
-  OIDC_MATRIX_REDIRECT_URIS=http://127.0.0.1:8008/_synapse/client/oidc/callback,http://localhost:8008/_synapse/client/oidc/callback
+  OIDC_MATRIX_REDIRECT_URIS=…
+
+   默认已含 {PUBLIC_BASE_URL}/_synapse/client/oidc/callback；
+   一般不必手写。
 
   AUTHLIB_INSECURE_TRANSPORT=1
 
@@ -126,6 +152,58 @@
   ELEMENT_PROXY_PATH=/element
 
   ELEMENT_URL=http://localhost:8081
+
+
+二½、内网穿透（手机 Element 连不上时）
+
+--------------------
+
+根因：只在手机里填穿透地址不够。SSO / well-known / public_baseurl
+仍指向 127.0.0.1 时，手机会跳回本机或 Client API 发现失败。
+
+推荐流程（文件驱动，跨平台）：
+
+1) 写穿透根到仓库根 domain.txt（见 domain.txt.example）：
+     https://xxxx.ngrok-free.app
+   （不要带 /element；优先 HTTPS）
+
+2) 一键同步并启动（读 domain.txt → apply → recreate → Flask）：
+     python start_with_domain.py
+   或：
+     python3 start_with_domain.py
+
+   Windows 快捷：.\start_with_domain.ps1
+   macOS/Linux 快捷：./start_with_domain.sh
+   （.ps1 / .sh 只调 Python，核心逻辑在 start_with_domain.py）
+
+   或分步：
+     python matrix/apply_public_base.py
+     cd matrix
+     docker compose up -d --force-recreate synapse element
+     python main.py
+   （Flask 会从 domain.txt 读 PUBLIC_BASE_URL，不依赖 .ps1；须 0.0.0.0:1000）
+
+3) 手机 Element Homeserver URL = 穿透根（同上，不要 /element）
+
+4) 自检：
+     GET https://xxxx.ngrok-free.app/.well-known/matrix/client
+     应见 "base_url": "https://xxxx.ngrok-free.app"
+
+改 domain.txt 后怎么重启：
+  - 只影响 Flask well-known / OIDC 浏览器 URL → 重启 Flask 即可
+    （python main.py 或 python start_with_domain.py --skip-compose --skip-apply）
+  - Synapse public_baseurl / Element base_url 也要跟上 → 必须再跑
+    apply_public_base，并对 synapse（及 element）**force-recreate**。
+    仅 docker compose restart 不够：Synapse 在启动时读 yaml。
+    便捷：python start_with_domain.py（默认会 apply + recreate）
+
+常见坑：
+  - Android 明文 HTTP 被拦 → 用 HTTPS 穿透
+  - ngrok 浏览器警告页 → 先用浏览器点一次 Visit Site
+  - OIDC redirect_uri 未白名单 → 写好 domain.txt 后重启 Flask
+    （默认会加入穿透回调）
+  - Cookie Secure / 明文 HTTP：本地开发会去 Secure；HTTPS 穿透一般可登录
+  - 改了 homeserver.yaml 后未 recreate synapse → SSO 仍跳 127.0.0.1
 
 
 
@@ -213,15 +291,20 @@
 
 - Element 已配置 CSP frame-ancestors，允许被金格页面 iframe
 
-- homeserver.yaml：discover: false，authorization_endpoint 强制 127.0.0.1，
+- homeserver.yaml：discover: false，authorization_endpoint 用 PUBLIC_BASE_URL
 
+  （本机默认 127.0.0.1；穿透用 apply_public_base.py），
   token/jwks/userinfo 仍用 host.docker.internal；skip_verification: true 仅本地 HTTP
 
 - 若 SSO 仍跳到 host.docker.internal：检查 Flask 是否仍绑 127.0.0.1，并
 
   docker compose restart synapse
 
-- 镜像拉取困难时可配 registry-mirrors（已写入 %USERPROFILE%\.docker\daemon.json）
+- 若 SSO 仍跳到 127.0.0.1：检查 domain.txt / PUBLIC_BASE_URL /
+  public_baseurl / authorization_endpoint 是否已改成穿透根，并
+  force-recreate synapse（见 python start_with_domain.py）
+
+- 镜像拉取困难时可配 registry-mirrors（Docker Desktop / daemon.json）
 
 同源 Synapse 反代（已默认开启）
 --------------------------------
