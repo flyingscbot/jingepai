@@ -8,17 +8,21 @@
 
 - Synapse: http://127.0.0.1:8008  （docker compose，healthy）
 
-- FluffyChat Web: http://127.0.0.1:8082  （ghcr.io/etkecc/fluffychat-web；同源反代 /fluffychat/）
-  （聊天客户端已从 Element 换为 FluffyChat。）
-  金格主题：fluffychat-config.json 的 colorSchemeSeedInt=#f0b90b（Material3 种子色）；
-  fluffy-static/lab-jingepi-fluffy.{css,js} + 注入 index（炭黑壳层/闪屏）；
-  Flask fluffy_proxy 对 /fluffychat/ HTML 再注入一次（同源 /chat 生效）。
-  限制：Flutter CanvasKit 主 UI 在 canvas 上，无法用 CSS 做玻璃按钮材质。
-  改主题后：docker compose recreate fluffychat，并对 /fluffychat/ 硬刷新
-  （必要时清站点 localStorage 后重开）。
+- Cinny Web: http://127.0.0.1:8082  （ajbura/cinny:v4.12.6，与 ghcr.io/cinnyapp/cinny 同源发行；同源反代 /cinny/）
+  （聊天客户端已从 Element / FluffyChat 换为 Cinny。）
+  配置：matrix/cinny-config.json（homeserverList[0]=PUBLIC_BASE_URL，hashRouter.enabled=true）
+  金格主题：matrix/cinny-static/lab-jingepi-cinny.{css,js}
+  由 Flask cinny_proxy 对 /cinny/ HTML 注入（炭黑 + 金 #f0b90b；覆盖 folds 主题变量）。
+  深色：启动时写 settings（useSystemTheme=false, themeId=dark-theme）；CSS 锁炭黑+金。
+    （已去掉会卡死页面的 Storage.prototype 拦截 / 抢 class 的 MutationObserver。）
+  中文：启动时写 i18nextLng=zh-CN；DOM 保守词典汉化（仅 childList，30s 后停观察）。
+  简中 locale：matrix/cinny-static/public/locales/zh.json（及 zh-CN.json）。
+  改主题静态文件后硬刷新即可（一般无需 recreate）；改 config.json 后：
+    cd matrix && docker compose up -d --force-recreate cinny
+  若曾卡死：Ctrl+F5；仍异常则清除 /cinny/ 站点数据后再开。
 
-- /chat iframe：http://127.0.0.1:1000/fluffychat/
-  FluffyChat SSO 回调：/auth.html（Flask 反代到上游 auth.html）
+- /chat iframe：http://127.0.0.1:1000/cinny/
+  （hashRouter 开启，深链形如 /cinny/#/...，无需 SPA 回退）
 
 - 登录仅允许金格Pi OIDC SSO（已关闭密码/访客/开放注册；/login 仅 SSO/token）
 
@@ -28,7 +32,7 @@
   default_power_level_content_override 将 m.room.encryption 提到 PL 999；
   Flask :1000 反代拦截全部 /_matrix/client/*/room_keys/*（403）。
   自检：GET http://127.0.0.1:1000/.well-known/matrix/client 应含 force_disable。
-  若仍见旧加密 UI：硬刷新并清除 /fluffychat/ 站点数据后重新金格Pi登录。
+  若仍见旧加密 UI：硬刷新并清除 /cinny/ 站点数据后重新金格Pi登录。
   旧账号可另跑 matrix/reset-lab-crypto.ps1 清服务端 cross-signing。
 
 - OIDC Issuer（容器侧）: http://host.docker.internal:1000
@@ -50,7 +54,7 @@
 
                  ▼
 
-         FluffyChat :8082 ──Flask 反代──► /fluffychat/  ← /chat 同源 iframe
+         Cinny :8082 ──Flask 反代──► /cinny/  ← /chat 同源 iframe
 
 
 一、日常启动
@@ -63,7 +67,7 @@
 
    若 VS Code / Cursor 调试器仍绑 127.0.0.1，请改 launch 参数或改用上面命令重启。
 
-2) 启动 Matrix（Synapse + FluffyChat）：
+2) 启动 Matrix（Synapse + Cinny）：
 
      cd matrix
 
@@ -73,7 +77,7 @@
 
      http://127.0.0.1:1000/chat
 
-   （iframe 加载同源 /fluffychat/）
+   （iframe 加载同源 /cinny/）
 
    选择「金格Pi」→ 用实训账号登录
 
@@ -96,8 +100,8 @@
   domain.txt 已加入 .gitignore，不要把真实穿透 URL 提交进 git。
   本机开发可不建该文件，自动用 127.0.0.1:1000。
 
-  Flask（python main.py）启动时由 auth_config 直接读 domain.txt，
-  不依赖 start_with_domain.ps1 / .sh。
+  Flask（python main.py）启动时由 apply_public_base 同步
+  homeserver.yaml + cinny-config.json（有变化才 recreate）。
 
   其它可选环境变量：
 
@@ -112,10 +116,10 @@
 
   AUTHLIB_INSECURE_TRANSPORT=1
 
-  FLUFFY_PROXY_ENABLED=1
-  FLUFFY_UPSTREAM=http://127.0.0.1:8082
-  FLUFFY_PROXY_PATH=/fluffychat
-  FLUFFY_URL=http://localhost:8082
+  CINNY_PROXY_ENABLED=1
+  CINNY_UPSTREAM=http://127.0.0.1:8082
+  CINNY_PROXY_PATH=/cinny
+  CINNY_URL=http://127.0.0.1:8082
 
 
 二½、内网穿透
@@ -129,7 +133,7 @@
 
 1) 写穿透根到仓库根 domain.txt（见 domain.txt.example）：
      https://xxxx.ngrok-free.app
-   （不要带 /fluffychat；优先 HTTPS）
+   （不要带 /cinny；优先 HTTPS）
 
 2) 一键同步并启动（读 domain.txt → apply → recreate → Flask）：
      python start_with_domain.py
@@ -142,11 +146,11 @@
    或分步：
      python matrix/apply_public_base.py
      cd matrix
-     docker compose up -d --force-recreate synapse fluffychat
+     docker compose up -d --force-recreate synapse cinny
      python main.py
    （Flask 会从 domain.txt 读 PUBLIC_BASE_URL；须 0.0.0.0:1000）
 
-3) 客户端 Homeserver URL = 穿透根（同上，不要 /fluffychat）
+3) 客户端 Homeserver URL = 穿透根（同上，不要 /cinny）
 
 4) 自检：
      GET https://xxxx.ngrok-free.app/.well-known/matrix/client
@@ -154,23 +158,25 @@
 
 改 domain.txt 后怎么重启：
   - 只影响 Flask well-known / OIDC 浏览器 URL → 重启 Flask 即可
-  - Synapse public_baseurl / FluffyChat defaultHomeserver 也要跟上 → 必须再跑
-    apply_public_base，并对 synapse + fluffychat **force-recreate**。
+  - Synapse public_baseurl / Cinny homeserverList 也要跟上 → 必须再跑
+    apply_public_base，并对 synapse + cinny **force-recreate**。
     仅 docker compose restart 不够：Synapse 在启动时读 yaml。
     便捷：python start_with_domain.py（默认会 apply + recreate）
 
 
-三、FluffyChat 同源反代
+三、Cinny 同源反代
 
 --------------------
 
-- 默认 FLUFFY_PROXY_ENABLED=1：Flask 把 /fluffychat/* 转发到 FLUFFY_UPSTREAM
+- 默认 CINNY_PROXY_ENABLED=1：Flask 把 /cinny/* 转发到 CINNY_UPSTREAM
 
-- /chat 的 iframe 使用相对路径 /fluffychat/（与金格同端口、同站点）
+- 官方预构建以 base=/ 产出绝对路径；代理会改写 /assets、/config.json 等并注入金格主题
 
-- 关闭反代：FLUFFY_PROXY_ENABLED=0，则回退到 FLUFFY_URL（跨源 iframe）
+- /chat 的 iframe 使用相对路径 /cinny/（与金格同端口、同站点）
 
-- 自检：浏览器打开 http://127.0.0.1:1000/fluffychat/ 应看到 FluffyChat（需上游 :8082 已起）
+- 关闭反代：CINNY_PROXY_ENABLED=0，则回退到 CINNY_URL（跨源 iframe）
+
+- 自检：浏览器打开 http://127.0.0.1:1000/cinny/ 应看到 Cinny（需上游 :8082 已起）
 
 
 四、Cursor Simple Browser / Cookie
@@ -179,9 +185,9 @@
 
 - Cursor 内置 Simple Browser 对第三方 Cookie、Secure+SameSite=None（明文 HTTP）更严
 
-- 同源 /fluffychat/ + 本地 Session 使用 Secure=False、SameSite=Lax，便于 HTTP 实训
+- 同源 /cinny/ + 本地 Session 使用 Secure=False、SameSite=Lax，便于 HTTP 实训
 
-- 若 iframe 内 SSO 仍失败：顶层打开 /fluffychat/ 完成 OIDC
+- 若 iframe 内 SSO 仍失败：顶层打开 /cinny/ 完成 OIDC
 
 - 仍不行时请改用本机 Chrome/Edge 打开 http://127.0.0.1:1000/chat
 
@@ -221,15 +227,15 @@
 
 同源 Synapse 反代（已默认开启）
 --------------------------------
-- FluffyChat / SSO / Client API 全部走 http://127.0.0.1:1000
+- Cinny / SSO / Client API 全部走 http://127.0.0.1:1000
 - Flask 反代 /_matrix 与 /_synapse 到 127.0.0.1:8008
-- public_baseurl 与 FluffyChat defaultHomeserver 均为 http://127.0.0.1:1000
+- public_baseurl 与 Cinny homeserverList[0] 均为穿透根或 http://127.0.0.1:1000
 - OIDC callback: http://127.0.0.1:1000/_synapse/client/oidc/callback
 - 代理会去掉 Secure Cookie，并允许 iframe frame-ancestors
 
 推荐打开：
-  http://127.0.0.1:1000/fluffychat/   （全屏）
-  或 http://127.0.0.1:1000/chat       （iframe）
+  http://127.0.0.1:1000/cinny/   （全屏）
+  或 http://127.0.0.1:1000/chat   （iframe）
 
 测试账号（本地）：sso_test / 123456
 
@@ -238,11 +244,11 @@
   需 role=admin 或 super_admin；详见仓库根目录 ADMIN.txt。
 
 改主题 / displayname / avatar 后：
-  cd matrix && docker compose up -d --force-recreate fluffychat
-  （改了 homeserver.yaml 时：docker compose up -d --force-recreate synapse）
-  浏览器对 http://127.0.0.1:1000/fluffychat/ 硬刷新（Ctrl+F5）。
+  主题 CSS/JS：重启 Flask，对 http://127.0.0.1:1000/cinny/ 硬刷新（Ctrl+F5）。
+  改了 cinny-config.json / homeserver.yaml：
+    cd matrix && docker compose up -d --force-recreate synapse cinny
 
 测头像同步：
   1) 金格登录 → 用户设置 → 上传 png/jpg/webp 头像
-  2) 打开 FluffyChat（已 SSO 过的账号），硬刷新；房间列表/个人资料应显示新头像
+  2) 打开 Cinny（已 SSO 过的账号），硬刷新；房间列表/个人资料应显示新头像
   3) 若 Matrix 用户尚未 SSO 创建，首次金格Pi登录后再看头像

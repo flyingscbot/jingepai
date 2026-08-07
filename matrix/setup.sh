@@ -256,8 +256,8 @@ print_summary() {
 
   客户端默认：jingepi-synapse / change-me-synapse-oidc-secret
 
-  FluffyChat 登录简要步骤：
-  1. 打开 http://127.0.0.1:1000/fluffychat/ （或 /chat）
+  Cinny 登录简要步骤：
+  1. 打开 http://127.0.0.1:1000/cinny/ （或 /chat）
   2. Homeserver 应为 http://127.0.0.1:1000（已预填）
   3. 选择「金格Pi」OIDC 登录
   4. 在金格授权页输入实训账号完成登录

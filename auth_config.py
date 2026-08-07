@@ -36,13 +36,14 @@ def _read_domain_file(path: Path | None = None) -> str:
 
 
 # 对外公开根地址（本机浏览器 / 手机客户端 / 内网穿透域名）。
-# 优先级：环境变量 PUBLIC_BASE_URL / OIDC_PUBLIC_BASE → 仓库根 domain.txt → 本机默认。
+# 优先级：仓库根 domain.txt → 环境变量 PUBLIC_BASE_URL / OIDC_PUBLIC_BASE → 本机默认。
+# domain.txt 优先，避免 Flask --reload 继承旧 PUBLIC_BASE_URL 后改穿透根不生效。
 # 例：https://xxxx.ngrok-free.app 或 http://127.0.0.1:1000
-# 不要带 /fluffychat、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
+# 不要带 /cinny、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
 PUBLIC_BASE_URL = _rstrip_slash(
-    os.environ.get("PUBLIC_BASE_URL")
+    _read_domain_file()
+    or os.environ.get("PUBLIC_BASE_URL")
     or os.environ.get("OIDC_PUBLIC_BASE")
-    or _read_domain_file()
     or _DEFAULT_PUBLIC_BASE
 )
 
@@ -106,15 +107,15 @@ SYNAPSE_UPSTREAM = _rstrip_slash(
 )
 SYNAPSE_PROXY_ENABLED = os.environ.get("SYNAPSE_PROXY_ENABLED", "1") == "1"
 
-# FluffyChat Web（默认经 Flask 同端口反代；/chat 唯一客户端）
-FLUFFY_UPSTREAM = _rstrip_slash(
-    os.environ.get("FLUFFY_UPSTREAM", "http://127.0.0.1:8082")
+# Cinny Web（默认经 Flask 同端口反代；/chat 唯一客户端）
+CINNY_UPSTREAM = _rstrip_slash(
+    os.environ.get("CINNY_UPSTREAM", "http://127.0.0.1:8082")
 )
-FLUFFY_PROXY_PATH = (
-    os.environ.get("FLUFFY_PROXY_PATH", "/fluffychat") or "/fluffychat"
-).rstrip("/") or "/fluffychat"
-FLUFFY_PROXY_ENABLED = os.environ.get("FLUFFY_PROXY_ENABLED", "1") == "1"
-FLUFFY_URL = _rstrip_slash(os.environ.get("FLUFFY_URL", "http://127.0.0.1:8082"))
+CINNY_PROXY_PATH = (
+    os.environ.get("CINNY_PROXY_PATH", "/cinny") or "/cinny"
+).rstrip("/") or "/cinny"
+CINNY_PROXY_ENABLED = os.environ.get("CINNY_PROXY_ENABLED", "1") == "1"
+CINNY_URL = _rstrip_slash(os.environ.get("CINNY_URL", "http://127.0.0.1:8082"))
 
 # Synapse Admin API：金格改用户名/头像时即时同步 Matrix displayname / avatar
 # 须与 matrix/homeserver.yaml 的 registration_shared_secret 一致
@@ -144,6 +145,67 @@ def public_origin_for_csp() -> str:
     return f"{p.scheme}://{p.netloc}"
 
 
+def _is_loopback_host(host: str) -> bool:
+    h = (host or "").split(":")[0].strip().lower()
+    return h in ("127.0.0.1", "localhost", "::1", "0.0.0.0")
+
+
+def client_facing_base_url(request) -> str:
+    """按当前 HTTP 请求推断浏览器可见根（本机 Host 或穿透 X-Forwarded-*）。
+
+    TLS 终止型穿透常见情况：浏览器是 https，Flask 只收到 http，且未必带
+    X-Forwarded-Proto。若 Host 与 PUBLIC_BASE_URL 一致，则采用公开根的 scheme，
+    避免表单/well-known 生成 http://穿透根 导致混合内容被浏览器静默拦截。
+
+    另：部分穿透只加 X-Forwarded-Proto: https，却把 Host 改成 127.0.0.1，
+    若照做会得到 https://127.0.0.1:1000，Cinny SSO redirectUrl/HS 全错。
+    此时若 PUBLIC_BASE_URL 是非回环公网根，直接采用公开根。
+    """
+    xfh = (request.headers.get("X-Forwarded-Host") or "").split(",")[0].strip()
+    host = (xfh or request.host or "").split(",")[0].strip()
+    if not host:
+        return PUBLIC_BASE_URL
+
+    xfp = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+    pub = urlparse(PUBLIC_BASE_URL)
+    pub_loopback = _is_loopback_host(pub.netloc or "")
+
+    # 穿透 TLS 终止后常见：X-Forwarded-Proto=https，但 Host 仍是 127.0.0.1。
+    # 若公开根是外网地址，改用 PUBLIC_BASE_URL，避免 Cinny HS/SSO 落到本机。
+    if (
+        _is_loopback_host(host)
+        and not pub_loopback
+        and pub.scheme in ("http", "https")
+        and pub.netloc
+        and xfp == "https"
+    ):
+        return PUBLIC_BASE_URL
+
+    if xfp in ("http", "https"):
+        proto = xfp
+    elif pub.netloc and host.lower() == pub.netloc.lower() and pub.scheme in (
+        "http",
+        "https",
+    ):
+        proto = pub.scheme
+    else:
+        proto = (request.scheme or "http").split(",")[0].strip().lower()
+        if proto not in ("http", "https"):
+            proto = "https" if PUBLIC_BASE_URL.startswith("https://") else "http"
+    return f"{proto}://{host}".rstrip("/")
+
+
+def relative_request_action(request) -> str:
+    """同源相对 action（path?query），供授权表单使用。
+
+    勿用 request.url：穿透后 Flask scheme 常为 http，绝对 http action 在
+    https 页面会被混合内容策略拦截，表现为「登录并授权」点击无反应。
+    """
+    path = request.path or "/"
+    qs = request.query_string.decode("utf-8", errors="replace")
+    return f"{path}?{qs}" if qs else path
+
+
 def frame_ancestors_csp_value() -> str:
     """CSP frame-ancestors：本机 + 当前公开根（穿透域名）。"""
     origins = [
@@ -163,16 +225,16 @@ def frame_ancestors_csp_value() -> str:
     return "frame-ancestors " + " ".join(parts)
 
 
-def fluffy_embed_path() -> str:
-    """给 /chat iframe 用的 FluffyChat 地址（优先同源相对路径）。"""
-    if FLUFFY_PROXY_ENABLED:
-        return FLUFFY_PROXY_PATH + "/"
-    return FLUFFY_URL + "/"
+def cinny_embed_path() -> str:
+    """给 /chat iframe 用的 Cinny 地址（优先同源相对路径）。"""
+    if CINNY_PROXY_ENABLED:
+        return CINNY_PROXY_PATH + "/"
+    return CINNY_URL + "/"
 
 
 def chat_embed_path() -> str:
-    """/chat iframe 嵌入 FluffyChat（已停用 Element）。"""
-    return fluffy_embed_path()
+    """/chat iframe 嵌入 Cinny（已停用 Element / FluffyChat）。"""
+    return cinny_embed_path()
 
 
 def matrix_mxid(localpart: str) -> str:

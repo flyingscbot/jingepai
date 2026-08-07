@@ -9,13 +9,13 @@ Also enforces lab policies (deactivate / room_keys / createRoom for非管理员)
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import re
-import threading
 import urllib.error
 import urllib.request
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 matrix_proxy_bp = Blueprint("matrix_proxy", __name__)
 
-# access_token → 已写过壁纸（避免每个 /sync 都 login-as）
-_wallpaper_token_seen: set[str] = set()
-_wallpaper_lock = threading.Lock()
+# Cinny / 浏览器偶发带超多自定义头；Synapse 若回显或中间层拼接时，
+# 默认 http.client._MAXHEADERS=100 会直接炸，表现为 /_matrix 卡住或 500。
+if getattr(http.client, "_MAXHEADERS", 100) < 500:
+    http.client._MAXHEADERS = 500
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -55,6 +56,19 @@ _HOP_BY_HOP = {
     "content-length",
 }
 
+# 只转发 Matrix / OIDC 需要的请求头，避免把浏览器垃圾头放大成上游异常响应
+_REQUEST_HEADER_ALLOW = {
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "user-agent",
+    "cookie",
+    "if-none-match",
+    "if-modified-since",
+    "x-requested-with",
+}
+
 _SECURE_COOKIE_RE = re.compile(r";\s*Secure", re.I)
 
 
@@ -78,23 +92,21 @@ def _filter_request_headers() -> dict[str, str]:
     headers: dict[str, str] = {}
     for key, value in request.headers:
         lk = key.lower()
-        if lk in _HOP_BY_HOP:
+        if lk in _HOP_BY_HOP or lk not in _REQUEST_HEADER_ALLOW:
             continue
         headers[key] = value
-    # Synapse public_baseurl 是浏览器可见根 — Host / Proto 必须与穿透一致，
-    # 否则 SSO 302 会指回错误 scheme/host。
-    headers["Host"] = request.host
-    headers["X-Forwarded-Host"] = request.host
-    fwd_proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "http").split(",")[0].strip()
-    if auth_config.PUBLIC_BASE_URL.startswith("https://"):
-        fwd_proto = "https"
-    elif auth_config.PUBLIC_BASE_URL.startswith("http://"):
-        # 本机明文或 HTTP 穿透
-        if fwd_proto not in ("http", "https"):
-            fwd_proto = "http"
-    headers["X-Forwarded-Proto"] = fwd_proto
+    # Host / Proto：跟「浏览器实际访问的根」一致，勿仅因 domain.txt 是 https
+    # 就把本机 http://127.0.0.1 请求强行标成 https（易干扰 SSO 与发现）。
+    facing = auth_config.client_facing_base_url(request)
+    parsed = urlparse(facing)
+    host = parsed.netloc or request.host
+    proto = parsed.scheme or request.scheme or "http"
+    headers["Host"] = host
+    headers["X-Forwarded-Host"] = host
+    headers["X-Forwarded-Proto"] = proto
     headers["X-Forwarded-For"] = request.remote_addr or "127.0.0.1"
     headers["Accept-Encoding"] = "identity"
+    headers["Connection"] = "close"
     return headers
 
 
@@ -104,6 +116,56 @@ def _rewrite_set_cookie(value: str) -> str:
     # SameSite=None requires Secure; downgrade so cookie is kept on HTTP
     value = re.sub(r";\s*SameSite=None", "; SameSite=Lax", value, flags=re.I)
     return value
+
+
+def _rewrite_location(value: str) -> str:
+    """谨慎改写上游 Location；SSO/OIDC 浏览器跳转不得改回本机。
+
+    domain.txt 为穿透根时，Synapse 会把本机发起的 SSO 302 到 public_baseurl。
+    若再把 Location 改回 http://127.0.0.1:1000/.../sso/redirect，会与
+    Synapse canonical 检查形成无限 302（本机「登录不行」）。
+
+    双模式策略：SSO/OIDC 跳转保持 Synapse 给出的 public_baseurl（穿透）；
+    完结后靠 Cinny 的 redirectUrl 回到本机或穿透 Cinny。其它 Location
+    仍可对齐到当前访问根。
+    """
+    parsed = urlparse(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return value
+    path = (parsed.path or "").lower()
+    if any(
+        p in path
+        for p in (
+            "/login/sso/redirect",
+            "/oauth/authorize",
+            "/_synapse/client/oidc/",
+        )
+    ):
+        return value
+
+    facing = auth_config.client_facing_base_url(request).rstrip("/")
+    origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    if origin == facing:
+        return value
+    replaceable = {
+        auth_config.PUBLIC_BASE_URL.rstrip("/"),
+        "http://127.0.0.1",
+        "http://127.0.0.1:1000",
+        "http://localhost",
+        "http://localhost:1000",
+        "https://127.0.0.1",
+        "https://127.0.0.1:1000",
+        "https://localhost",
+        "https://localhost:1000",
+    }
+    if origin not in replaceable:
+        return value
+    suffix = parsed.path or ""
+    if parsed.query:
+        suffix += f"?{parsed.query}"
+    if parsed.fragment:
+        suffix += f"#{parsed.fragment}"
+    return facing + suffix
 
 
 def _filter_response_headers(upstream_headers) -> list[tuple[str, str]]:
@@ -132,6 +194,9 @@ def _filter_response_headers(upstream_headers) -> list[tuple[str, str]]:
         if lk == "set-cookie":
             out.append((key, _rewrite_set_cookie(value)))
             continue
+        if lk == "location":
+            out.append((key, _rewrite_location(value)))
+            continue
         out.append((key, value))
     return out
 
@@ -154,41 +219,6 @@ _CREATE_ROOM_RE = re.compile(
     r"^/_matrix/client/(?:r0|v3|unstable)/createRoom/?$",
     re.I,
 )
-
-# Sync：首次带 token 的 sync 时后台写入金格 Fluffy 壁纸 account_data
-_SYNC_RE = re.compile(
-    r"^/_matrix/client/(?:r0|v3|unstable)/sync/?$",
-    re.I,
-)
-
-
-def _queue_fluffy_wallpaper_for_request() -> None:
-    """首次 sync 时确保聊天壁纸（CanvasKit 不吃 CSS，须走 account_config）。
-
-    已写入过则立刻返回；否则同步写完再放行 sync，保证首屏 account_data 含壁纸。
-    """
-    token = _bearer_token()
-    if not token:
-        return
-    with _wallpaper_lock:
-        if token in _wallpaper_token_seen:
-            return
-        _wallpaper_token_seen.add(token)
-
-    try:
-        mxid = _whoami_user_id(token)
-        if not mxid:
-            with _wallpaper_lock:
-                _wallpaper_token_seen.discard(token)
-            return
-        ok = synapse_admin.ensure_fluffy_wallpaper_for_mxid(mxid)
-        if not ok:
-            with _wallpaper_lock:
-                _wallpaper_token_seen.discard(token)
-    except Exception as exc:
-        logger.warning("fluffy wallpaper ensure: %s", exc)
-        with _wallpaper_lock:
-            _wallpaper_token_seen.discard(token)
 
 
 def _blocked_deactivate_response() -> Response:
@@ -314,9 +344,6 @@ def _proxy(subpath: str):
         if _should_block_create_room(data):
             return _blocked_create_room_response()
 
-    if request.method == "GET" and _SYNC_RE.match(path):
-        _queue_fluffy_wallpaper_for_request()
-
     # Re-encode decoded PATH_INFO (# in #alias:server) before urllib upstream fetch.
     url = _upstream(_encode_path_for_upstream(path))
     if request.query_string:
@@ -329,13 +356,28 @@ def _proxy(subpath: str):
         method=request.method,
     )
     try:
-        upstream = _OPENER.open(req, timeout=120)
+        upstream = _OPENER.open(req, timeout=60)
     except urllib.error.HTTPError as e:
         body = e.read()
         return Response(body, status=e.code, headers=_filter_response_headers(e.headers))
     except urllib.error.URLError as e:
         return Response(
             f"Synapse upstream unavailable: {e.reason}",
+            status=502,
+            mimetype="text/plain",
+        )
+    except http.client.HTTPException as e:
+        # 典型：got more than N headers —— 勿让未捕获异常拖死/刷爆 Flask worker
+        logger.warning("Synapse upstream HTTP parse error for %s: %s", path, e)
+        return Response(
+            f"Synapse upstream protocol error: {e}",
+            status=502,
+            mimetype="text/plain",
+        )
+    except Exception as e:
+        logger.exception("Synapse proxy failed for %s", path)
+        return Response(
+            f"Synapse proxy error: {e}",
             status=502,
             mimetype="text/plain",
         )
@@ -380,22 +422,24 @@ def proxy_synapse(subpath: str):
 def proxy_matrix_well_known(subpath: str):
     """Expose Matrix client/server well-known on the Flask origin (:1000).
 
-    ``m.homeserver.base_url`` 一律用 ``PUBLIC_BASE_URL``（穿透/公网根），
-    避免手机客户端仍被导向 127.0.0.1。E2EE 禁用标志与 Synapse
-    extra_well_known_client_content 对齐；上游失败时仍返回本地默认。
+    ``m.homeserver.base_url`` 用当前请求的对外根（本机 Host 或穿透
+    X-Forwarded-*），这样本机打开 127.0.0.1 不会被强制指到穿透 IP，
+    手机经穿透访问时仍得到穿透根。E2EE 标志与 Synapse
+    extra_well_known_client_content 对齐。
     不与 OIDC ``/.well-known/openid-configuration`` 冲突。
     """
     kind = subpath.strip("/")
     if kind == "client":
+        base = auth_config.client_facing_base_url(request)
         body: dict = {
-            "m.homeserver": {"base_url": auth_config.PUBLIC_BASE_URL},
+            "m.homeserver": {"base_url": base},
             "io.element.e2ee": {"default": False, "force_disable": True},
         }
         try:
             upstream = _OPENER.open(
                 urllib.request.Request(
                     _upstream("/.well-known/matrix/client"),
-                    headers={"Accept": "application/json"},
+                    headers={"Accept": "application/json", "Connection": "close"},
                     method="GET",
                 ),
                 timeout=5,
@@ -419,7 +463,7 @@ def proxy_matrix_well_known(subpath: str):
                 upstream.close()
         except Exception:
             logger.debug("well-known upstream merge skipped", exc_info=True)
-        body["m.homeserver"] = {"base_url": auth_config.PUBLIC_BASE_URL}
+        body["m.homeserver"] = {"base_url": base}
         return jsonify(body)
     return _proxy("/.well-known/matrix/" + subpath)
 

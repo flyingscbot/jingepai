@@ -1,16 +1,17 @@
 # 穿透 / 公网根地址（复制为 domain.txt 后按需修改）
-# 格式：一行完整 URL，无尾斜杠、无路径（不要 /fluffychat、/_matrix）
+# 格式：一行完整 URL，无尾斜杠、无路径（不要 /cinny、/_matrix）
 # 例：
 #   https://xxxx.ngrok-free.app
 #
-# 优先级：环境变量 PUBLIC_BASE_URL > 本文件 domain.txt > 默认 http://127.0.0.1:1000
+# 优先级：本文件 domain.txt > 环境变量 PUBLIC_BASE_URL > 默认 http://127.0.0.1:1000
+# （Flask --reload 会继承旧环境变量；以 domain.txt 为准可避免改穿透根不生效）
 # domain.txt 已加入 .gitignore，勿把真实穿透 URL 提交进仓库。
 #
 # 日常用法（推荐）：
 #   1) 复制本文件为 domain.txt，改成你的穿透根
 #   2) python main.py
-#      → 自动读 domain.txt，同步 homeserver.yaml / fluffychat-config.json
-#      → 仅当 public_baseurl / FluffyChat defaultHomeserver 有变化时才 recreate synapse+fluffychat
+#      → 自动读 domain.txt，同步 homeserver.yaml / cinny-config.json
+#      → 仅当 public_baseurl / Cinny homeserverList 有变化时才 recreate synapse+cinny
 #      → 无变化时只保证 Flask 侧 PUBLIC_BASE_URL 已加载（不打断会话）
 #
 # 显式一键（始终 force-recreate）：
@@ -21,7 +22,7 @@
 #
 # 也可单独 apply：
 #   python matrix/apply_public_base.py
-#   然后：cd matrix && docker compose up -d --force-recreate synapse fluffychat
+#   然后：cd matrix && docker compose up -d --force-recreate synapse cinny
 #
 # 本机开发可不建 domain.txt，会自动回退 http://127.0.0.1:1000
 

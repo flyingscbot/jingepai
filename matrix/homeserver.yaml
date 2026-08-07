@@ -7,7 +7,7 @@ pid_file: /data/homeserver.pid
 # 内网穿透：写 domain.txt 后执行 python matrix/apply_public_base.py
 # 或：.\\start_with_domain.ps1
 # 改完后必须：docker compose up -d --force-recreate synapse（restart 不够）
-public_baseurl: "http://127.0.0.1:1000/"
+public_baseurl: "https://60.215.128.117:51754/"
 
 listeners:
   - port: 8008
@@ -116,7 +116,7 @@ oidc_providers:
     discover: false
     skip_verification: true
     issuer: "http://host.docker.internal:1000"
-    authorization_endpoint: "http://127.0.0.1:1000/oauth/authorize"
+    authorization_endpoint: "https://60.215.128.117:51754/oauth/authorize"
     token_endpoint: "http://host.docker.internal:1000/oauth/token"
     userinfo_endpoint: "http://host.docker.internal:1000/oauth/userinfo"
     jwks_uri: "http://host.docker.internal:1000/oauth/jwks.json"

@@ -61,7 +61,7 @@ if ($LASTEXITCODE -ne 0) { throw "psql failed" }
 Write-Host @"
 
 Done.
-Users must clear FluffyChat site data once, then login again via JinGePi SSO:
-  Open http://127.0.0.1:1000/fluffychat/
+Users must clear Cinny site data once, then login again via JinGePi SSO:
+  Open http://127.0.0.1:1000/cinny/
   -> site info (lock icon) -> Cookies and site data -> Clear data
 "@

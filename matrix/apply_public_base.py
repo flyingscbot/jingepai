@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""按 PUBLIC_BASE_URL（穿透/公网根）同步改 Synapse + FluffyChat 配置。
+"""按 PUBLIC_BASE_URL（穿透/公网根）同步改 Synapse + Cinny 配置。
 
 用法（优先级：命令行参数 > 环境变量 > 仓库根 domain.txt）：
   python matrix/apply_public_base.py
@@ -12,13 +12,13 @@
 
 会改：
   - matrix/homeserver.yaml → public_baseurl、authorization_endpoint
-  - matrix/fluffychat-config.json → defaultHomeserver
+  - matrix/cinny-config.json → homeserverList[0]（完整 PUBLIC_BASE_URL）
 
 不会改 OIDC issuer / token / jwks（仍为 host.docker.internal，供容器内访问）。
 
 改完后务必 recreate（仅 restart 不够，Synapse 启动时读 yaml）：
   cd matrix
-  docker compose up -d --force-recreate synapse fluffychat
+  docker compose up -d --force-recreate synapse cinny
 
 Flask 侧：写好仓库根 domain.txt 后重启即可（或设 PUBLIC_BASE_URL）。
 一键（跨平台）：python start_with_domain.py
@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
 DOMAIN_FILE = REPO / "domain.txt"
 HS = ROOT / "homeserver.yaml"
-FLUFFY_CFG = ROOT / "fluffychat-config.json"
+CINNY_CFG = ROOT / "cinny-config.json"
 _DEFAULT_PUBLIC_BASE = "http://127.0.0.1:1000"
 
 
@@ -71,7 +71,7 @@ def _norm_base(url: str) -> str:
     p = urlparse(u)
     if p.path and p.path not in ("", "/"):
         raise ValueError(
-            f"请只填穿透根地址，不要带路径（不要 /fluffychat、/_matrix）：{url!r}"
+            f"请只填穿透根地址，不要带路径（不要 /cinny、/_matrix）：{url!r}"
         )
     return f"{p.scheme}://{p.netloc}"
 
@@ -92,33 +92,50 @@ def resolve_public_base(
     return _norm_base(raw)
 
 
+def _cinny_homeserver_from_cfg(data: dict) -> str | None:
+    """读 Cinny config 中默认 homeserver（完整 URL 或列表首项）。"""
+    hs_list = data.get("homeserverList")
+    if not isinstance(hs_list, list) or not hs_list:
+        return None
+    idx = data.get("defaultHomeserver", 0)
+    if not isinstance(idx, int) or idx < 0 or idx >= len(hs_list):
+        idx = 0
+    raw = hs_list[idx]
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    raw = raw.strip().rstrip("/")
+    if "://" in raw:
+        try:
+            return _norm_base(raw)
+        except ValueError:
+            return raw
+    # 无 scheme 时无法与 PUBLIC_BASE_URL 直接比；当作未配置完整 base
+    return None
+
+
 def read_current_bases() -> tuple[str | None, str | None]:
-    """读当前配置中的 (homeserver public_baseurl, fluffy defaultHomeserver)，无尾斜杠。"""
+    """读当前配置中的 (homeserver public_baseurl, cinny default homeserver)，无尾斜杠。"""
     hs_base: str | None = None
-    fluffy_base: str | None = None
+    cinny_base: str | None = None
     if HS.is_file():
         text = HS.read_text(encoding="utf-8")
         m = re.search(r'(?m)^public_baseurl:\s*"([^"]*)"', text)
         if m:
             hs_base = m.group(1).rstrip("/")
-    if FLUFFY_CFG.is_file():
+    if CINNY_CFG.is_file():
         try:
-            data = json.loads(FLUFFY_CFG.read_text(encoding="utf-8"))
-            raw = data.get("defaultHomeserver")
-            if isinstance(raw, str):
-                fluffy_base = raw.rstrip("/")
-            else:
-                fluffy_base = None
+            data = json.loads(CINNY_CFG.read_text(encoding="utf-8"))
+            cinny_base = _cinny_homeserver_from_cfg(data)
         except (OSError, json.JSONDecodeError, TypeError):
-            fluffy_base = None
-    return hs_base, fluffy_base
+            cinny_base = None
+    return hs_base, cinny_base
 
 
 def bases_need_update(base: str) -> bool:
     """目标 base 与 yaml/json 是否不一致。"""
     target = _norm_base(base)
-    hs_base, fluffy_base = read_current_bases()
-    return hs_base != target or fluffy_base != target
+    hs_base, cinny_base = read_current_bases()
+    return hs_base != target or cinny_base != target
 
 
 def patch_homeserver(base: str) -> None:
@@ -146,35 +163,67 @@ def patch_homeserver(base: str) -> None:
     print(f"[ok] {HS.name}: authorization_endpoint -> {auth}")
 
 
-def patch_fluffy_config(base: str) -> None:
-    data = json.loads(FLUFFY_CFG.read_text(encoding="utf-8"))
-    data["defaultHomeserver"] = base
-    FLUFFY_CFG.write_text(
+def patch_cinny_config(base: str) -> None:
+    data = json.loads(CINNY_CFG.read_text(encoding="utf-8"))
+    # 穿透根置顶；始终保留本机同源地址，避免 domain.txt 为穿透时本机 Cinny 选错服
+    # （Flask /cinny/config.json 仍会按请求 Host 再改写一次）
+    local = "http://127.0.0.1:1000"
+    ordered: list[str] = []
+    for item in (base, local):
+        cleaned = (item or "").strip().rstrip("/")
+        if cleaned and cleaned not in ordered:
+            ordered.append(cleaned)
+    skip = {
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://localhost",
+        "https://localhost",
+    }
+    old = data.get("homeserverList")
+    if isinstance(old, list):
+        for item in old:
+            if not isinstance(item, str):
+                continue
+            cleaned = item.strip().rstrip("/")
+            if cleaned in skip:
+                continue
+            if cleaned and cleaned not in ordered:
+                ordered.append(cleaned)
+    data["homeserverList"] = ordered
+    data["defaultHomeserver"] = 0
+    # 子路径反代下开启 hash 路由，减少 SPA 深链对服务器回退的依赖
+    hr = data.get("hashRouter")
+    if not isinstance(hr, dict):
+        hr = {}
+    hr["enabled"] = True
+    hr.setdefault("basename", "/")
+    data["hashRouter"] = hr
+    CINNY_CFG.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
         newline="\n",
     )
-    print(f"[ok] {FLUFFY_CFG.name}: defaultHomeserver -> {base}")
+    print(f"[ok] {CINNY_CFG.name}: homeserverList -> {ordered}")
 
 
 def apply(base: str) -> str:
-    """写入 homeserver.yaml + fluffychat-config.json，返回规范化后的 base。"""
+    """写入 homeserver.yaml + cinny-config.json，返回规范化后的 base。"""
     base = _norm_base(base)
     if not HS.is_file():
         raise FileNotFoundError(f"未找到 {HS}")
-    if not FLUFFY_CFG.is_file():
-        raise FileNotFoundError(f"未找到 {FLUFFY_CFG}")
+    if not CINNY_CFG.is_file():
+        raise FileNotFoundError(f"未找到 {CINNY_CFG}")
     patch_homeserver(base)
-    patch_fluffy_config(base)
+    patch_cinny_config(base)
     return base
 
 
-def try_recreate_synapse_fluffy(*, quiet_fail: bool = True) -> bool:
-    """docker compose force-recreate synapse + fluffychat。成功 True，失败 False。"""
+def try_recreate_synapse_cinny(*, quiet_fail: bool = True) -> bool:
+    """docker compose force-recreate synapse + cinny。成功 True，失败 False。"""
     if not shutil.which("docker"):
         msg = (
             "[domain] 未找到 docker，无法自动 recreate。"
-            "请手动执行：cd matrix && docker compose up -d --force-recreate synapse fluffychat"
+            "请手动执行：cd matrix && docker compose up -d --force-recreate synapse cinny"
         )
         print(msg)
         return False
@@ -185,7 +234,7 @@ def try_recreate_synapse_fluffy(*, quiet_fail: bool = True) -> bool:
         "-d",
         "--force-recreate",
         "synapse",
-        "fluffychat",
+        "cinny",
     ]
     print(f"[compose] {' '.join(cmd)}")
     try:
@@ -194,21 +243,22 @@ def try_recreate_synapse_fluffy(*, quiet_fail: bool = True) -> bool:
         print(f"[domain] docker compose 执行失败: {e}")
         if quiet_fail:
             print(
-                "请手动执行：cd matrix && docker compose up -d --force-recreate synapse fluffychat"
+                "请手动执行：cd matrix && docker compose up -d --force-recreate synapse cinny"
             )
             return False
         raise
     if r.returncode != 0:
         print(
             f"[domain] docker compose 失败 (exit {r.returncode})。"
-            "请手动执行：cd matrix && docker compose up -d --force-recreate synapse fluffychat"
+            "请手动执行：cd matrix && docker compose up -d --force-recreate synapse cinny"
         )
         return False
     return True
 
 
 # 旧名兼容（若外部脚本仍调用）
-try_recreate_synapse_element = try_recreate_synapse_fluffy
+try_recreate_synapse_fluffy = try_recreate_synapse_cinny
+try_recreate_synapse_element = try_recreate_synapse_cinny
 
 
 def sync_for_flask_start(*, recreate_on_change: bool = True) -> str:
@@ -218,13 +268,20 @@ def sync_for_flask_start(*, recreate_on_change: bool = True) -> str:
     - 仅当 yaml/json 相对目标有变化时才 apply；变化且 recreate_on_change 时才 compose recreate
     - 无 domain.txt / 环境变量时回退 127.0.0.1:1000（与现行为一致）
 
+    注意：仓库根 domain.txt 优先于本进程里先前注入的 PUBLIC_BASE_URL。
+    Flask --reload 会继承旧环境变量；若仍让 env 压过 domain.txt，改穿透根永不生效。
+
     返回规范化后的 PUBLIC_BASE_URL。
     """
-    base = resolve_public_base()
+    domain = _read_domain_file()
+    if domain:
+        base = _norm_base(domain)
+    else:
+        base = resolve_public_base()
     os.environ["PUBLIC_BASE_URL"] = base
 
-    hs_base, fluffy_base = read_current_bases()
-    changed = hs_base != base or fluffy_base != base
+    hs_base, cinny_base = read_current_bases()
+    changed = hs_base != base or cinny_base != base
 
     if not changed:
         print(f"[domain] PUBLIC_BASE_URL = {base}（配置未变，跳过 apply / recreate）")
@@ -232,7 +289,7 @@ def sync_for_flask_start(*, recreate_on_change: bool = True) -> str:
 
     print(f"[domain] PUBLIC_BASE_URL = {base}")
     print(
-        f"[domain] 检测到配置变化（homeserver={hs_base!r}, fluffychat={fluffy_base!r}）→ 同步 yaml/json"
+        f"[domain] 检测到配置变化（homeserver={hs_base!r}, cinny={cinny_base!r}）→ 同步 yaml/json"
     )
     try:
         apply(base)
@@ -241,12 +298,12 @@ def sync_for_flask_start(*, recreate_on_change: bool = True) -> str:
         return base
 
     if recreate_on_change:
-        print("[domain] 正在 recreate synapse + fluffychat（改 yaml/json 后必须 recreate）...")
-        try_recreate_synapse_fluffy(quiet_fail=True)
+        print("[domain] 正在 recreate synapse + cinny（改 yaml/json 后必须 recreate）...")
+        try_recreate_synapse_cinny(quiet_fail=True)
     else:
         print(
             "[domain] 已写入配置但未 recreate。"
-            "请手动：cd matrix && docker compose up -d --force-recreate synapse fluffychat"
+            "请手动：cd matrix && docker compose up -d --force-recreate synapse cinny"
         )
     return base
 
@@ -277,9 +334,9 @@ def main(argv: list[str]) -> int:
     print("下一步：")
     print(f"  1) 确认仓库根 domain.txt 为：{base}  （Flask 启动会读）")
     print("  2) 重启 Flask（须监听 0.0.0.0:1000）")
-    print("  3) cd matrix && docker compose up -d --force-recreate synapse fluffychat")
+    print("  3) cd matrix && docker compose up -d --force-recreate synapse cinny")
     print("     （改 homeserver.yaml 后必须 --force-recreate，restart 不够）")
-    print(f"  4) 客户端 Homeserver URL 填：{base}  （不要 /fluffychat）")
+    print(f"  4) 客户端 Homeserver URL 填：{base}  （不要 /cinny）")
     print(f"  5) 自检：GET {base}/.well-known/matrix/client")
     print("  或一键：python start_with_domain.py")
     return 0

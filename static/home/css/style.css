@@ -1888,11 +1888,7 @@ body:has(.float-nav) .panel-main{
 }
 
 /* =========================
-   聊天室（嵌入 FluffyChat）
-========================= */
-
-/* =========================
-   聊天室（嵌入 FluffyChat）— 对齐格外壳 + 手机适配
+   聊天室（嵌入 Cinny）— 对齐格外壳 + 手机适配
 ========================= */
 
 body.chat-page{
@@ -1926,7 +1922,7 @@ body.chat-page .account{
     margin:0;
     padding:0;
     overflow:hidden;
-    /* 与 FluffyChat 金格炭黑底衔接 */
+    /* 与 Cinny 金格炭黑底衔接 */
     background:#050505;
     border:none;
     border-radius:0;
@@ -1957,7 +1953,7 @@ body.chat-page .account{
 
 @media screen and (max-width:900px){
     body.chat-page{
-        /* 禁止整页橡皮筋滚动，把滚动留给 iframe 内 FluffyChat */
+        /* 禁止整页橡皮筋滚动，把滚动留给 iframe 内 Cinny */
         overscroll-behavior:none;
         position:fixed;
         inset:0;
@@ -2010,7 +2006,7 @@ body.chat-page .account{
         --chat-header-h:48px;
         /*
          * 手机取消 iframe scale：避免布局视口被放大再缩小，
-         * 与 FluffyChat 内 fixed 底栏/输入条错位出空隙。
+         * 与 Cinny 内 fixed 底栏/输入条错位出空隙。
          * Home 指示条只由壳 padding 承担（iframe 内 env(safe-area) 常为 0）。
          */
         --chat-iframe-scale:1;

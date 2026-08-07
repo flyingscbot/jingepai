@@ -1,0 +1,166 @@
+/**
+ * 金格Pi × Cinny — 强制炭黑 + 金主题
+ * 对 light/silver/dark/butter 一律套深色金格变量，避免系统浅色闪一下。
+ * 勿对 #root / body 做 opacity:0、visibility:hidden。
+ */
+
+:root,
+html,
+body,
+.dark-theme,
+.butter-theme,
+.light-theme,
+.silver-theme,
+._15q3ngn0,
+._15q3ngn1,
+._15q3ngn2 {
+  color-scheme: dark !important;
+
+  --jingepi-bg: #050505;
+  --jingepi-surface: #0c0c0c;
+  --jingepi-surface-2: #121212;
+  --jingepi-surface-3: #1a1a1a;
+  --jingepi-line: #2e2e2e;
+  --jingepi-line-2: #3a3a3a;
+  --jingepi-text: #f5f5f5;
+  --jingepi-text-muted: #aaaaaa;
+  --jingepi-gold: #f0b90b;
+  --jingepi-gold-light: #fcd535;
+  --jingepi-gold-mid: #e0a80a;
+  --jingepi-gold-deep: #c99400;
+  --jingepi-gold-hover: #d4a017;
+  --jingepi-gold-on: #1a1400;
+  --jingepi-gold-container: #3d3000;
+  --jingepi-gold-on-container: #fff6d1;
+  --jingepi-danger: #ff4b55;
+  --tc-link: #f0b90b !important;
+
+  /* folds createTheme 哈希（v4.12.6）— 强制深色金 */
+  --oq6d070: #050505 !important;
+  --oq6d071: #0c0c0c !important;
+  --oq6d072: #161616 !important;
+  --oq6d073: #2e2e2e !important;
+  --oq6d074: #f5f5f5 !important;
+  --oq6d075: #0c0c0c !important;
+  --oq6d076: #161616 !important;
+  --oq6d077: #1e1e1e !important;
+  --oq6d078: #2e2e2e !important;
+  --oq6d079: #f5f5f5 !important;
+  --oq6d07a: #121212 !important;
+  --oq6d07b: #1a1a1a !important;
+  --oq6d07c: #242424 !important;
+  --oq6d07d: #333333 !important;
+  --oq6d07e: #f0f0f0 !important;
+  --oq6d07f: #f0b90b !important;
+  --oq6d07g: #e0a80a !important;
+  --oq6d07h: #d4a017 !important;
+  --oq6d07i: #c99400 !important;
+  --oq6d07j: #1a1400 !important;
+  --oq6d07k: #3d3000 !important;
+  --oq6d07l: #4a3a08 !important;
+  --oq6d07m: #574508 !important;
+  --oq6d07n: #645008 !important;
+  --oq6d07o: #fff6d1 !important;
+  --oq6d07p: #f5f5f5 !important;
+  --oq6d07q: #e8e8e8 !important;
+  --oq6d07r: #dddddd !important;
+  --oq6d07s: #cccccc !important;
+  --oq6d07t: #0a0a0a !important;
+  --oq6d07u: #2a2a2a !important;
+  --oq6d07v: #333333 !important;
+  --oq6d07w: #3a3a3a !important;
+  --oq6d07x: #444444 !important;
+  --oq6d07y: #f5f5f5 !important;
+  --oq6d071j: #ff8a90 !important;
+  --oq6d071n: #401014 !important;
+  --oq6d071o: #5c1a20 !important;
+}
+
+html,
+body,
+#root {
+  background-color: #050505 !important;
+  color: #f5f5f5 !important;
+  color-scheme: dark !important;
+}
+
+/* 登录光晕（不挡点击） */
+body.jingepi-cinny-ready::before,
+html[data-jingepi-theme]::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 55% 40% at 85% 8%, rgba(240, 185, 11, 0.1), transparent 55%),
+    radial-gradient(ellipse 45% 35% at 10% 90%, rgba(23, 37, 84, 0.28), transparent 50%);
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+a {
+  color: #f0b90b;
+}
+
+a:hover {
+  color: #fcd535;
+}
+
+:focus-visible {
+  outline-color: #e0a80a !important;
+}
+
+button[data-variant="Primary"],
+button[data-variant="primary"],
+[class*="Button"][data-variant="Primary"] {
+  background-color: #e0a80a !important;
+  color: #1a1400 !important;
+  border-color: #c99400 !important;
+}
+
+button[data-variant="Primary"]:hover,
+button[data-variant="primary"]:hover,
+[class*="Button"][data-variant="Primary"]:hover {
+  background-color: #d4a017 !important;
+}
+
+nav,
+aside,
+[role="navigation"] {
+  border-color: #2e2e2e !important;
+}
+
+/* 浅色主题类若短暂出现，也压成深底，防闪白 */
+.light-theme,
+.silver-theme,
+.prism-light {
+  background-color: #050505 !important;
+  color: #f5f5f5 !important;
+  color-scheme: dark !important;
+}
+
+* {
+  scrollbar-color: #3a3a3a #0a0a0a;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 6px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #c99400;
+}

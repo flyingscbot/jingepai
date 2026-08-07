@@ -385,6 +385,9 @@ def authorize():
     client = oidc_store.get_client(client_id) if client_id else None
     client_name = (client or {}).get("client_name") or "Matrix"
 
+    # 相对 path?query，保留当前浏览器 origin（https 穿透 / http 本机皆可）
+    form_action = auth_config.relative_request_action(request)
+
     if not user:
         error = None
         username = ""
@@ -400,7 +403,7 @@ def authorize():
                         client_name=client_name,
                         error=error,
                         username=username,
-                        form_action=request.url,
+                        form_action=form_action,
                     )
                 session["is_login"] = True
                 session["user_id"] = candidate["id"]
@@ -415,7 +418,7 @@ def authorize():
                     client_name=client_name,
                     error=error,
                     username=username,
-                    form_action=request.url,
+                    form_action=form_action,
                 )
         else:
             return render_template_string(
@@ -423,7 +426,7 @@ def authorize():
                 client_name=client_name,
                 error=None,
                 username="",
-                form_action=request.url,
+                form_action=form_action,
             )
 
     # 实训场景：已登录直接授权

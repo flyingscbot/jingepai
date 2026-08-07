@@ -53,5 +53,5 @@ fi
 echo "Resetting lab crypto metadata in Synapse Postgres..."
 docker compose exec -T postgres psql -U synapse -d synapse <<<"$SQL"
 echo
-echo "Done. Users must clear FluffyChat site data once, then SSO again:"
-echo "  http://127.0.0.1:1000/fluffychat/ → 站点信息 → 清除 Cookie 与网站数据"
+echo "Done. Users must clear Cinny site data once, then SSO again:"
+echo "  http://127.0.0.1:1000/cinny/ → 站点信息 → 清除 Cookie 与网站数据"
