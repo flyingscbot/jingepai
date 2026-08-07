@@ -9,6 +9,35 @@
  * 同时写入无前缀键，兼容部分 Async API。
  */
 (function () {
+  /* SSO 回调：Synapse 常把 loginToken 挂在 /fluffychat/?loginToken=…
+   * FluffyChat Web 靠 flutter-web-auth-2 的 postMessage / localStorage 收凭证。
+   * 必须在 Flutter 启动前执行。 */
+  (function handleSsoCallbackEarly() {
+    var search = window.location.search || "";
+    if (!/(?:^|[?&])loginToken=/.test(search)) return;
+    var href = window.location.href;
+    var payload = { "flutter-web-auth-2": href };
+    var origin = window.location.origin;
+    try {
+      localStorage.setItem("flutter-web-auth-2", href);
+    } catch (e) {}
+    if (window.opener && window.opener !== window) {
+      try {
+        window.opener.postMessage(payload, origin);
+      } catch (e) {}
+      try {
+        window.close();
+      } catch (e) {}
+      return;
+    }
+    /* 仅 auth.html 回调页通知父 frame；正常 /fluffychat/ 由 Flutter 自己读 URL */
+    if (/\/auth\.html$/i.test(window.location.pathname) && window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage(payload, origin);
+      } catch (e) {}
+    }
+  })();
+
   var GOLD = 0xfff0b90b; /* #f0b90b → 4293966091 */
   var GOLD_STR = String(GOLD >>> 0);
   var THEME_VER = "jingepi-fluffy-theme-v2";
@@ -22,7 +51,35 @@
     } catch (e) {}
   }
 
+  function syncHomeserverNow() {
+    var hs = window.__JINGEPI_HOMESERVER__;
+    if (typeof hs !== "string" || !hs) {
+      try {
+        hs = localStorage.getItem("jingepi_public_base") || "";
+      } catch (e) {
+        hs = "";
+      }
+    }
+    hs = String(hs).replace(/\/+$/, "");
+    if (!hs) return;
+    setJson("chat.fluffy.default_homeserver", JSON.stringify(hs));
+    try {
+      localStorage.setItem("jingepi_public_base", hs);
+    } catch (e) {}
+  }
+
   function lockBrandPrefs() {
+    /* 穿透：卸掉旧 Flutter SW，避免首屏多等 4s 超时 */
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (r) {
+            r.unregister();
+          });
+        });
+      }
+    } catch (e) {}
+
     /* 每次加载强制品牌色与深色，避免旧紫种 / 系统色残留 */
     setJson("theme_mode", '"dark"');
     setJson("primary_color", GOLD_STR);
@@ -30,6 +87,23 @@
     try {
       localStorage.setItem("jingepi_fluffy_theme_ver", THEME_VER);
     } catch (e) {}
+  }
+
+  function syncHomeserverFromConfig() {
+    fetch("config.json", { cache: "no-store", credentials: "same-origin" })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .then(function (cfg) {
+        if (!cfg || typeof cfg.defaultHomeserver !== "string") return;
+        var hs = cfg.defaultHomeserver.replace(/\/+$/, "");
+        if (!hs) return;
+        setJson("chat.fluffy.default_homeserver", JSON.stringify(hs));
+        try {
+          localStorage.setItem("jingepi_public_base", hs);
+        } catch (e) {}
+      })
+      .catch(function () {});
   }
 
   function markReady() {
@@ -59,15 +133,11 @@
       }
     });
     obs.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(function () {
-      markReady();
-      try {
-        obs.disconnect();
-      } catch (e) {}
-    }, 8000);
   }
 
   lockBrandPrefs();
+  syncHomeserverNow();
+  syncHomeserverFromConfig();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", watchFlutterReady);

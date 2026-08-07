@@ -95,15 +95,15 @@ def _filter_request_headers() -> dict[str, str]:
         if lk in _HOP_BY_HOP or lk not in _REQUEST_HEADER_ALLOW:
             continue
         headers[key] = value
-    # Host / Proto：跟「浏览器实际访问的根」一致，勿仅因 domain.txt 是 https
-    # 就把本机 http://127.0.0.1 请求强行标成 https（易干扰 SSO 与发现）。
-    facing = auth_config.client_facing_base_url(request)
-    parsed = urlparse(facing)
-    host = parsed.netloc or request.host
-    proto = parsed.scheme or request.scheme or "http"
-    headers["Host"] = host
-    headers["X-Forwarded-Host"] = host
-    headers["X-Forwarded-Proto"] = proto
+    # Synapse public_baseurl 固定本机；上游 Host 始终用 canonical，避免穿透 Host
+    # 触发 SSO 规范化 302 死循环（Location 改回穿透后反复 /login/sso/redirect）。
+    local = auth_config.LOCAL_SYNAPSE_PUBLIC_BASE
+    local_parsed = urlparse(local)
+    synapse_host = local_parsed.netloc or "127.0.0.1:1000"
+    synapse_proto = local_parsed.scheme or "http"
+    headers["Host"] = synapse_host
+    headers["X-Forwarded-Host"] = synapse_host
+    headers["X-Forwarded-Proto"] = synapse_proto
     headers["X-Forwarded-For"] = request.remote_addr or "127.0.0.1"
     # 允许 Synapse 回 gzip 压缩 JSON（代理不改写 body，可透传）
     if "accept-encoding" not in headers:
@@ -124,36 +124,33 @@ def _rewrite_set_cookie(value: str) -> str:
 
 
 def _rewrite_location(value: str) -> str:
-    """谨慎改写上游 Location；SSO/OIDC 浏览器跳转不得改回本机。
+    """按客户端可见根改写上游 Location。
 
-    domain.txt 为穿透根时，Synapse 会把本机发起的 SSO 302 到 public_baseurl。
-    若再把 Location 改回 http://127.0.0.1:1000/.../sso/redirect，会与
-    Synapse canonical 检查形成无限 302（本机「登录不行」）。
-
-    双模式策略：SSO/OIDC 跳转保持 Synapse 给出的 public_baseurl（穿透）；
-    完结后靠 Cinny 的 redirectUrl 回到本机或穿透 Cinny。其它 Location
-    仍可对齐到当前访问根。
+    Synapse public_baseurl 固定为本机（LOCAL_SYNAPSE_PUBLIC_BASE），SSO/OIDC
+  浏览器链从 127.0.0.1 发起。穿透访问时把 Location 中的本机根改写到当前穿透根；
+    本机访问时若 Location 仍带穿透根（旧配置残留），改回当前本机根。
     """
     parsed = urlparse(value)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         return value
-    path = (parsed.path or "").lower()
-    if any(
-        p in path
-        for p in (
-            "/login/sso/redirect",
-            "/oauth/authorize",
-            "/_synapse/client/oidc/",
-        )
-    ):
-        return value
 
     facing = auth_config.client_facing_base_url(request).rstrip("/")
     origin = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    suffix = parsed.path or ""
+    if parsed.query:
+        suffix += f"?{parsed.query}"
+    if parsed.fragment:
+        suffix += f"#{parsed.fragment}"
+
     if origin == facing:
         return value
-    replaceable = {
-        auth_config.PUBLIC_BASE_URL.rstrip("/"),
+
+    req_host = (request.host or "").split(",")[0].strip()
+    is_local_client = auth_config._is_loopback_host(req_host.split(":")[0])
+
+    local = auth_config.LOCAL_SYNAPSE_PUBLIC_BASE.rstrip("/")
+    local_origins = {
+        local,
         "http://127.0.0.1",
         "http://127.0.0.1:1000",
         "http://localhost",
@@ -163,13 +160,17 @@ def _rewrite_location(value: str) -> str:
         "https://localhost",
         "https://localhost:1000",
     }
+    pub = auth_config.PUBLIC_BASE_URL.rstrip("/")
+
+    if not is_local_client and origin in local_origins:
+        return facing + suffix
+
+    if is_local_client and pub and (origin == pub or value.startswith(pub + "/")):
+        return facing + suffix
+
+    replaceable = local_origins | ({pub} if pub else set())
     if origin not in replaceable:
         return value
-    suffix = parsed.path or ""
-    if parsed.query:
-        suffix += f"?{parsed.query}"
-    if parsed.fragment:
-        suffix += f"#{parsed.fragment}"
     return facing + suffix
 
 

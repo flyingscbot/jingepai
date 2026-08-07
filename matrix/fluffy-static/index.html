@@ -15,27 +15,21 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="/">
+  <base href="/fluffychat/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="The cutest messenger in the Matrix network.">
-
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="FluffyChat">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/Icon-32.png">
-  <link rel="icon" type="image/png" sizes="48x48" href="icons/Icon-48.png">
+  <meta name="description" content="金格Pi 聊天室">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
   <title>金格Pi聊天室</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preload" href="main.dart.js" as="script" crossorigin>
+  <link rel="preload" href="flutter.js" as="script" crossorigin>
+  <link rel="preload" href="canvaskit/canvaskit.js" as="script" crossorigin>
+  <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" crossorigin>
   <link rel="stylesheet" href="lab-jingepi-fluffy.css">
   <script src="lab-jingepi-fluffy.js"></script>
-  <link rel="manifest" href="manifest.json">
   <script src="Imaging.js"></script>
 
   <!-- This script adds the flutter initialization JS code -->
@@ -84,8 +78,8 @@ _flutter.buildConfig = {"engineRevision":"a10d8ac38de835021c8d2f920dbf50a920ccc0
 
 
       _flutter.loader.load({
-        serviceWorker: {
-          serviceWorkerVersion: "232589583" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */,
+        config: {
+          useLocalCanvasKit: true,
         },
       onEntrypointLoaded: function (engineInitializer) {
         engineInitializer.initializeEngine({ useColorEmoji: true }).then(function (appRunner) {

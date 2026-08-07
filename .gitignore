@@ -19,4 +19,5 @@ oidc_keys/
 matrix/data/
 matrix/.venv-synapse/
 matrix/cinny-cache/
+matrix/fluffy-cache/
 matrix/*.log

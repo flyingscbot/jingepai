@@ -41,6 +41,10 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+import auth_config
 DOMAIN_FILE = REPO / "domain.txt"
 HS = ROOT / "homeserver.yaml"
 FLUFFY_CFG = ROOT / "fluffychat-config.json"
@@ -124,16 +128,20 @@ def read_current_bases() -> tuple[str | None, str | None]:
 
 
 def bases_need_update(base: str) -> bool:
-    """目标 base 与 yaml/json 是否不一致。"""
+    """目标穿透根写入 fluffychat-config；Synapse yaml 固定 LOCAL_SYNAPSE_PUBLIC_BASE。"""
     target = _norm_base(base)
     hs_base, fluffy_base = read_current_bases()
-    return hs_base != target or fluffy_base != target
+    local = auth_config.LOCAL_SYNAPSE_PUBLIC_BASE
+    return hs_base != local or fluffy_base != target
 
 
 def patch_homeserver(base: str) -> None:
+    """Synapse SSO/OIDC 浏览器链固定本机根；穿透访问靠 matrix_proxy 改写 Location。"""
+    _ = base  # 穿透根只写入 fluffychat-config / domain.txt
+    local = auth_config.LOCAL_SYNAPSE_PUBLIC_BASE
+    pub = local + "/"
+    auth = local + "/oauth/authorize"
     text = HS.read_text(encoding="utf-8")
-    pub = base + "/"
-    auth = base + "/oauth/authorize"
     text2, n1 = re.subn(
         r'(?m)^(public_baseurl:\s*")[^"]*(")',
         rf"\g<1>{pub}\2",
@@ -244,7 +252,8 @@ def sync_for_flask_start(*, recreate_on_change: bool = True) -> str:
     os.environ["PUBLIC_BASE_URL"] = base
 
     hs_base, fluffy_base = read_current_bases()
-    changed = hs_base != base or fluffy_base != base
+    local = auth_config.LOCAL_SYNAPSE_PUBLIC_BASE
+    changed = hs_base != local or fluffy_base != base
 
     if not changed:
         print(f"[domain] PUBLIC_BASE_URL = {base}（配置未变，跳过 apply / recreate）")

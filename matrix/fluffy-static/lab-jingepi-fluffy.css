@@ -9,8 +9,6 @@
  * 文本编辑 overlay input、滚动条、选区、焦点环等可触及的 DOM 层。
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
-
 :root {
   --jp-bg: #050505;
   --jp-gold: #f0b90b;
@@ -125,6 +123,7 @@ canvas {
   position: relative;
   z-index: 1;
   outline: none !important;
+  background: var(--jp-bg) !important;
 }
 
 /* Flutter 文本编辑 overlay：caret / 选区 / 字体 */

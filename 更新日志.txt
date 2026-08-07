@@ -22,3 +22,11 @@
   旧 admin 一次性迁移为 super_admin；最高管理可编辑+硬删除用户
   普通管理仅可管 user；详见 ADMIN.txt
   llyp名称改为管理员llyp
+
+准备更新：
+  matrix权限系统
+  制作自动化拉群机器人
+  
+
+
+2026.8.7

@@ -43,6 +43,7 @@ services:
       - ./fluffychat-config.json:/home/sws/public/config.json:ro
       - ./fluffy-static/lab-jingepi-fluffy.css:/home/sws/public/lab-jingepi-fluffy.css:ro
       - ./fluffy-static/lab-jingepi-fluffy.js:/home/sws/public/lab-jingepi-fluffy.js:ro
+      - ./fluffy-static/auth.html:/home/sws/public/auth.html:ro
       - ./fluffy-static/index.html:/home/sws/public/index.html:ro
     ports:
       - "8082:8080"

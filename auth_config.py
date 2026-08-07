@@ -15,6 +15,12 @@ def _rstrip_slash(url: str) -> str:
     return (url or "").strip().rstrip("/")
 
 
+# Synapse public_baseurl / authorization_endpoint 固定本机；穿透由 matrix_proxy 改写 Location。
+LOCAL_SYNAPSE_PUBLIC_BASE = _rstrip_slash(
+    os.environ.get("LOCAL_SYNAPSE_PUBLIC_BASE", _DEFAULT_PUBLIC_BASE)
+)
+
+
 def _read_domain_file(path: Path | None = None) -> str:
     """从仓库根 domain.txt 读穿透/公网根（一行 URL；# 行为注释）。
 

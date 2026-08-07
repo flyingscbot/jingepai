@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>金格Pi - 登录完成</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Noto Sans SC", sans-serif;
+      background: #050505;
+      color: #aaa;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <p id="msg">登录完成，正在返回聊天室…</p>
+  <script>
+    (function () {
+      var href = window.location.href;
+      if (!/(?:^|[?&])loginToken=/.test(window.location.search || "")) {
+        document.getElementById("msg").textContent =
+          "未收到登录凭证，请关闭此页后重试。";
+        return;
+      }
+
+      var payload = { "flutter-web-auth-2": href };
+      var origin = window.location.origin;
+      var done = false;
+
+      function finish() {
+        if (done) return;
+        done = true;
+        try {
+          window.close();
+        } catch (e) {}
+      }
+
+      try {
+        localStorage.setItem("flutter-web-auth-2", href);
+      } catch (e) {}
+
+      if (window.opener && window.opener !== window) {
+        try {
+          window.opener.postMessage(payload, origin);
+          finish();
+          return;
+        } catch (e) {}
+      }
+
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage(payload, origin);
+          finish();
+          return;
+        } catch (e) {}
+      }
+
+      /* 非弹窗：回到 FluffyChat 主路径，由 lab 脚本或应用读取 loginToken */
+      var qs = window.location.search || "";
+      var dest = origin + "/fluffychat/" + qs;
+      setTimeout(function () {
+        if (!done) {
+          window.location.replace(dest);
+        }
+      }, 300);
+    })();
+  </script>
+</body>
+</html>
