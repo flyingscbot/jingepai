@@ -30,3 +30,7 @@
 
 
 2026.8.7
+聊天室fluffy前端+synapse后端   禁用加密通信功能 头像 昵称同步 提升性能 统一主题
+user db添加room列，管理员设置为admin 
+计划在mbti_ai.py中的前置算法中加入副标签的算法，然后再ai生成的内容中加入suggested_room_type
+之后计划设置脚本自动邀请用户进入房间
