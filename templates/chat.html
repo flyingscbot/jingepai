@@ -6,6 +6,8 @@
 
 {% block head %}
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="prefetch" href="{{ chat_url }}" as="document">
+<link rel="prefetch" href="/_matrix/client/versions">
 <style>
   /* 首屏兜底，避免 FOUC 时聊天区高度错误 */
   body.chat-page { background:#050505; }

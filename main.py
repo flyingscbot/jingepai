@@ -33,7 +33,7 @@ import mbti_ai
 import mbti_log
 import trade_history
 import matrix_theme
-from cinny_proxy import register_cinny_proxy
+from fluffy_proxy import register_fluffy_proxy
 from matrix_proxy import register_matrix_proxy
 from oidc_provider import init_oidc
 import synapse_admin
@@ -60,7 +60,7 @@ app.register_blueprint(home_bp)
 user_db.bootstrap()
 matrix_theme.ensure_seeded()
 init_oidc(app)
-register_cinny_proxy(app)
+register_fluffy_proxy(app)
 register_matrix_proxy(app)
 # 不显示功能 TAB 的页面
 _NO_TAB_ENDPOINTS = (
@@ -576,12 +576,11 @@ def api_trade_history_delete():
 @app.route("/chat")
 @login_required
 def chat():
-    # 嵌入 Cinny（同源 /cinny/）
+    # 嵌入 FluffyChat（同源 /fluffychat/）
     chat_url = auth_config.chat_embed_path()
     return render_template(
         "chat.html",
         chat_url=chat_url,
-        cinny_proxy_enabled=auth_config.CINNY_PROXY_ENABLED,
     )
 
 
@@ -817,7 +816,7 @@ def api_admin_matrix_theme_put():
         app.logger.exception("保存 Matrix 主题失败")
         return jsonify({"success": False, "message": "保存失败，请稍后重试"}), 500
     payload = matrix_theme.api_payload()
-    payload["message"] = "主题色已保存；请对 /cinny/ 硬刷新后查看"
+    payload["message"] = "主题色已保存；请对 /fluffychat/ 硬刷新后查看"
     payload["colors"] = saved
     return jsonify(payload)
 
@@ -834,7 +833,7 @@ def api_admin_matrix_theme_reset():
         app.logger.exception("重置 Matrix 主题失败")
         return jsonify({"success": False, "message": "重置失败，请稍后重试"}), 500
     payload = matrix_theme.api_payload()
-    payload["message"] = "已恢复默认主题色；请对 /cinny/ 硬刷新后查看"
+    payload["message"] = "已恢复默认主题色；请对 /fluffychat/ 硬刷新后查看"
     payload["colors"] = saved
     return jsonify(payload)
 
@@ -872,7 +871,7 @@ if __name__ == "__main__":
     # 需 0.0.0.0 以便 Docker 内 Synapse 经 host.docker.internal 访问 OIDC
     # 启动早期已 sync domain.txt → yaml/json（有变才 recreate）；auth_config 读 PUBLIC_BASE_URL
     print(f"[jingepi] PUBLIC_BASE_URL = {auth_config.PUBLIC_BASE_URL}")
-    # threaded：Matrix sync 长轮询不能堵死其它 /cinny、/_matrix 请求（否则穿透像一直加载）
+    # threaded：Matrix sync 长轮询不能堵死其它 /fluffychat、/_matrix 请求
     app.run(
         host="0.0.0.0",
         port=1000,

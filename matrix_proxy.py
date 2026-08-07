@@ -105,8 +105,13 @@ def _filter_request_headers() -> dict[str, str]:
     headers["X-Forwarded-Host"] = host
     headers["X-Forwarded-Proto"] = proto
     headers["X-Forwarded-For"] = request.remote_addr or "127.0.0.1"
-    headers["Accept-Encoding"] = "identity"
-    headers["Connection"] = "close"
+    # 允许 Synapse 回 gzip 压缩 JSON（代理不改写 body，可透传）
+    if "accept-encoding" not in headers:
+        ae = (request.headers.get("Accept-Encoding") or "").lower()
+        if ae:
+            headers["Accept-Encoding"] = ae
+        else:
+            headers["Accept-Encoding"] = "gzip, deflate"
     return headers
 
 

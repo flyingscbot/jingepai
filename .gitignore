@@ -18,4 +18,5 @@ domain.txt
 oidc_keys/
 matrix/data/
 matrix/.venv-synapse/
+matrix/cinny-cache/
 matrix/*.log

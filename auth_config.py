@@ -39,7 +39,7 @@ def _read_domain_file(path: Path | None = None) -> str:
 # 优先级：仓库根 domain.txt → 环境变量 PUBLIC_BASE_URL / OIDC_PUBLIC_BASE → 本机默认。
 # domain.txt 优先，避免 Flask --reload 继承旧 PUBLIC_BASE_URL 后改穿透根不生效。
 # 例：https://xxxx.ngrok-free.app 或 http://127.0.0.1:1000
-# 不要带 /cinny、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
+# 不要带 /fluffychat、/_matrix 等路径。每次 Flask 启动都会重新读 domain.txt。
 PUBLIC_BASE_URL = _rstrip_slash(
     _read_domain_file()
     or os.environ.get("PUBLIC_BASE_URL")
@@ -107,15 +107,15 @@ SYNAPSE_UPSTREAM = _rstrip_slash(
 )
 SYNAPSE_PROXY_ENABLED = os.environ.get("SYNAPSE_PROXY_ENABLED", "1") == "1"
 
-# Cinny Web（默认经 Flask 同端口反代；/chat 唯一客户端）
-CINNY_UPSTREAM = _rstrip_slash(
-    os.environ.get("CINNY_UPSTREAM", "http://127.0.0.1:8082")
+# FluffyChat Web（默认经 Flask 同端口反代；/chat 主客户端）
+FLUFFY_UPSTREAM = _rstrip_slash(
+    os.environ.get("FLUFFY_UPSTREAM", "http://127.0.0.1:8082")
 )
-CINNY_PROXY_PATH = (
-    os.environ.get("CINNY_PROXY_PATH", "/cinny") or "/cinny"
-).rstrip("/") or "/cinny"
-CINNY_PROXY_ENABLED = os.environ.get("CINNY_PROXY_ENABLED", "1") == "1"
-CINNY_URL = _rstrip_slash(os.environ.get("CINNY_URL", "http://127.0.0.1:8082"))
+FLUFFY_PROXY_PATH = (
+    os.environ.get("FLUFFY_PROXY_PATH", "/fluffychat") or "/fluffychat"
+).rstrip("/") or "/fluffychat"
+FLUFFY_PROXY_ENABLED = os.environ.get("FLUFFY_PROXY_ENABLED", "1") == "1"
+FLUFFY_URL = _rstrip_slash(os.environ.get("FLUFFY_URL", "http://127.0.0.1:8082"))
 
 # Synapse Admin API：金格改用户名/头像时即时同步 Matrix displayname / avatar
 # 须与 matrix/homeserver.yaml 的 registration_shared_secret 一致
@@ -225,16 +225,16 @@ def frame_ancestors_csp_value() -> str:
     return "frame-ancestors " + " ".join(parts)
 
 
-def cinny_embed_path() -> str:
-    """给 /chat iframe 用的 Cinny 地址（优先同源相对路径）。"""
-    if CINNY_PROXY_ENABLED:
-        return CINNY_PROXY_PATH + "/"
-    return CINNY_URL + "/"
+def fluffy_embed_path() -> str:
+    """给 /chat iframe 用的 FluffyChat 地址（优先同源相对路径）。"""
+    if FLUFFY_PROXY_ENABLED:
+        return FLUFFY_PROXY_PATH + "/"
+    return FLUFFY_URL + "/"
 
 
 def chat_embed_path() -> str:
-    """/chat iframe 嵌入 Cinny（已停用 Element / FluffyChat）。"""
-    return cinny_embed_path()
+    """/chat iframe 嵌入 FluffyChat。"""
+    return fluffy_embed_path()
 
 
 def matrix_mxid(localpart: str) -> str:

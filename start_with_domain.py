@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--skip-apply",
         action="store_true",
-        help="不改 homeserver.yaml / cinny-config.json",
+        help="不改 homeserver.yaml / fluffychat-config.json",
     )
     p.add_argument(
         "--no-flask",
@@ -121,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     py = find_python()
 
     if not args.skip_apply:
-        print("[apply] sync homeserver.yaml + cinny-config.json ...")
+        print("[apply] sync homeserver.yaml + fluffychat-config.json ...")
         try:
             apply_mod.apply(base)
         except (OSError, ValueError, RuntimeError) as e:
@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_compose:
         if not shutil.which("docker"):
             raise SystemExit("未找到 docker，请先安装 Docker Desktop / Docker Engine")
-        print("[compose] force-recreate synapse + cinny（改 yaml 后必须 recreate）...")
+        print("[compose] force-recreate synapse + fluffychat（改 yaml 后必须 recreate）...")
         run(
             [
                 "docker",
@@ -139,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
                 "-d",
                 "--force-recreate",
                 "synapse",
-                "cinny",
+                "fluffychat",
             ],
             cwd=MATRIX_DIR,
         )

@@ -1,6 +1,5 @@
-# 自建 Matrix（Synapse）+ Cinny Web + 金格 OIDC
+# 自建 Matrix（Synapse）+ FluffyChat Web + 金格 OIDC
 # 使用前请先启动金格 Flask（默认 http://host.docker.internal:1000）
-# 注意：聊天前端已迁移为 Cinny；请勿恢复 fluffychat 服务。
 
 services:
   postgres:
@@ -35,15 +34,18 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  cinny:
-    image: ajbura/cinny:v4.12.6
+  fluffychat:
+    image: ghcr.io/etkecc/fluffychat-web:v2.8.0
     restart: unless-stopped
     depends_on:
       - synapse
     volumes:
-      - ./cinny-config.json:/app/config.json:ro
+      - ./fluffychat-config.json:/home/sws/public/config.json:ro
+      - ./fluffy-static/lab-jingepi-fluffy.css:/home/sws/public/lab-jingepi-fluffy.css:ro
+      - ./fluffy-static/lab-jingepi-fluffy.js:/home/sws/public/lab-jingepi-fluffy.js:ro
+      - ./fluffy-static/index.html:/home/sws/public/index.html:ro
     ports:
-      - "8082:80"
+      - "8082:8080"
 
 volumes:
   synapse-pg:

@@ -25,6 +25,8 @@
     "continue_with_sso": "使用 SSO 继续",
     "homeserver": "服务器",
     "username": "用户名",
-    "password": "密码"
+    "password": "密码",
+    "message_search": "搜索消息",
+    "Today": "今天"
   }
 }
