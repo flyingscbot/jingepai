@@ -144,6 +144,12 @@
     border: 1px solid rgba(130, 170, 230, 0.35);
 }
 
+.console-pill-specialist {
+    color: #d6f5e0;
+    background: rgba(80, 200, 120, 0.18);
+    border: 1px solid rgba(100, 220, 140, 0.35);
+}
+
 .console-pill-user {
     color: rgba(255, 255, 255, 0.85);
     background: rgba(255, 255, 255, 0.08);

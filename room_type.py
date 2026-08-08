@@ -1,7 +1,7 @@
 """金融 MBTI V2 聊天室分层：计算 users.suggested_room_type。
 
 主群按 C1–C5 同型分（见《金融MBTI_算法V2_聊天室分层逻辑》）。
-管理员（admin / super_admin）固定为 all。
+管理员（admin / super_admin）与专家（specialist）固定为 all。
 普通用户：算法主型映射 C1–C5；置信度 ≥0.65 且连续两周同型才更新（滞回）。
 """
 
@@ -21,8 +21,8 @@ STABILITY_DAYS = 14
 
 
 def room_type_for_role(role: str | None) -> str | None:
-    """管理员进全部主群；普通用户待 MBTI 分型后写入。"""
-    if user_db.is_console_role(role):
+    """管理员与专家进全部主群；普通用户待 MBTI 分型后写入。"""
+    if user_db.should_join_all_rooms(role):
         return ROOM_TYPE_ALL
     return None
 

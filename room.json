@@ -18,5 +18,9 @@
     "C5": {
         "name": "梭哈型主群",
         "room_id": "!VulQYfMgRXEzqiFnop:matrix.localhost"
+    },
+    "_global_space": {
+        "name": "主题房（跨类型）",
+        "room_id": "!FwnhBAxcpQLsODmqRj:matrix.localhost"
     }
 }

@@ -47,7 +47,7 @@ if not logger.handlers:
     _fh.setFormatter(_fmt)
     logger.addHandler(_fh)
 
-CHECK_INTERVAL = 30
+CHECK_INTERVAL = 5
 
 ROOM_MAPPING_FILE = Path(__file__).parent / "room.json"
 
@@ -70,7 +70,25 @@ def _request(url: str, token: str | None = None, data: bytes | None = None, meth
 
 def load_room_mapping() -> dict[str, dict[str, str]]:
     with open(ROOM_MAPPING_FILE, encoding="utf-8") as f:
-        return json.load(f)
+        raw = json.load(f)
+    # 过滤以 _ 开头的元数据 key（如 _global_space），仅返回 room_type → room_info
+    return {k: v for k, v in raw.items() if not k.startswith("_")}
+
+
+def load_global_space() -> dict[str, str] | None:
+    """读取全员空间配置（room.json 的 _global_space）。
+
+    所有活跃用户都会被自动加入该空间，不区分角色 / MBTI 类型。
+    """
+    try:
+        with open(ROOM_MAPPING_FILE, encoding="utf-8") as f:
+            raw = json.load(f)
+    except Exception:
+        return None
+    space = raw.get("_global_space")
+    if not isinstance(space, dict) or not space.get("room_id"):
+        return None
+    return space
 
 
 def get_user_mxid(user_id: str) -> str:
@@ -81,6 +99,11 @@ def get_user_mxid(user_id: str) -> str:
 
 
 def get_user_room_types(user: dict[str, Any]) -> list[str]:
+    # 管理员（admin / super_admin）与专家（specialist）强制加入全部房间
+    # 兜底：即便 suggested_room_type 未同步，也按 role 直接判定
+    role = (user.get("role") or "").strip().lower()
+    if role in ("admin", "super_admin", "specialist"):
+        return list(load_room_mapping().keys())
     suggested = (user.get("suggested_room_type") or "").strip().upper()
     if not suggested:
         return []
@@ -469,14 +492,51 @@ def sync_room_assignments() -> dict[str, Any]:
                 # 小延迟避免限流
                 time.sleep(0.3)
 
+    # 全员空间：所有活跃用户都加入（不区分角色 / MBTI 类型）
+    global_space = load_global_space()
+    stats["space_invited"] = 0
+    if global_space:
+        space_id = global_space["room_id"]
+        space_members = get_room_members(space_id, admin_token)
+        if space_members:
+            space_operator = find_room_operator(space_id, admin_token)
+            for user in active_users:
+                user_id = user.get("id", "")
+                user_mxid = get_user_mxid(user_id)
+                if user_mxid in space_members:
+                    continue
+                # 获取用户 token（复用缓存，无 suggested_room_type 的用户前面未缓存）
+                user_token = user_token_cache.get(user_mxid)
+                if user_token is None and user_mxid not in user_token_cache:
+                    user_token = get_user_token(user_mxid, admin_token)
+                    user_token_cache[user_mxid] = user_token
+                if user_token and join_room(space_id, user_mxid, user_token):
+                    stats["space_invited"] += 1
+                elif space_operator and user_token:
+                    if invite_user_to_room(space_id, user_mxid, space_operator, user_token):
+                        stats["space_invited"] += 1
+                    else:
+                        stats["errors"] += 1
+                else:
+                    stats["errors"] += 1
+                time.sleep(0.3)
+            logger.info(
+                "全员空间 %s: %d 用户已加入",
+                global_space.get("name", space_id),
+                stats["space_invited"],
+            )
+        else:
+            logger.warning("全员空间 %s 不存在或无成员，跳过", space_id)
+
     logger.info(
-        "房间分配同步完成: %d 活跃用户, %d 有效房间, %d 已加入, %d 已移除, %d 无类型, %d 错误",
+        "房间分配同步完成: %d 活跃用户, %d 有效房间, %d 已加入, %d 已移除, %d 无类型, %d 错误, %d 空间已加入",
         stats["active_users"],
         stats["valid_rooms"],
         stats["invited"],
         stats["kicked"],
         stats["skipped_no_type"],
         stats["errors"],
+        stats["space_invited"],
     )
     return stats
 

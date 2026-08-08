@@ -62,9 +62,11 @@ ROLE_SUPER_ADMIN = "super_admin"
 
 ROLE_ADMIN = "admin"
 
+ROLE_SPECIALIST = "specialist"
+
 ROLE_USER = "user"
 
-VALID_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_USER})
+VALID_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPECIALIST, ROLE_USER})
 
 CONSOLE_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN})
 
@@ -73,6 +75,8 @@ ROLE_LABELS = {
     ROLE_SUPER_ADMIN: "最高管理",
 
     ROLE_ADMIN: "普通管理",
+
+    ROLE_SPECIALIST: "专家",
 
     ROLE_USER: "用户",
 
@@ -228,7 +232,7 @@ def init_db() -> None:
 
             SET suggested_room_type = 'all'
 
-            WHERE role IN ('admin', 'super_admin')
+            WHERE role IN ('admin', 'super_admin', 'specialist')
 
             """
 
@@ -404,7 +408,7 @@ def normalize_role(role: str | None) -> str:
 
         raise ValueError(
 
-            "角色无效，仅支持 super_admin / admin / user"
+            "角色无效，仅支持 super_admin / admin / specialist / user"
 
         )
 
@@ -427,8 +431,23 @@ def is_super_admin_role(role: str | None) -> bool:
     return role == ROLE_SUPER_ADMIN
 
 
+
+def is_specialist_role(role: str | None) -> bool:
+
+    return role == ROLE_SPECIALIST
+
+
+
+def should_join_all_rooms(role: str | None) -> bool:
+
+    """管理员（admin / super_admin）与专家（specialist）加入全部主群。"""
+
+    return is_console_role(role) or is_specialist_role(role)
+
+
+
 def can_create_matrix_rooms(role: str | None) -> bool:
-    """最高管理 / 普通管理可建群聊与空间；普通用户不可。"""
+    """最高管理 / 普通管理可建群聊与空间；普通用户与专家不可。"""
     return (role or "") in CONSOLE_ROLES
 
 

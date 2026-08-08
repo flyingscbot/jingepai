@@ -50,6 +50,9 @@
         if (role === "admin") {
             return '<span class="console-pill console-pill-admin" data-role="admin">普通管理</span>';
         }
+        if (role === "specialist") {
+            return '<span class="console-pill console-pill-specialist" data-role="specialist">专家</span>';
+        }
         return '<span class="console-pill console-pill-user" data-role="user">用户</span>';
     }
 
