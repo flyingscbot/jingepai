@@ -30,7 +30,9 @@ import auth_config
 from home import home_bp
 import user_db
 import mbti_ai
+import mbti_algo
 import mbti_log
+import room_type
 import trade_history
 import matrix_theme
 from fluffy_proxy import register_fluffy_proxy
@@ -324,7 +326,19 @@ def api_mbti_analyze():
     try:
         result = mbti_ai.analyze_mbti_for_user(user["id"])
         prev = mbti_log.latest_record(user["id"])
-        log_row = mbti_log.append_record(user["id"], result["mbti"])
+        algo_tags = result.get("algo_tags") or ""
+        dims = mbti_algo.split_tags(algo_tags)
+        log_row = mbti_log.append_record(user["id"], result["mbti"], dims=dims)
+        rows = mbti_log.load_all_records(user["id"])
+        suggested = room_type.apply_suggested_room_type(
+            user["id"],
+            role=user.get("role"),
+            mbti_type=result["mbti"],
+            algo_code=(result.get("algo") or {}).get("code"),
+            confidence=result.get("algo_confidence"),
+            rows=rows,
+        )
+        result["suggested_room_type"] = suggested
         input_hash = result.pop("input_hash", None)
         if input_hash:
             mbti_log.save_input_hash(user["id"], input_hash)
@@ -841,7 +855,7 @@ def api_admin_matrix_theme_reset():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("home.index"))
+    return render_template("logout.html", redirect_url=url_for("home.index"))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -871,6 +885,20 @@ if __name__ == "__main__":
     # 需 0.0.0.0 以便 Docker 内 Synapse 经 host.docker.internal 访问 OIDC
     # 启动早期已 sync domain.txt → yaml/json（有变才 recreate）；auth_config 读 PUBLIC_BASE_URL
     print(f"[jingepi] PUBLIC_BASE_URL = {auth_config.PUBLIC_BASE_URL}")
+
+    # 房间分配守护线程：仅在 reloader 子进程启动，避免父进程重复起一个
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        import threading
+        import room_allocator
+
+        _room_thread = threading.Thread(
+            target=room_allocator.run_in_thread,
+            name="room_allocator",
+            daemon=True,
+        )
+        _room_thread.start()
+        print("[jingepi] 房间分配守护线程已启动（每 30 秒同步）")
+
     # threaded：Matrix sync 长轮询不能堵死其它 /fluffychat、/_matrix 请求
     app.run(
         host="0.0.0.0",

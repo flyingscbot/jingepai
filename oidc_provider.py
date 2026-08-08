@@ -136,6 +136,26 @@ def secrets_equal(a: str, b: str) -> bool:
     return result == 0
 
 
+def _normalize_oidc_redirect_uri(uri: str) -> str:
+    """把 OIDC redirect_uri 规范化为 Synapse public_baseurl 形式。
+
+    浏览器侧 redirect_uri 经 matrix_proxy 重写为当前访问 host（localhost/穿透域名），
+    但 Synapse 在 token 端点换 token 时用 public_baseurl(LOCAL_SYNAPSE_PUBLIC_BASE)
+    发起请求，两者字符串不等会让 Authlib 抛 invalid_grant。这里把存储值统一为
+    Synapse 原始形式，使 token 校验通过；authorize 的浏览器跳转仍用请求原始
+    redirect_uri，不受影响。仅规范化 /_synapse/client/oidc/callback 路径。
+    """
+    if not uri:
+        return uri
+    from urllib.parse import urlparse, urlunparse
+
+    p = urlparse(uri)
+    if p.path == "/_synapse/client/oidc/callback":
+        base = urlparse(auth_config.LOCAL_SYNAPSE_PUBLIC_BASE)
+        p = p._replace(scheme=base.scheme, netloc=base.netloc)
+    return urlunparse(p)
+
+
 class _Client:
     def __init__(self, data: dict):
         self._data = data
@@ -211,7 +231,7 @@ class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
             code=code,
             client_id=request.client.client_id,
             user_id=request.user["id"],
-            redirect_uri=request.redirect_uri,
+            redirect_uri=_normalize_oidc_redirect_uri(request.redirect_uri),
             scope=request.scope,
             nonce=request.data.get("nonce"),
             code_challenge=request.data.get("code_challenge"),

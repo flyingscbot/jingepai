@@ -31,6 +31,16 @@
 
 2026.8.7
 聊天室fluffy前端+synapse后端   禁用加密通信功能 头像 昵称同步 提升性能 统一主题
-user db添加room列，管理员设置为admin 
+user db添加room列，管理员设置为all
 计划在mbti_ai.py中的前置算法中加入副标签的算法，然后再ai生成的内容中加入suggested_room_type
 之后计划设置脚本自动邀请用户进入房间
+
+2026.8.8
+修复：退出登录时 Matrix/FluffyChat 不一起退出
+  根因：FluffyChat 把会话存在 IndexedDB 的 Hive 库「金格Pi聊天室 web」里（库名随 app 中文名生成），
+        而 matrix-logout.js 的 shouldDeleteIdb 正则全是英文关键词，匹配不到这个中文库名，
+        clearIndexedDbMatrixSession() 实际啥也没删 → 下次进聊天室仍自动登录。
+  修复：shouldDeleteIdb 正则补上「金格|聊天室|jingepi」；clearIndexedDbMatrixSession 增加已知库名兜底
+        （兼容无 indexedDB.databases() 的浏览器）；deleteIndexedDb 在 blocked 时不立即 resolve，给连接释放时间。
+        base.html 退出登录点击时先把 chatFrame 置空 about:blank，强制 FluffyChat 卸载释放 IndexedDB 连接，
+        避免 deleteDatabase 被 blocked。

@@ -1,4 +1,4 @@
-﻿"""Same-origin reverse proxy for Synapse client/OIDC under Flask :1000.
+"""Same-origin reverse proxy for Synapse client/OIDC under Flask :1000.
 
 Keeps Matrix SSO on one origin so:
 - iframe /chat can show Synapse SSO pages (strip X-Frame-Options)
@@ -12,10 +12,11 @@ from __future__ import annotations
 import http.client
 import json
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
@@ -24,6 +25,38 @@ import synapse_admin
 import user_db
 
 logger = logging.getLogger(__name__)
+
+# #region debug-point helper:log-reporter
+_DEBUG_ENV_PATH = os.path.join(os.path.dirname(__file__), ".dbg", "fluffychat-public-rooms.env")
+_DEBUG_SERVER_URL = "http://127.0.0.1:7777/event"
+_DEBUG_SESSION_ID = "fluffychat-public-rooms"
+try:
+    if os.path.exists(_DEBUG_ENV_PATH):
+        with open(_DEBUG_ENV_PATH, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                if _line.startswith("DEBUG_SERVER_URL="):
+                    _DEBUG_SERVER_URL = _line.strip().split("=", 1)[1]
+                elif _line.startswith("DEBUG_SESSION_ID="):
+                    _DEBUG_SESSION_ID = _line.strip().split("=", 1)[1]
+except Exception:
+    pass
+
+
+def _debug_log(hypothesis_id: str, msg: str, data: dict | None = None, run_id: str = "pre-fix") -> None:
+    try:
+        payload = json.dumps({
+            "sessionId": _DEBUG_SESSION_ID,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": "matrix_proxy.py",
+            "msg": f"[DEBUG] {msg}",
+            "data": data or {},
+        }).encode("utf-8")
+        req = urllib.request.Request(_DEBUG_SERVER_URL, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+        urllib.request.urlopen(req, timeout=2)
+    except Exception:
+        pass
+# #endregion
 
 matrix_proxy_bp = Blueprint("matrix_proxy", __name__)
 
@@ -129,6 +162,11 @@ def _rewrite_location(value: str) -> str:
     Synapse public_baseurl 固定为本机（LOCAL_SYNAPSE_PUBLIC_BASE），SSO/OIDC
   浏览器链从 127.0.0.1 发起。穿透访问时把 Location 中的本机根改写到当前穿透根；
     本机访问时若 Location 仍带穿透根（旧配置残留），改回当前本机根。
+
+    同时重写 redirect_uri 参数中的回环域名：Synapse 用 public_baseurl 生成
+    redirect_uri（固定 127.0.0.1），但浏览器从 localhost 访问时 session cookie
+    绑定到 localhost。若不重写 redirect_uri，OAuth 回调会落到 127.0.0.1，
+    cookie 不发送 → "No session cookie found"。
     """
     parsed = urlparse(value)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -163,15 +201,53 @@ def _rewrite_location(value: str) -> str:
     pub = auth_config.PUBLIC_BASE_URL.rstrip("/")
 
     if not is_local_client and origin in local_origins:
-        return facing + suffix
-
-    if is_local_client and pub and (origin == pub or value.startswith(pub + "/")):
-        return facing + suffix
-
-    replaceable = local_origins | ({pub} if pub else set())
-    if origin not in replaceable:
+        new_location = facing + suffix
+    elif is_local_client and pub and (origin == pub or value.startswith(pub + "/")):
+        new_location = facing + suffix
+    elif origin in (local_origins | ({pub} if pub else set())):
+        new_location = facing + suffix
+    else:
         return value
-    return facing + suffix
+
+    if new_location != value:
+        new_location = _rewrite_redirect_uri_in_location(new_location, facing)
+    return new_location
+
+
+def _rewrite_redirect_uri_in_location(location: str, target_base: str) -> str:
+    """重写 Location URL 中 redirect_uri 参数的回环域名/端口。
+
+    当 Location 的 origin 被改写（例如 127.0.0.1→localhost 或→穿透根）时，
+    query 里的 redirect_uri 仍指向 Synapse 的 public_baseurl（127.0.0.1），
+    须同步改写为 target_base，确保 OAuth 回调与 session cookie 同源。
+    仅改写回环地址，避免误伤已指向公网的 redirect_uri。
+    """
+    parsed = urlparse(location)
+    if not parsed.query:
+        return location
+
+    target = urlparse(target_base)
+    target_netloc = target.netloc
+    if not target_netloc:
+        return location
+
+    params = parse_qsl(parsed.query, keep_blank_values=True)
+    modified = False
+    new_params: list[tuple[str, str]] = []
+    for key, val in params:
+        if key == "redirect_uri" and val:
+            ru = urlparse(val)
+            if ru.scheme in ("http", "https") and ru.netloc:
+                if ru.hostname and auth_config._is_loopback_host(ru.hostname):
+                    new_ru = ru._replace(scheme=target.scheme, netloc=target_netloc)
+                    val = new_ru.geturl()
+                    modified = True
+        new_params.append((key, val))
+
+    if not modified:
+        return location
+    new_query = urlencode(new_params)
+    return parsed._replace(query=new_query).geturl()
 
 
 def _filter_response_headers(upstream_headers) -> list[tuple[str, str]]:
@@ -223,6 +299,23 @@ _ROOM_KEYS_RE = re.compile(
 # Create room / space: POST /_matrix/client/{r0|v3|unstable}/createRoom
 _CREATE_ROOM_RE = re.compile(
     r"^/_matrix/client/(?:r0|v3|unstable)/createRoom/?$",
+    re.I,
+)
+
+_PUBLIC_ROOMS_RE = re.compile(
+    r"^/_matrix/client/(?:r0|v3|unstable)/publicRooms/?$",
+    re.I,
+)
+
+# delete_devices / devices/{id}: 需 UIA 认证；密码禁用时走 SSO fallback，
+# 但 FluffyChat 在 iframe 内，oidc_session cookie（SameSite=Lax）在 iframe
+# 导航时不发送 → OIDC callback "no session cookie"。代理用 admin API 绕过 UIA。
+_DELETE_DEVICES_RE = re.compile(
+    r"^/_matrix/client/(?:r0|v3|unstable)/delete_devices/?$",
+    re.I,
+)
+_DELETE_DEVICE_RE = re.compile(
+    r"^/_matrix/client/(?:r0|v3|unstable)/devices/([^/]+)/?$",
     re.I,
 )
 
@@ -334,6 +427,83 @@ def _should_block_create_room(body: bytes | None) -> bool:
     return not user_db.can_create_matrix_rooms(user.get("role"))
 
 
+def _delete_devices_via_admin(devices: list[str], mxid: str) -> tuple[int, int]:
+    """用 Synapse admin v2 API 批量删除设备，绕过 UIA。返回 (成功数, 失败数)。
+
+    注意：Synapse 1.158 设备管理 admin API 在 v2 路径（v1 返回 M_UNRECOGNIZED）。
+    """
+    admin_token = synapse_admin.ensure_admin_token()
+    if not admin_token:
+        logger.error("delete_devices: 无可用 admin token")
+        return 0, len(devices)
+    quoted_user = quote(mxid, safe="")
+    ok = 0
+    fail = 0
+    for device_id in devices:
+        did = quote(str(device_id), safe="")
+        # v2 API: /_synapse/admin/v2/users/{user_id}/devices/{device_id}
+        url = _upstream(f"/_synapse/admin/v2/users/{quoted_user}/devices/{did}")
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": f"Bearer {admin_token}", "Accept": "application/json"},
+            method="DELETE",
+        )
+        try:
+            with _OPENER.open(req, timeout=10) as resp:
+                if 200 <= resp.status < 300:
+                    ok += 1
+                else:
+                    fail += 1
+                    logger.warning("删除设备 %s 返回 HTTP %s", device_id, resp.status)
+        except urllib.error.HTTPError as e:
+            fail += 1
+            try:
+                body = e.read().decode()[:200]
+            except Exception:
+                body = ""
+            logger.error("删除设备 %s 失败: HTTP %s - %s", device_id, e.code, body)
+        except Exception as e:
+            fail += 1
+            logger.error("删除设备 %s 异常: %s", device_id, e)
+    return ok, fail
+
+
+def _handle_delete_devices(data: bytes) -> Response | None:
+    """拦截 POST delete_devices：用 admin API 绕过 UIA（iframe 内 SSO cookie 丢失）。
+
+    返回 None 表示无法处理，放行让 Synapse 走原生 UIA fallback。
+    """
+    try:
+        body = json.loads(data.decode("utf-8")) if data else {}
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        body = {}
+    devices = body.get("devices") if isinstance(body, dict) else None
+    if not devices or not isinstance(devices, list):
+        return None
+    token = _bearer_token()
+    if not token:
+        return None
+    mxid = _whoami_user_id(token)
+    if not mxid:
+        return None
+    ok, fail = _delete_devices_via_admin(devices, mxid)
+    logger.info("delete_devices 拦截: %s 删除 %d 设备 (%d 失败)", mxid, ok, fail)
+    return Response("{}", status=200, mimetype="application/json")
+
+
+def _handle_delete_device(device_id: str) -> Response | None:
+    """拦截 DELETE devices/{deviceId}：用 admin API 绕过 UIA。"""
+    token = _bearer_token()
+    if not token:
+        return None
+    mxid = _whoami_user_id(token)
+    if not mxid:
+        return None
+    ok, fail = _delete_devices_via_admin([device_id], mxid)
+    logger.info("delete_device 拦截: %s 删除设备 %s (%s)", mxid, device_id, "成功" if ok else "失败")
+    return Response("{}", status=200, mimetype="application/json")
+
+
 def _proxy(subpath: str):
     if not auth_config.SYNAPSE_PROXY_ENABLED:
         return Response("Synapse proxy disabled", status=404)
@@ -349,11 +519,67 @@ def _proxy(subpath: str):
     if request.method == "POST" and _CREATE_ROOM_RE.match(path):
         if _should_block_create_room(data):
             return _blocked_create_room_response()
+        # 管理员创建房间时，自动设置 visibility: public + preset: public_chat 使其可搜索发现
+        try:
+            body_obj = json.loads(data.decode("utf-8")) if data else {}
+            logger.info("createRoom: original body=%s", json.dumps(body_obj)[:200])
+            if isinstance(body_obj, dict) and body_obj.get("visibility") != "public":
+                user = resolve_jingepi_user_from_matrix_token()
+                logger.info("createRoom: resolved user=%s", json.dumps(user)[:200] if user else "None")
+                if user and user.get("role") in ("admin", "super_admin") and user.get("is_active", True):
+                    # 私聊（DM）保持 visibility: private
+                    if not body_obj.get("is_direct"):
+                        body_obj["visibility"] = "public"
+                        # 将 preset 改为 public_chat，使房间对所有人可加入
+                        body_obj["preset"] = "public_chat"
+                        # 设置 world_readable 使房间对所有人可读
+                        body_obj["world_readable"] = True
+                        data = json.dumps(body_obj).encode("utf-8")
+                        logger.info("createRoom: auto-set visibility=public + preset=public_chat + world_readable for admin user %s", user.get("id"))
+                    else:
+                        logger.info("createRoom: is_direct room, keeping private")
+                else:
+                    logger.info("createRoom: user not admin/active, skip injection")
+        except Exception as e:
+            logger.warning("createRoom visibility injection failed: %s", e, exc_info=True)
+
+    # delete_devices / devices/{id}: 用 admin API 绕过 UIA（iframe 内 SSO cookie 丢失）
+    if request.method == "POST" and _DELETE_DEVICES_RE.match(path):
+        resp = _handle_delete_devices(data)
+        if resp is not None:
+            return resp
+        # 无法解析 token/设备列表时放行，让 Synapse 走原生 UIA fallback
+    elif request.method == "DELETE":
+        m = _DELETE_DEVICE_RE.match(path)
+        if m:
+            resp = _handle_delete_device(m.group(1))
+            if resp is not None:
+                return resp
 
     # Re-encode decoded PATH_INFO (# in #alias:server) before urllib upstream fetch.
     url = _upstream(_encode_path_for_upstream(path))
+    # #region debug-point A:publicRooms-request
+    if _PUBLIC_ROOMS_RE.match(path):
+        _debug_log("A", "publicRooms request received", {
+            "method": request.method,
+            "path": path,
+            "query": request.query_string.decode('latin-1') if request.query_string else "",
+            "body": data.decode('utf-8') if data else None,
+        })
+    # #endregion
     if request.query_string:
-        url = f"{url}?{request.query_string.decode('latin-1')}"
+        qs = request.query_string.decode('latin-1')
+        # 对于 publicRooms 请求，去掉 server 参数（避免联邦请求失败）
+        if _PUBLIC_ROOMS_RE.match(path) and 'server=' in qs:
+            from urllib.parse import parse_qsl, urlencode
+            params = dict(parse_qsl(qs, keep_blank_values=True))
+            params.pop('server', None)
+            qs = urlencode(params)
+            # #region debug-point A:server-stripped
+            _debug_log("A", "publicRooms server parameter stripped", {"new_qs": qs})
+            # #endregion
+            logger.info("publicRooms: stripped server parameter")
+        url = f"{url}?{qs}"
 
     req = urllib.request.Request(
         url,
@@ -386,6 +612,161 @@ def _proxy(subpath: str):
             f"Synapse proxy error: {e}",
             status=502,
             mimetype="text/plain",
+        )
+
+    # 对于 createRoom 请求，读取完整响应体，获取 room_id，然后设置 canonical alias
+    if request.method == "POST" and _CREATE_ROOM_RE.match(path):
+        response_headers = dict(upstream.headers)
+        response_body = upstream.read()
+        upstream.close()
+        try:
+            resp_json = json.loads(response_body.decode("utf-8"))
+            room_id = resp_json.get("room_id")
+            if room_id and data:
+                # 检查原始请求体是否被修改为 public
+                orig_body = json.loads(data.decode("utf-8"))
+                if orig_body.get("visibility") == "public":
+                    user = resolve_jingepi_user_from_matrix_token()
+                    if user and user.get("role") in ("admin", "super_admin"):
+                        room_name = orig_body.get("name", "公开房间")
+                        import re as _re
+                        import time as _time
+                        alias_base = _re.sub(r'[^\w\u4e00-\u9fff-]', '_', room_name)[:30]
+                        alias_localpart = f"{alias_base}_{int(_time.time())}"
+                        alias_localpart = _re.sub(r'_+', '_', alias_localpart).strip('_')
+                        alias_name = f"#{alias_localpart}:matrix.localhost"
+                        token = _bearer_token()
+
+                        # Step 1: Set canonical alias via state event
+                        alias_body = json.dumps({
+                            "type": "m.room.canonical_alias",
+                            "state_key": "",
+                            "content": {"alias": alias_name}
+                        }).encode()
+                        url_alias = _upstream(f"/_matrix/client/v3/rooms/{room_id}/state/m.room.canonical_alias")
+                        req_alias = urllib.request.Request(url_alias, data=alias_body, headers={
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        }, method="PUT")
+                        try:
+                            r_alias = _OPENER.open(req_alias, timeout=15)
+                            r_alias.read()
+                            logger.info("Set canonical alias %s for room %s", alias_name, room_id)
+                        except Exception as e_alias:
+                            logger.warning("Failed to set canonical alias: %s", e_alias)
+
+                        # Step 2: Publish to directory
+                        try:
+                            from urllib.parse import quote as _quote
+                            dir_body = json.dumps({
+                                "room_id": room_id,
+                                "state_key": ""
+                            }).encode()
+                            url_dir = _upstream(f"/_matrix/client/v3/directory/room/{_quote(alias_name, safe='')}")
+                            req_dir = urllib.request.Request(url_dir, data=dir_body, headers={
+                                "Authorization": f"Bearer {token}",
+                                "Content-Type": "application/json",
+                                "Accept": "application/json"
+                            }, method="PUT")
+                            r_dir = _OPENER.open(req_dir, timeout=15)
+                            r_dir.read()
+                            logger.info("Published room %s to directory as %s", room_id, alias_name)
+                        except Exception as e_dir:
+                            logger.warning("Failed to publish to directory: %s", e_dir)
+
+                        # Step 3: Ensure join_rules is public
+                        try:
+                            rules_body = json.dumps({
+                                "join_rule": "public"
+                            }).encode()
+                            url_rules = _upstream(f"/_matrix/client/v3/rooms/{room_id}/state/m.room.join_rules")
+                            req_rules = urllib.request.Request(url_rules, data=rules_body, headers={
+                                "Authorization": f"Bearer {token}",
+                                "Content-Type": "application/json",
+                                "Accept": "application/json"
+                            }, method="PUT")
+                            r_rules = _OPENER.open(req_rules, timeout=15)
+                            r_rules.read()
+                            logger.info("Set join_rules=public for room %s", room_id)
+                        except Exception as e_rules:
+                            logger.warning("Failed to set join_rules: %s", e_rules)
+        except Exception as e:
+            logger.warning("createRoom post-processing failed: %s", e, exc_info=True)
+        
+        return Response(
+            response_body,
+            status=200,
+            headers=_filter_response_headers(response_headers),
+            mimetype="application/json",
+        )
+
+    # 对于 publicRooms 请求，读取响应体，修复 total_room_count 为 chunk 长度
+    if request.method in ("GET", "POST") and _PUBLIC_ROOMS_RE.match(path):
+        response_headers = dict(upstream.headers)
+        response_body = upstream.read()
+        upstream.close()
+        try:
+            resp_json = json.loads(response_body.decode("utf-8"))
+            chunk = resp_json.get("chunk", [])
+            # #region debug-point B:publicRooms-raw-response
+            _debug_log("B", "publicRooms raw upstream response", {
+                "total_room_count": resp_json.get("total_room_count"),
+                "chunk_length": len(chunk),
+                "first_room": chunk[0] if chunk else None,
+            })
+            # #endregion
+            if isinstance(chunk, list) and len(chunk) > 0:
+                # Fix total_room_count
+                current_total = resp_json.get("total_room_count", 0)
+                if current_total == 0:
+                    resp_json["total_room_count"] = len(chunk)
+                
+                token = _bearer_token()
+                for room in chunk:
+                    # Set world_readable to True for all public rooms
+                    if not room.get("world_readable", False):
+                        room["world_readable"] = True
+                    # Set guest_can_join to True for all public rooms
+                    if not room.get("guest_can_join", False):
+                        room["guest_can_join"] = True
+                    # Inject canonical_alias if missing
+                    if not room.get("canonical_alias") and token:
+                        try:
+                            from urllib.parse import quote as _quote
+                            rid = room.get("room_id", "")
+                            if rid:
+                                encoded_rid = _quote(rid, safe="")
+                                url_state = _upstream(f"/_matrix/client/v3/rooms/{encoded_rid}/state/m.room.canonical_alias")
+                                req_state = urllib.request.Request(url_state, headers={
+                                    "Authorization": f"Bearer {token}",
+                                    "Accept": "application/json"
+                                }, method="GET")
+                                r_state = _OPENER.open(req_state, timeout=5)
+                                b_state = json.loads(r_state.read().decode())
+                                alias = b_state.get("content", {}).get("alias")
+                                if alias:
+                                    room["canonical_alias"] = alias
+                        except Exception:
+                            pass  # Silently ignore if alias lookup fails
+                
+                response_body = json.dumps(resp_json).encode("utf-8")
+                # #region debug-point B:publicRooms-processed-response
+                _debug_log("B", "publicRooms processed response", {
+                    "total_room_count": resp_json.get("total_room_count"),
+                    "chunk_length": len(chunk),
+                    "first_room": chunk[0] if chunk else None,
+                })
+                # #endregion
+                logger.info("publicRooms: processed %d rooms", len(chunk))
+        except Exception as e:
+            logger.warning("publicRooms post-processing failed: %s", e)
+        
+        return Response(
+            response_body,
+            status=200,
+            headers=_filter_response_headers(response_headers),
+            mimetype="application/json",
         )
 
     def generate():

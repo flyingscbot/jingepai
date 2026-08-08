@@ -1,0 +1,22 @@
+{
+    "C1": {
+        "name": "苟住型主群",
+        "room_id": "!yWxjthVJZNSTMGYWUj:matrix.localhost"
+    },
+    "C2": {
+        "name": "稳字型主群",
+        "room_id": "!XfwOYzBNoDQzUepqMf:matrix.localhost"
+    },
+    "C3": {
+        "name": "端水型主群",
+        "room_id": "!YPzJlCFLrvwBqUuFWH:matrix.localhost"
+    },
+    "C4": {
+        "name": "操作型主群",
+        "room_id": "!RtYtHPNnYgVyCwZpCY:matrix.localhost"
+    },
+    "C5": {
+        "name": "梭哈型主群",
+        "room_id": "!VulQYfMgRXEzqiFnop:matrix.localhost"
+    }
+}

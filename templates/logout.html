@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金格Pi - 退出登录</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Noto Sans SC", sans-serif;
+            background: #050505;
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <p id="msg">正在退出聊天室并清理会话…</p>
+    <script src="{{ url_for('static', filename='home/js/matrix-logout.js') }}"></script>
+    <script>
+        (function () {
+            var msg = document.getElementById("msg");
+            var redirect = {{ redirect_url | tojson }};
+            if (!window.JingepiMatrixLogout) {
+                window.location.replace(redirect);
+                return;
+            }
+            window.JingepiMatrixLogout.run({ redirect: redirect }).catch(function () {
+                msg.textContent = "会话清理完成，正在跳转…";
+                window.location.replace(redirect);
+            });
+        })();
+    </script>
+</body>
+</html>

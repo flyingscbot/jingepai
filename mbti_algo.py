@@ -33,6 +33,13 @@ TAG_D1 = ("W", "M")  # 稳 / 莽
 TAG_D2 = ("K", "G")  # 扛 / 割
 TAG_D3 = ("F", "Y")  # 佛 / 痒
 TAG_D4 = ("Q", "D")  # 群 / 独
+DIM_KEYS = ("D1", "D2", "D3", "D4")
+
+
+def split_tags(tags: str) -> dict[str, str]:
+    """将四位副标签串（如 MGYD）拆为 D1–D4 单列字典。"""
+    t = (tags or "").strip()
+    return {k: (t[i] if i < len(t) else "") for i, k in enumerate(DIM_KEYS)}
 
 OBSERVE_DAYS = 90
 MIN_SELL_LOTS = 5

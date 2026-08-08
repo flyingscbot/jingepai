@@ -135,6 +135,27 @@
     obs.observe(document.documentElement, { childList: true, subtree: true });
   }
 
+  function clearMatrixSessionLocal() {
+    if (window.JingepiMatrixLogout && window.JingepiMatrixLogout.clearMatrixSession) {
+      return window.JingepiMatrixLogout.clearMatrixSession();
+    }
+    return Promise.resolve();
+  }
+
+  try {
+    window.jingepiClearMatrixSession = clearMatrixSessionLocal;
+  } catch (e) {}
+
+  try {
+    window.addEventListener("message", function (ev) {
+      if (!ev || !ev.data) return;
+      var data = ev.data;
+      if (data === "jingepi-logout" || (data && data.type === "jingepi-logout")) {
+        clearMatrixSessionLocal();
+      }
+    });
+  } catch (e) {}
+
   lockBrandPrefs();
   syncHomeserverNow();
   syncHomeserverFromConfig();

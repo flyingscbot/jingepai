@@ -12,7 +12,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
 
-    <!-- 全局玻璃折射（畸变）滤镜：浮窗导航 / 卡片共用 -->
+    
     <svg class="glass-refract-filter" width="0" height="0" aria-hidden="true" focusable="false">
         <defs>
             <filter id="glass-refract" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
@@ -79,7 +79,7 @@
                     <img src="{{ url_for('static', filename='icons/settings.svg') }}" class="menu-icon" alt="">
                     用户设置
                 </a>
-                <a href="{{ url_for('logout') }}" class="menu-link">
+                <a href="{{ url_for('logout') }}" class="menu-link" id="jingepiLogoutLink">
                     <img src="{{ url_for('static', filename='icons/logout.svg') }}" class="menu-icon" alt="">
                     退出登录
                 </a>
@@ -121,7 +121,7 @@
                     <button type="button" class="modal-btn modal-btn-secondary" data-switch-modal="register">前往注册</button>
                 </div>
             </form>
-            <p class="modal-hint">测试账号：llyp、李四、王五、赵六，统一密码 123456</p>
+            <p class="modal-hint">测试账号：管理员llyp、李四、王五、赵六，统一密码 123456</p>
         </div>
     </div>
 
@@ -160,6 +160,34 @@
         };
     </script>
     <script src="{{ url_for('static', filename='home/js/main.js') }}"></script>
+    {% if is_login %}
+    <script src="{{ url_for('static', filename='home/js/matrix-logout.js') }}"></script>
+    <script>
+    (function () {
+      var link = document.getElementById("jingepiLogoutLink");
+      if (!link) return;
+      link.addEventListener("click", function (ev) {
+        try {
+          var frame = document.getElementById("chatFrame");
+          if (frame && frame.contentWindow) {
+            try {
+              frame.contentWindow.postMessage({ type: "jingepi-logout" }, window.location.origin);
+            } catch (e) {}
+            // 让 FluffyChat iframe 卸载，释放它持有的 IndexedDB 连接；
+            // 否则 deleteDatabase 会被 blocked，退出时 Matrix 会话库删不掉。
+            try {
+              frame.src = "about:blank";
+            } catch (e) {}
+          }
+        } catch (e) {}
+        if (window.JingepiMatrixLogout) {
+          ev.preventDefault();
+          window.JingepiMatrixLogout.run({ redirect: link.getAttribute("href") || "/logout" });
+        }
+      });
+    })();
+    </script>
+    {% endif %}
     {% block scripts %}{% endblock %}
 
 </body>

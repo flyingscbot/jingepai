@@ -74,9 +74,15 @@ OIDC_MATRIX_CLIENT_SECRET = os.environ.get(
 
 
 def _default_oidc_redirect_uris() -> list[str]:
-    """本机 + 穿透回调；Synapse 经 Flask :1000 反代时 callback 在公开根下。"""
+    """本机 + 穿透回调；Synapse 经 Flask :1000 反代时 callback 在公开根下。
+
+    需同时注册 127.0.0.1 与 localhost 两种回环主机：Synapse public_baseurl 固定
+    127.0.0.1，浏览器却可能从 localhost 访问（cookie 绑定到 localhost）。代理层
+    会把 redirect_uri 重写为浏览器实际访问的 host，故两个 host 都要能通过校验。
+    """
     uris = [
         "http://127.0.0.1:1000/_synapse/client/oidc/callback",
+        "http://localhost:1000/_synapse/client/oidc/callback",
         "http://127.0.0.1:8008/_synapse/client/oidc/callback",
         "http://localhost:8008/_synapse/client/oidc/callback",
         f"{PUBLIC_BASE_URL}/_synapse/client/oidc/callback",

@@ -53,6 +53,7 @@ _LAB_ASSETS = {
 }
 
 _INJECT_SNIPPET = (
+    b'<script src="/static/home/js/matrix-logout.js"></script>'
     b'<link rel="stylesheet" href="lab-jingepi-fluffy.css">'
     b'<script src="lab-jingepi-fluffy.js"></script>'
 )

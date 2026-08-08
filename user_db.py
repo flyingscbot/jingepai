@@ -212,6 +212,28 @@ def init_db() -> None:
 
             )
 
+        if "suggested_room_type" not in cols:
+
+            conn.execute(
+
+                "ALTER TABLE users ADD COLUMN suggested_room_type TEXT"
+
+            )
+
+        conn.execute(
+
+            """
+
+            UPDATE users
+
+            SET suggested_room_type = 'all'
+
+            WHERE role IN ('admin', 'super_admin')
+
+            """
+
+        )
+
         # 仅补空角色，绝不可把已有 admin / super_admin 刷回 user
 
         conn.execute(
@@ -245,6 +267,18 @@ def init_db() -> None:
         _migrate_legacy_admins(conn)
 
         conn.commit()
+
+
+
+    try:
+
+        from room_type import sync_all_suggested_room_types
+
+        sync_all_suggested_room_types()
+
+    except Exception as e:
+
+        print(f"[room_type] 批量同步 suggested_room_type 失败: {e}")
 
 
 
@@ -326,6 +360,8 @@ def _row_to_user(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
         "created_at": row["created_at"] if "created_at" in keys else "",
 
+        "suggested_room_type": row["suggested_room_type"] if "suggested_room_type" in keys else None,
+
     }
 
 
@@ -351,6 +387,8 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
         "is_active": bool(user.get("is_active", True)),
 
         "created_at": user.get("created_at") or "",
+
+        "suggested_room_type": user.get("suggested_room_type"),
 
     }
 
@@ -771,6 +809,38 @@ def get_user_by_id(user_id: str) -> dict[str, Any] | None:
 
 
 
+def set_suggested_room_type(user_id: str, room_type: str | None) -> None:
+
+    """写入建议主群类型：all（管理员）或 C1–C5。"""
+
+    from room_type import normalize_room_type
+
+    value: str | None
+
+    if room_type is None or str(room_type).strip() == "":
+
+        value = None
+
+    else:
+
+        value = normalize_room_type(str(room_type))
+
+    with get_conn() as conn:
+
+        conn.execute(
+
+            "UPDATE users SET suggested_room_type = ? WHERE id = ?",
+
+            (value, user_id),
+
+        )
+
+        conn.commit()
+
+
+
+
+
 def create_user(
 
     username: str, password: str, role: str = DEFAULT_ROLE
@@ -809,13 +879,17 @@ def create_user(
 
         password_hash = hash_password(password)
 
+        from room_type import room_type_for_role
+
+        suggested_room = room_type_for_role(role)
+
         conn.execute(
 
             """
 
-            INSERT INTO users (id, username, password_hash, role, is_active)
+            INSERT INTO users (id, username, password_hash, role, is_active, suggested_room_type)
 
-            VALUES (?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, ?, 1, ?)
 
             """,
 
@@ -828,6 +902,8 @@ def create_user(
                 password_hash,
 
                 role,
+
+                suggested_room,
 
             ),
 
@@ -1122,6 +1198,12 @@ def set_user_role(user_id: str, role: str) -> dict[str, Any]:
         )
 
         conn.commit()
+
+
+
+    from room_type import sync_suggested_room_type_for_user
+
+    sync_suggested_room_type_for_user(user_id)
 
     updated = get_user_by_id(user_id)
 

@@ -71,6 +71,9 @@ extra_well_known_client_content:
 
 # 服务端再锁一层：普通用户无权发送 m.room.encryption（需 PL 999）
 # 注意：覆盖 events 时需写出完整默认事件权限，否则会清空其它规则
+# 允许发布房间到公共目录（Synapse ≥ 1.99 默认禁止，需要显式开启）
+room_list_publication_rules:
+  - action: allow
 default_power_level_content_override:
   private_chat:
     events:

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 _ADMIN_LOCALPART = "jingepi-admin"
 _TOKEN_CACHE = auth_config.BASE_DIR / "matrix" / "data" / "jingepi-admin.access_token"
-_ADMIN_PASSWORD = "jingepi-admin-lab-only-change-me"
+_ADMIN_PASSWORD = "alyIH5Dp$!&eqeT3k7Rpb5KK2zeOJlTr"
 
 _AVATAR_MIME = {
     ".png": "image/png",
