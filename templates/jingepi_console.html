@@ -87,14 +87,14 @@
                 <input type="password" id="createPassword" placeholder="密码（至少 6 位）" required>
                 {% if is_super_admin %}
                 <select id="createRole" class="console-select">
+                    <option value="trial">免费用户 (trial)</option>
                     <option value="user">用户 (user)</option>
                     <option value="specialist">专家 (specialist)</option>
                     <option value="admin">普通管理 (admin)</option>
                     <option value="super_admin">最高管理 (super_admin)</option>
                 </select>
-                {% else %}
-                <input type="hidden" id="createRole" value="user">
-                <p class="console-field-hint">角色固定为：用户</p>
+                <input type="hidden" id="createRole" value="trial">
+                <p class="console-field-hint">角色固定为：免费用户</p>
                 {% endif %}
             </div>
             <div class="modal-actions">
@@ -128,6 +128,7 @@
                 <input type="password" id="editPassword" placeholder="留空保持原密码">
                 <label class="console-field-label">角色</label>
                 <select id="editRole" class="console-select">
+                    <option value="trial">免费用户 (trial)</option>
                     <option value="user">用户 (user)</option>
                     <option value="specialist">专家 (specialist)</option>
                     <option value="admin">普通管理 (admin)</option>

@@ -1,0 +1,177 @@
+{% extends "sandbox/_sandbox_base.html" %}
+{% block title %}沙盘管理后台{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block sandbox_content %}
+<div class="sb-tab-row">
+  <div class="sb-tab active" onclick="switchTab('users')">用户管理</div>
+  <div class="sb-tab" onclick="switchTab('watchlist')">自选管理</div>
+  <div class="sb-tab" onclick="switchTab('comments')">评论审核</div>
+  <div class="sb-tab" onclick="switchTab('reset')">数据重置</div>
+</div>
+
+<!-- 用户管理 -->
+<div id="tab-users" class="tab-panel">
+  <div class="sb-card" style="padding:14px;">
+    <table class="sb-table">
+      <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>资金</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="userTbody"><tr><td colspan="6" style="color:var(--sb-text-light);">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 自选管理 -->
+<div id="tab-watchlist" class="tab-panel" style="display:none;">
+  <div class="sb-card" style="padding:14px;margin-bottom:10px;">
+    <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">添加自选标的</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <select id="wlKind" class="sb-input" style="width:100px;"><option value="stock">股票</option><option value="fund">基金</option></select>
+      <input id="wlCode" class="sb-input" placeholder="代码 如 600519" style="width:160px;"/>
+      <input id="wlName" class="sb-input" placeholder="名称(可选)" style="flex:1;min-width:160px;"/>
+      <button class="settings-btn" style="height:38px;font-size:13px;" onclick="addWatch()">添加</button>
+    </div>
+    <div style="font-size:12px;color:var(--sb-text-light);margin-top:6px;">提示：添加后将在下个刷新周期写入行情。可先在行情中心搜索确认代码。</div>
+  </div>
+  <div class="sb-card" style="padding:14px;">
+    <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">当前自选</div>
+    <table class="sb-table">
+      <thead><tr><th>类型</th><th>代码</th><th>名称</th><th>操作</th></tr></thead>
+      <tbody id="wlTbody"><tr><td colspan="4" style="color:var(--sb-text-light);">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 评论审核 -->
+<div id="tab-comments" class="tab-panel" style="display:none;">
+  <div class="sb-card" style="padding:14px;">
+    <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">全部评论（最新 200 条）</div>
+    <table class="sb-table">
+      <thead><tr><th>时间</th><th>标的</th><th>用户</th><th>内容</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="cmtTbody"><tr><td colspan="6" style="color:var(--sb-text-light);">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 数据重置 -->
+<div id="tab-reset" class="tab-panel" style="display:none;">
+  <div class="sb-card" style="padding:16px;">
+    <div style="font-weight:600;color:var(--sb-text);margin-bottom:10px;">数据重置（危险操作，需确认）</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="sb-alert">
+        <div style="font-weight:600;margin-bottom:6px;">重置某用户持仓</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="resetUid" class="sb-input" placeholder="用户 ID" style="width:120px;"/>
+          <button class="settings-btn-ghost" style="height:38px;font-size:13px;" onclick="doReset('user')">重置该用户(资金回1万+清持仓)</button>
+        </div>
+      </div>
+      <div style="padding:12px;border:1px solid var(--sb-border);border-radius:var(--sb-radius);">
+        <div style="font-weight:600;color:var(--sb-text);margin-bottom:6px;">清空行情缓存</div>
+        <button class="settings-btn-ghost" style="height:38px;font-size:13px;" onclick="doReset('cache')">清空行情/历史缓存(重新抓取)</button>
+      </div>
+      <div class="sb-alert">
+        <div style="font-weight:600;margin-bottom:6px;">全局重置（清空全部沙盘数据并重建）</div>
+        <button class="settings-btn-secondary" style="height:38px;font-size:13px;" onclick="doReset('all')">全局重置（不可恢复）</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block sandbox_script %}
+<script>
+function switchTab(t){
+  document.querySelectorAll('.sb-tab').forEach(x=>x.classList.remove('active'));
+  event && event.target && event.target.classList.add('active');
+  ['users','watchlist','comments','reset'].forEach(p=>{
+    document.getElementById('tab-'+p).style.display = (p===t)?'block':'none';
+  });
+  if(t==='users') loadUsers();
+  if(t==='watchlist') loadWatch();
+  if(t==='comments') loadCmts();
+}
+
+function loadUsers(){
+  fetch('/sandbox/api/admin/users').then(r=>r.json()).then(res=>{
+    if(!res.success) return;
+    const tb=document.getElementById('userTbody'); tb.innerHTML='';
+    res.data.forEach(u=>{
+      const tr=document.createElement('tr');
+      let sel='<select onchange="changeRole(\''+u.id+'\',this.value)" class="sb-input" style="height:30px;width:auto;">';
+      {{ roles|tojson }}.forEach(function(r){
+        sel+='<option value="'+r+'" '+(r===u.role?'selected':'')+'>'+({{ role_labels|tojson }}[r]||r)+'</option>';
+      });
+      sel+='</select>';
+      tr.innerHTML='<td style="font-size:11px;color:var(--sb-text-light);">'+u.id+'</td><td>'+u.username+'</td><td>'+sel+'</td><td>¥'+u.cash.toFixed(2)+'</td>'+
+        '<td style="color:'+(u.disabled?'var(--sb-up)':'var(--sb-down)')+';">'+(u.disabled?'禁用':'正常')+'</td>'+
+        '<td><button class="settings-btn-ghost" style="padding:4px 10px;font-size:12px;height:28px;" onclick="toggleUser(\''+u.id+'\')">'+(u.disabled?'启用':'禁用')+'</button></td>';
+      tb.appendChild(tr);
+    });
+  });
+}
+function changeRole(uid,role){
+  fetch('/sandbox/api/admin/user/'+uid+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role})})
+    .then(r=>r.json()).then(function(res){ showToast(res.message, res.success?'success':'error'); if(res.success) loadUsers(); });
+}
+function toggleUser(uid){
+  fetch('/sandbox/api/admin/user/'+uid+'/toggle',{method:'POST'}).then(r=>r.json()).then(function(res){ showToast(res.message, res.success?'success':'error'); if(res.success) loadUsers(); });
+}
+
+function loadWatch(){
+  fetch('/sandbox/api/admin/watchlist').then(r=>r.json()).then(res=>{
+    if(!res.success) return;
+    const tb=document.getElementById('wlTbody'); tb.innerHTML='';
+    res.data.forEach(w=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td>'+(w.kind==='stock'?'股票':'基金')+'</td><td>'+w.code+'</td><td>'+w.name+'</td>'+
+        '<td><button class="settings-btn-ghost" style="padding:4px 10px;font-size:12px;height:28px;" onclick="delWatch('+w.id+')">移除</button></td>';
+      tb.appendChild(tr);
+    });
+    if(res.data.length===0) tb.innerHTML='<tr><td colspan="4" style="color:var(--sb-text-light);">暂无自选</td></tr>';
+  });
+}
+function addWatch(){
+  const body={kind:document.getElementById('wlKind').value,code:document.getElementById('wlCode').value,name:document.getElementById('wlName').value};
+  fetch('/api/admin/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(function(res){
+      showToast(res.message, res.success?'success':'error');
+      if(res.success){document.getElementById('wlCode').value='';document.getElementById('wlName').value='';loadWatch();}
+    });
+}
+function delWatch(id){
+  fetch('/sandbox/api/admin/watchlist/'+id,{method:'DELETE'}).then(r=>r.json()).then(function(res){ showToast(res.message, res.success?'success':'error'); if(res.success) loadWatch(); });
+}
+
+function loadCmts(){
+  fetch('/sandbox/api/admin/comments').then(r=>r.json()).then(res=>{
+    if(!res.success) return;
+    const tb=document.getElementById('cmtTbody'); tb.innerHTML='';
+    res.data.forEach(c=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td style="font-size:12px;">'+c.created_at+'</td><td>'+c.kind+'/'+c.code+'</td><td>'+c.username+'('+c.role+')</td>'+
+        '<td style="max-width:260px;word-break:break-all;font-size:12px;">'+escapeHtml(c.content)+'</td>'+
+        '<td><span style="color:'+(c.status==='visible'?'var(--sb-down)':c.status==='hidden'?'var(--sb-gold)':'var(--sb-text-light)')+';">'+c.status+(c.featured?' ★':'')+'</span></td>'+
+        '<td><button class="settings-btn-ghost" style="padding:4px 8px;font-size:12px;height:26px;" onclick="modCmt('+c.id+',\''+(c.status==='visible'?'hide':'restore')+'\')">'+(c.status==='visible'?'隐藏':'恢复')+'</button> '+
+        '<button class="settings-btn-ghost" style="padding:4px 8px;font-size:12px;height:26px;" onclick="modCmt('+c.id+',\'feature\')">'+(c.featured?'取消置顶':'置顶')+'</button> '+
+        '<button class="settings-btn-secondary" style="padding:4px 8px;font-size:12px;height:26px;" onclick="modCmt('+c.id+',\'delete\')">删除</button></td>';
+      tb.appendChild(tr);
+    });
+    if(res.data.length===0) tb.innerHTML='<tr><td colspan="6" style="color:var(--sb-text-light);">暂无评论</td></tr>';
+  });
+}
+function modCmt(id,action){
+  fetch('/sandbox/api/comment/'+id+'/moderate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:action})})
+    .then(r=>r.json()).then(function(res){ showToast(res.message, res.success?'success':'error'); if(res.success) loadCmts(); });
+}
+
+function doReset(scope){
+  let msg = scope==='all'?'确定全局重置？将清空全部沙盘数据（不可恢复）':(scope==='cache'?'确定清空行情缓存？':'确定重置该用户持仓？');
+  if(!confirm(msg)) return;
+  let body={scope:scope};
+  if(scope==='user') body.user_id=parseInt(document.getElementById('resetUid').value||0);
+  fetch('/sandbox/api/admin/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(function(res){ showToast(res.message, res.success?'success':'error'); });
+}
+function escapeHtml(s){return (s||'').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+loadUsers();
+</script>
+{% endblock %}

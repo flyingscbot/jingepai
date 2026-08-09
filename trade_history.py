@@ -29,7 +29,10 @@ CSV_HEADERS = [
     "成交数量",
     "成交均价",
     "成交金额",
+    "模拟数据",
 ]
+
+SIMULATED_MARKER = "是"
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^\d{2}:\d{2}:\d{2}$")
@@ -85,6 +88,7 @@ def normalize_record(raw: dict[str, Any]) -> dict[str, str]:
         "成交数量": qty,
         "成交均价": price,
         "成交金额": amount,
+        "模拟数据": str(raw.get("模拟数据") or raw.get("simulated") or "").strip(),
     }
     validate_record(rec)
     return rec
@@ -340,6 +344,60 @@ def extract_records_from_files(files: list[tuple[str, bytes]]) -> list[dict[str,
             }
         )
     return demo
+
+
+def import_sandbox_orders(user_id: str) -> dict[str, Any]:
+    """从沙盘数据库导入当前用户的交易订单到交易历史 CSV。
+
+    从 sandbox.db 读取该用户的所有已成交订单，转换为历史记录格式，
+    标记为模拟数据后追加到 CSV。返回导入统计。
+    """
+    from sandbox.db import get_session as _sandbox_session, Order as _SandboxOrder
+
+    s = _sandbox_session()
+    try:
+        orders = (
+            s.query(_SandboxOrder)
+            .filter(_SandboxOrder.user_id == user_id)
+            .filter(_SandboxOrder.status.in_(["filled", "settled"]))
+            .order_by(_SandboxOrder.submit_at.asc())
+            .all()
+        )
+        if not orders:
+            return {"success": True, "message": "沙盘中没有可导入的交易记录", "imported": 0, "skipped": 0}
+
+        records: list[dict[str, Any]] = []
+        for o in orders:
+            # 映射 side 到中文操作
+            side_map = {"buy": "买入", "sell": "卖出", "subscribe": "申购", "redeem": "赎回"}
+            action = side_map.get(o.side, o.side or "")
+
+            submit_at = o.submit_at or datetime.now()
+            date_str = submit_at.strftime("%Y-%m-%d")
+            time_str = submit_at.strftime("%H:%M:%S")
+
+            records.append({
+                "成交日期": date_str,
+                "时间": time_str,
+                "证券代码": str(o.code or ""),
+                "证券名称": o.name or "",
+                "操作": action,
+                "成交数量": str(float(o.shares)),
+                "成交均价": str(float(o.price)),
+                "成交金额": str(float(o.amount)),
+                "模拟数据": SIMULATED_MARKER,
+            })
+
+        stats = append_unique_records(user_id, records)
+        return {
+            "success": True,
+            "message": f"已导入 {stats['added']} 条，跳过 {stats['skipped']} 条重复记录",
+            "imported": stats["added"],
+            "skipped": stats["skipped"],
+            "total": stats["total"],
+        }
+    finally:
+        s.close()
 
 
 def organize_from_user_files(user_id: str) -> dict[str, Any]:

@@ -156,6 +156,12 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.console-pill-trial {
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .console-muted {
     color: rgba(255, 255, 255, 0.35);
     font-size: 12px;

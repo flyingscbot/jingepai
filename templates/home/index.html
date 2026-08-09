@@ -7,15 +7,12 @@
 
 <div class="content">
 
-<h1>
-MBTI<br>
-介绍
-</h1>
+<h1>金格Pi投资教育</h1>
 
 {% if is_login %}
-<a href="{{ url_for('mbti') }}"><button type="button">试用MBTI</button></a>
+<a href="{{ url_for('mbti') }}"><button type="button">开始试用</button></a>
 {% else %}
-<button type="button" id="tryMbtiBtn">试用MBTI</button>
+<button type="button" id="tryMbtiBtn">开始试用</button>
 {% endif %}
 
 </div>

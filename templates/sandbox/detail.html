@@ -1,0 +1,218 @@
+{% extends "sandbox/_sandbox_base.html" %}
+{% block title %}{{ info.name }}{% endblock %}
+{% block nav_market %}active{% endblock %}
+
+{% block sandbox_content %}
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+  <a href="/sandbox/market" style="color:var(--sb-gold);text-decoration:none;font-size:14px;">← 返回行情</a>
+  <span style="color:var(--sb-text-light);font-size:13px;">更新 {{ info.updated }}{% if info.stale %}<span style="font-size:11px;color:#a16207;background:rgba(240,185,11,.12);padding:1px 6px;border-radius:8px;margin-left:4px;">缓存</span>{% endif %}</span>
+  {% if not market_open %}<span style="color:var(--sb-text-light);font-size:12px;">非交易时段，显示最近行情</span>{% endif %}
+</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;">
+  <!-- 左：行情与图表 -->
+  <div style="flex:2;min-width:340px;">
+    <div class="sb-card" style="padding:16px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;color:var(--sb-text);">
+        <div>
+          <div style="font-size:18px;font-weight:700;">{{ info.name }}
+            <span style="color:var(--sb-text-light);font-size:14px;">{{ info.code }}</span>
+            {% if info.kind=='fund' and info.fund_type %}<span style="color:var(--sb-text-light);font-size:12px;">{{ info.fund_type }}</span>{% endif %}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          {% if info.kind=='stock' %}
+          <div style="font-size:28px;font-weight:700;color:{{ 'var(--sb-up)' if info.pct_chg >= 0 else 'var(--sb-down)' }}">{{ "%.2f"|format(info.price) }}</div>
+          <div style="color:{{ 'var(--sb-up)' if info.pct_chg >= 0 else 'var(--sb-down)' }}">{{ "%+.2f"|format(info.chg) }} ({{ "%+.2f"|format(info.pct_chg) }}%)</div>
+          {% else %}
+          <div style="font-size:22px;font-weight:700;">单位净值 {{ "%.4f"|format(info.unit_nav) }}</div>
+          <div style="color:{{ 'var(--sb-up)' if info.est_pct >= 0 else 'var(--sb-down)' }}">估算 {{ "%+.2f"|format(info.est_pct) }}% · 累计 {{ "%.4f"|format(info.acc_nav) }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% if info.kind=='stock' %}
+      <div style="display:flex;gap:18px;margin-top:12px;font-size:13px;color:var(--sb-text-light);flex-wrap:wrap;">
+        <span>今开 {{ "%.2f"|format(info.open) }}</span>
+        <span>最高 {{ "%.2f"|format(info.high) }}</span>
+        <span>最低 {{ "%.2f"|format(info.low) }}</span>
+        <span>昨收 {{ "%.2f"|format(info.pre_close) }}</span>
+        <span>换手 {{ "%.2f"|format(info.turnover) }}%</span>
+        <span>市盈 {{ "%.2f"|format(info.pe) }}</span>
+        <span>市净 {{ "%.2f"|format(info.pb) }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="sb-card" style="padding:12px;">
+      <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">近半年走势</div>
+      <div id="chart" style="width:100%;height:340px;"></div>
+    </div>
+  </div>
+
+  <!-- 右：交易面板 + 持仓 + 评论 -->
+  <div style="flex:1;min-width:300px;">
+    {% if holding %}
+    <div class="sb-card" style="padding:14px;margin-bottom:8px;">
+      <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">我的持仓</div>
+      <div style="font-size:13px;line-height:1.9;color:var(--sb-text);">
+        持仓数量：<b>{{ "%.2f"|format(holding.total_shares) }}</b><br>
+        可用：<span style="color:var(--sb-gold);">{{ "%.2f"|format(holding.available_shares) }}</span>
+        （冻结 {{ "%.2f"|format(holding.frozen_shares) }} · T+1）<br>
+        成本价：{{ "%.4f"|format(holding.avg_cost) }}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="sb-card" style="padding:14px;margin-bottom:8px;">
+      <div style="font-weight:600;color:var(--sb-text);margin-bottom:10px;">{% if info.kind=='stock' %}股票交易{% else %}基金交易{% endif %}</div>
+
+      {% if info.kind=='stock' %}
+      <div style="margin-bottom:8px;">
+        <label style="font-size:13px;color:var(--sb-text-light);">买入数量（100 的整数倍）</label>
+        <input id="buyShares" type="number" step="100" min="100" class="sb-input" style="width:100%;margin-top:4px;" placeholder="如 100" oninput="calcStock()"/>
+        <div id="buyCost" style="font-size:12px;color:var(--sb-text-light);margin-top:4px;"></div>
+        <button class="settings-btn" style="width:100%;margin-top:6px;height:36px;" onclick="order('stock','buy')">买入</button>
+      </div>
+      <hr class="sb-divider"/>
+      <div>
+        <label style="font-size:13px;color:var(--sb-text-light);">卖出数量</label>
+        <input id="sellShares" type="number" step="100" min="0" class="sb-input" style="width:100%;margin-top:4px;" placeholder="可用 {{ holding.available_shares if holding else 0 }}" oninput="calcSell()"/>
+        <div id="sellInfo" style="font-size:12px;color:var(--sb-text-light);margin-top:4px;"></div>
+        <button class="settings-btn-secondary" style="width:100%;margin-top:6px;height:36px;" onclick="order('stock','sell')">卖出</button>
+      </div>
+      {% if not market_open %}
+      <div class="sb-alert" style="margin-top:8px;">
+        ⏰ 当前非 A 股交易时段（平日 9:30–15:00）。委托按最新行情模拟成交；实际 T+1 规则不变。
+      </div>
+      {% else %}
+      <div style="font-size:11px;color:var(--sb-text-light);margin-top:6px;">
+        ⏰ A 股交易时段 9:30–15:00｜买入当日冻结，T+1 日方可卖出
+      </div>
+      {% endif %}
+      {% else %}
+      <div style="margin-bottom:8px;">
+        <label style="font-size:13px;color:var(--sb-text-light);">申购金额（元）· 申购费 0.15%</label>
+        <input id="subAmount" type="number" min="100" class="sb-input" style="width:100%;margin-top:4px;" placeholder="如 1000" oninput="calcFundSub()"/>
+        <div id="subInfo" style="font-size:12px;color:var(--sb-text-light);margin-top:4px;"></div>
+        <button class="settings-btn" style="width:100%;margin-top:6px;height:36px;" onclick="order('fund','subscribe')">申购</button>
+        {% if not market_open %}<div style="font-size:11px;color:var(--sb-gold);margin-top:4px;">非交易时段，按最新公布净值确认</div>{% endif %}
+      </div>
+      <hr class="sb-divider"/>
+      <div>
+        <label style="font-size:13px;color:var(--sb-text-light);">赎回份额</label>
+        <input id="redeemShares" type="number" step="0.01" min="0" class="sb-input" style="width:100%;margin-top:4px;" placeholder="可用 {{ holding.available_shares if holding else 0 }}" oninput="calcFundRedeem()"/>
+        <div id="redeemInfo" style="font-size:12px;color:var(--sb-text-light);margin-top:4px;">赎回费按持有天数分档(&lt;7天1.5%/7-29天0.75%/30-364天0.5%/≥365天0%)，T+1到账</div>
+        <button class="settings-btn-secondary" style="width:100%;margin-top:6px;height:36px;" onclick="order('fund','redeem')">赎回</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 评论区 -->
+    <div class="sb-card" style="padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:var(--sb-text);">
+        <div style="font-weight:600;">💬 讨论</div>
+        {% if cmt_remaining is not none %}
+        <span style="font-size:11px;color:var(--sb-text-light);">今日剩余 {{ cmt_remaining }} 条</span>
+        {% else %}
+        <span style="font-size:11px;color:var(--sb-gold);">∞ 无限制</span>
+        {% endif %}
+      </div>
+      <div>
+        <textarea id="cmtContent" class="sb-input" rows="2" style="width:100%;" placeholder="说说你对这只{% if info.kind=='stock' %}股票{% else %}基金{% endif %}的看法（≤500字）"></textarea>
+        <button class="settings-btn" style="margin-top:6px;height:34px;font-size:13px;" onclick="postComment()">发表评论</button>
+      </div>
+      <div id="cmtList" style="margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block sandbox_script %}
+<script>
+const KIND="{{ info.kind }}", CODE="{{ info.code }}";
+const PRICE={{ info.price if info.kind=='stock' else (info.est_nav or info.unit_nav) }};
+
+function calcStock(){
+  const n=parseInt(document.getElementById('buyShares').value||0);
+  if(n<=0){document.getElementById('buyCost').textContent='';return;}
+  const cost=n*PRICE, comm=Math.max(cost*0.00025,5);
+  document.getElementById('buyCost').textContent='预计金额 ¥'+cost.toFixed(2)+' + 佣金 ¥'+comm.toFixed(2)+' = ¥'+(cost+comm).toFixed(2);
+}
+function calcSell(){
+  const n=parseInt(document.getElementById('sellShares').value||0);
+  if(n<=0){document.getElementById('sellInfo').textContent='';return;}
+  const amt=n*PRICE, comm=Math.max(amt*0.00025,5), stamp=amt*0.0005;
+  document.getElementById('sellInfo').textContent='预计到账 ¥'+(amt-comm-stamp).toFixed(2)+'（扣佣金+印花）';
+}
+function calcFundSub(){
+  const a=parseFloat(document.getElementById('subAmount').value||0);
+  if(a<=0){document.getElementById('subInfo').textContent='';return;}
+  const fee=a*0.0015/(1+0.0015), net=a-fee, sh=net/PRICE;
+  document.getElementById('subInfo').textContent='申购费 ¥'+fee.toFixed(2)+'，确认份额约 '+sh.toFixed(4)+' 份';
+}
+function calcFundRedeem(){
+  const s=parseFloat(document.getElementById('redeemShares').value||0);
+  if(s<=0){document.getElementById('redeemInfo').textContent='赎回费按持有天数分档(<7天1.5%/7-29天0.75%/30-364天0.5%/≥365天0%)，T+1到账';return;}
+  const gross=s*PRICE;
+  document.getElementById('redeemInfo').textContent='按净值 ¥'+PRICE.toFixed(4)+' 赎回，毛额 ¥'+gross.toFixed(2)+'（赎回费按持有天数扣减）';
+}
+
+function order(kind,side){
+  let body={kind:kind,side:side,code:CODE};
+  if(kind==='stock'){ body.shares = side==='buy'? document.getElementById('buyShares').value : document.getElementById('sellShares').value; }
+  else{ body = side==='subscribe'? {...body,amount:document.getElementById('subAmount').value} : {...body,shares:document.getElementById('redeemShares').value}; }
+  fetch('/sandbox/api/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(res=>{
+      if(res.success){ showToast(res.message||'操作成功','success'); setTimeout(function(){location.reload();},800); }
+      else showToast(res.message||'操作失败','error');
+    }).catch(function(){ showToast('网络异常，请重试','error'); });
+}
+
+function loadComments(){
+  fetch('/api/comment?kind='+KIND+'&code='+CODE).then(r=>r.json()).then(res=>{
+    const box=document.getElementById('cmtList'); box.innerHTML='';
+    if(!res.data||res.data.length===0){ box.innerHTML='<div style="color:var(--sb-text-light);font-size:13px;padding:6px 0;">还没有评论，快来抢沙发～</div>'; return; }
+    res.data.forEach(function(c){
+      const div=document.createElement('div'); div.className='sb-comment';
+      let badge='';
+      if(c.role==='vip') badge=' <span style="color:var(--sb-gold);font-size:11px;">VIP</span>';
+      else if(['admin','super_admin','specialist'].includes(c.role)) badge=' <span style="color:var(--sb-gold);font-size:11px;">'+c.role_label+'</span>';
+      if(c.featured) badge+=' <span style="color:#a16207;font-size:11px;">★置顶</span>';
+      div.innerHTML='<div style="font-size:13px;color:var(--sb-text);"><b>'+c.username+'</b>'+badge+' <span style="color:var(--sb-text-light);font-size:11px;">'+c.created_at+'</span></div><div style="font-size:13px;margin-top:4px;white-space:pre-wrap;color:var(--sb-text);">'+escapeHtml(c.content)+'</div>';
+      box.appendChild(div);
+    });
+  });
+}
+function postComment(){
+  const content=document.getElementById('cmtContent').value.trim();
+  if(!content){showToast('请输入评论内容','warn');return;}
+  fetch('/sandbox/api/comment',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({kind:KIND,code:CODE,content:content})})
+    .then(r=>r.json()).then(function(res){
+      if(res.success){document.getElementById('cmtContent').value='';showToast('评论成功','success');loadComments();}
+      else showToast(res.message||'评论失败','error');
+    }).catch(function(){ showToast('网络异常','error'); });
+}
+function escapeHtml(s){return s.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+// 图表
+fetch('/sandbox/market/'+KIND+'/'+CODE+'/history').then(r=>r.json()).then(res=>{
+  const data=res.data||[];
+  const chart=echarts.init(document.getElementById('chart'));
+  const x=data.map(d=>d.date);
+  const y=data.map(d=> d.close!=null? d.close : d.unit_nav);
+  const up = y.length>1 && y[y.length-1]>=y[0];
+  chart.setOption({
+    tooltip:{trigger:'axis'},
+    grid:{left:50,right:20,top:20,bottom:30},
+    xAxis:{type:'category',data:x,axisLabel:{fontSize:10,color:'rgba(255,255,255,.4)'}},
+    yAxis:{type:'value',scale:true,axisLabel:{color:'rgba(255,255,255,.4)'}},
+    series:[{type:'line',data:y,smooth:true,symbol:'none',
+      lineStyle:{color: up?'#e74c3c':'#2ecc71',width:2},
+      areaStyle:{color: up?'rgba(231,76,60,.1)':'rgba(46,204,113,.1)'} }]
+  });
+  window.addEventListener('resize',()=>chart.resize());
+});
+loadComments();
+</script>
+{% endblock %}

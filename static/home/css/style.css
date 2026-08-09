@@ -3244,6 +3244,45 @@ button.trade-icon-btn,
     gap:12px;
 }
 
+.trade-import-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height:32px;
+    padding:0 18px;
+    border-radius:20px;
+    border:none;
+    background:#fff;
+    color:#111;
+    font-size:13px;
+    font-weight:600;
+    line-height:1;
+    text-decoration:none;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:box-shadow .25s, background .22s ease, color .22s ease, opacity .22s ease;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.trade-import-btn:hover{
+    background:#f5f5f5;
+    box-shadow:0 4px 14px rgba(0,0,0,.18);
+}
+.trade-import-btn:active{
+    background:#eee;
+    transform:scale(.97);
+}
+.trade-import-btn:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+}
+
+.trade-all-head-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+}
+
 .trade-edit-form{
     margin-bottom:16px;
 }

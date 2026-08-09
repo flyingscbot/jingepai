@@ -53,7 +53,10 @@
         if (role === "specialist") {
             return '<span class="console-pill console-pill-specialist" data-role="specialist">专家</span>';
         }
-        return '<span class="console-pill console-pill-user" data-role="user">用户</span>';
+        if (role === "user") {
+            return '<span class="console-pill console-pill-user" data-role="user">用户</span>';
+        }
+        return '<span class="console-pill console-pill-trial" data-role="trial">免费用户</span>';
     }
 
     function statusPill(active) {
@@ -219,7 +222,7 @@
             if (form) form.reset();
             var roleEl = document.getElementById("createRole");
             if (roleEl && roleEl.tagName === "INPUT") {
-                roleEl.value = "user";
+                roleEl.value = "trial";
             }
             openModal(createModal);
         });
@@ -363,7 +366,7 @@
                 body: {
                     username: document.getElementById("createUsername").value,
                     password: document.getElementById("createPassword").value,
-                    role: roleEl ? roleEl.value : "user",
+                    role: roleEl ? roleEl.value : "trial",
                 },
             }).then(function (data) {
                 if (!data.success) {

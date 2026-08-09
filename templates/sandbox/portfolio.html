@@ -1,0 +1,87 @@
+{% extends "sandbox/_sandbox_base.html" %}
+{% block title %}我的持仓{% endblock %}
+{% block nav_portfolio %}active{% endblock %}
+
+{% block sandbox_content %}
+{% if summary %}
+<div class="sb-stat-row">
+  <div class="sb-stat-card">
+    <div class="sb-stat-label">可用资金</div>
+    <div class="sb-stat-value" style="color:var(--sb-gold);">¥{{ "%.2f"|format(summary.cash) }}</div>
+  </div>
+  <div class="sb-stat-card">
+    <div class="sb-stat-label">持仓市值</div>
+    <div class="sb-stat-value">¥{{ "%.2f"|format(summary.market_value) }}</div>
+  </div>
+  <div class="sb-stat-card">
+    <div class="sb-stat-label">总资产</div>
+    <div class="sb-stat-value">¥{{ "%.2f"|format(summary.total_asset) }}</div>
+  </div>
+  <div class="sb-stat-card">
+    <div class="sb-stat-label">累计收益（初始¥{{ "%.0f"|format(summary.initial_capital) }}）</div>
+    <div class="sb-stat-value" style="color:{{ 'var(--sb-up)' if summary.profit >= 0 else 'var(--sb-down)' }};">
+      {{ "%+.2f"|format(summary.profit) }} ({{ "%+.2f"|format(summary.profit_pct) }}%)
+    </div>
+  </div>
+</div>
+
+<div class="sb-card" style="padding:14px;margin-bottom:12px;">
+  <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">持仓明细</div>
+  {% if summary.holdings|length == 0 %}
+  <div style="color:var(--sb-text-light);padding:12px 0;">暂无持仓，去 <a href="/sandbox/market" style="color:var(--sb-gold);">行情中心</a> 开始交易吧～</div>
+  {% else %}
+  <table class="sb-table">
+    <thead><tr><th>类型</th><th>名称</th><th>持仓</th><th>可用</th><th>冻结(T+1)</th><th>成本</th><th>现价</th><th>市值</th><th>盈亏</th></tr></thead>
+    <tbody>
+      {% for h in summary.holdings %}
+      <tr style="cursor:pointer;" onclick="location.href='/sandbox/market/{{ h.kind }}/{{ h.code }}'">
+        <td>{% if h.kind=='stock' %}股票{% else %}基金{% endif %}</td>
+        <td>{{ h.name }}<br><span style="color:var(--sb-text-light);font-size:11px;">{{ h.code }}</span></td>
+        <td>{{ "%.2f"|format(h.total_shares) }}</td>
+        <td>{{ "%.2f"|format(h.available_shares) }}</td>
+        <td style="color:var(--sb-text-light);">{{ "%.2f"|format(h.frozen_shares) }}</td>
+        <td>{{ "%.4f"|format(h.avg_cost) }}</td>
+        <td>{{ "%.4f"|format(h.price) }}</td>
+        <td>¥{{ "%.2f"|format(h.market_value) }}</td>
+        <td style="color:{{ 'var(--sb-up)' if h.profit >= 0 else 'var(--sb-down)' }};font-weight:600;">
+          {{ "%+.2f"|format(h.profit) }}<br><span style="font-size:11px;">{{ "%+.2f"|format(h.profit_pct) }}%</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<div class="sb-card" style="padding:14px;">
+  <div style="font-weight:600;color:var(--sb-text);margin-bottom:8px;">最近交易记录</div>
+  {% if summary.orders|length == 0 %}
+  <div style="color:var(--sb-text-light);padding:8px 0;">暂无交易记录</div>
+  {% else %}
+  <table class="sb-table">
+    <thead><tr><th>时间</th><th>类型</th><th>方向</th><th>名称</th><th>份额</th><th>价格</th><th>金额</th><th>费用</th><th>状态</th><th>备注</th></tr></thead>
+    <tbody>
+      {% for o in summary.orders %}
+      <tr>
+        <td style="font-size:12px;">{{ o.time }}</td>
+        <td>{% if o.kind=='stock' %}股{% else %}基{% endif %}</td>
+        <td style="color:{{ 'var(--sb-up)' if o.side in ['buy','subscribe'] else 'var(--sb-down)' }};">
+          {% if o.side=='buy' %}买入{% elif o.side=='sell' %}卖出{% elif o.side=='subscribe' %}申购{% else %}赎回{% endif %}
+        </td>
+        <td>{{ o.name }}</td>
+        <td>{{ "%.4f"|format(o.shares) }}</td>
+        <td>{{ "%.4f"|format(o.price) }}</td>
+        <td>¥{{ "%.2f"|format(o.amount) }}</td>
+        <td>¥{{ "%.2f"|format(o.fee + o.stamp) }}</td>
+        <td>{{ o.status }}</td>
+        <td style="font-size:11px;color:var(--sb-text-light);">{{ o.note }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% else %}
+<div style="color:var(--sb-text-light);padding:20px;">加载持仓数据失败，请重试。</div>
+{% endif %}
+{% endblock %}

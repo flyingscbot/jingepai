@@ -56,7 +56,7 @@ USERS_DIR = os.path.join(BASE_DIR, "users")
 
 PASSWORD_METHOD = "scrypt"
 
-DEFAULT_ROLE = "user"
+DEFAULT_ROLE = "trial"
 
 ROLE_SUPER_ADMIN = "super_admin"
 
@@ -66,7 +66,9 @@ ROLE_SPECIALIST = "specialist"
 
 ROLE_USER = "user"
 
-VALID_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPECIALIST, ROLE_USER})
+ROLE_TRIAL = "trial"
+
+VALID_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN, ROLE_SPECIALIST, ROLE_USER, ROLE_TRIAL})
 
 CONSOLE_ROLES = frozenset({ROLE_SUPER_ADMIN, ROLE_ADMIN})
 
@@ -79,6 +81,8 @@ ROLE_LABELS = {
     ROLE_SPECIALIST: "专家",
 
     ROLE_USER: "用户",
+
+    ROLE_TRIAL: "免费用户",
 
 }
 

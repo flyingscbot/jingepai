@@ -7,7 +7,7 @@
 {% block content %}
 <main class="panel-main settings-main trade-main">
     <div class="page-title">
-        <h2>我的交易数据</h2>
+        <h2>我的交易数据 <a href="{{ url_for('sandbox.market_page') }}" style="color: #fff; font-size: 0.55em; margin-left: 12px; text-decoration: none;">↗️试用模拟沙盘</a></h2>
         <p>上传文件、自动整理记录，并按日期查看交易历史</p>
     </div>
 
@@ -141,9 +141,12 @@
                 <h3>全部交易记录</h3>
                 <p>查看并编辑所有历史成交，共 <span id="tradeAllCount">0</span> 条</p>
             </div>
-            <button type="button" class="settings-btn-ghost trade-icon-btn" id="tradeAllRefreshBtn" title="刷新" aria-label="刷新">
-                <img src="{{ url_for('static', filename='icons/refresh.svg') }}" alt="">
-            </button>
+            <div class="trade-all-head-actions">
+                <button type="button" class="trade-import-btn" id="importSandboxBtn" title="从模拟沙盘导入交易数据">导入模拟沙盘数据</button>
+                <button type="button" class="settings-btn-ghost trade-icon-btn" id="tradeAllRefreshBtn" title="刷新" aria-label="刷新">
+                    <img src="{{ url_for('static', filename='icons/refresh.svg') }}" alt="">
+                </button>
+            </div>
         </div>
 
         <form class="trade-add-form trade-edit-form" id="tradeEditForm" hidden>
@@ -195,11 +198,12 @@
                         <th>数量</th>
                         <th>均价</th>
                         <th>金额</th>
+                        <th>是否为模拟数据</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody id="tradeAllBody">
-                    <tr class="trade-all-empty"><td colspan="9">加载中...</td></tr>
+                    <tr class="trade-all-empty"><td colspan="10">加载中...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -533,18 +537,18 @@
 
     function loadAllRecords() {
         if (!tradeAllBody) return;
-        tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">加载中...</td></tr>';
+        tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="10">加载中...</td></tr>';
         fetch("/api/trade/history/all")
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!data.success) {
-                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">' + esc(data.message || "加载失败") + "</td></tr>";
+                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="10">' + esc(data.message || "加载失败") + "</td></tr>";
                 return;
             }
             var records = data.records || [];
             if (tradeAllCount) tradeAllCount.textContent = String(records.length);
             if (!records.length) {
-                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">暂无交易记录</td></tr>';
+                tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="10">暂无交易记录</td></tr>';
                 return;
             }
             tradeAllBody.innerHTML = "";
@@ -559,6 +563,7 @@
                     "<td>" + esc(rec["成交数量"]) + "</td>" +
                     "<td>" + esc(rec["成交均价"]) + "</td>" +
                     "<td>" + esc(rec["成交金额"]) + "</td>" +
+                    '<td class="trade-simulated">' + ((rec["模拟数据"] === "是") ? '<span style="color: #888; font-size: 0.85em;">模拟数据</span>' : "") + "</td>" +
                     '<td class="trade-all-actions">' +
                         iconBtn("trade-all-edit", "edit", "编辑") +
                         iconBtn("trade-all-del", "delete", "删除") +
@@ -588,7 +593,7 @@
             });
         })
         .catch(function () {
-            tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="9">网络错误</td></tr>';
+            tradeAllBody.innerHTML = '<tr class="trade-all-empty"><td colspan="10">网络错误</td></tr>';
         });
     }
 
@@ -621,6 +626,30 @@
 
     var refreshAllBtn = document.getElementById("tradeAllRefreshBtn");
     if (refreshAllBtn) refreshAllBtn.addEventListener("click", loadAllRecords);
+
+    var importSandboxBtn = document.getElementById("importSandboxBtn");
+    if (importSandboxBtn) {
+        importSandboxBtn.addEventListener("click", function () {
+            if (!confirm("将从模拟沙盘导入你的交易记录，是否继续？")) return;
+            importSandboxBtn.disabled = true;
+            importSandboxBtn.textContent = "导入中...";
+            fetch("/api/trade/import-sandbox", { method: "POST" })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    alert(data.message || "导入完成");
+                    loadAllRecords();
+                } else {
+                    alert(data.message || "导入失败");
+                }
+            })
+            .catch(function () { alert("网络错误"); })
+            .finally(function () {
+                importSandboxBtn.disabled = false;
+                importSandboxBtn.textContent = "导入模拟沙盘数据";
+            });
+        });
+    }
 
     if (document.getElementById("cancelEditForm")) {
         document.getElementById("cancelEditForm").addEventListener("click", function () {

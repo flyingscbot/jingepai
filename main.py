@@ -39,6 +39,7 @@ from fluffy_proxy import register_fluffy_proxy
 from matrix_proxy import register_matrix_proxy
 from oidc_provider import init_oidc
 import synapse_admin
+from sandbox import create_blueprint as _sandbox_bp
 
 app = Flask(__name__)
 app.secret_key = "train_2026_abc123"
@@ -58,6 +59,7 @@ else:
     app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 app.register_blueprint(home_bp)
+app.register_blueprint(_sandbox_bp())
 
 user_db.bootstrap()
 matrix_theme.ensure_seeded()
@@ -587,6 +589,20 @@ def api_trade_history_delete():
     return jsonify({"success": True, "message": "已删除"})
 
 
+@app.route("/api/trade/import-sandbox", methods=["POST"])
+@login_required
+def api_trade_import_sandbox():
+    """从沙盘导入交易数据到历史 CSV。"""
+    user = _current_user()
+    if not user:
+        return jsonify({"success": False, "message": "未登录"}), 401
+    try:
+        result = trade_history.import_sandbox_orders(user["id"])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "message": f"导入失败：{e}"})
+
+
 @app.route("/chat")
 @login_required
 def chat():
@@ -898,6 +914,16 @@ if __name__ == "__main__":
         )
         _room_thread.start()
         print("[jingepi] 房间分配守护线程已启动（每 30 秒同步）")
+
+        # 沙盘模块初始化：建表 + 种子数据 + 行情调度器
+        try:
+            from sandbox.db import init_db as _sandbox_init_db
+            from sandbox.market_data import start_scheduler as _sandbox_start_scheduler
+            _sandbox_init_db(app)
+            _sandbox_start_scheduler(app)
+            print("[jingepi] 沙盘模块初始化完成")
+        except Exception as e:
+            print(f"[jingepi] 沙盘模块初始化失败（仍可继续使用）: {e}")
 
     # threaded：Matrix sync 长轮询不能堵死其它 /fluffychat、/_matrix 请求
     app.run(

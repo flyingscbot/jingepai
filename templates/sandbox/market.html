@@ -1,0 +1,182 @@
+{% extends "sandbox/_sandbox_base.html" %}
+{% block title %}行情中心{% endblock %}
+{% block nav_market %}active{% endblock %}
+
+{% block sandbox_content %}
+<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+  <div style="flex:1;min-width:240px;display:flex;gap:6px;">
+    <input id="searchInput" class="sb-input" style="flex:1;" placeholder="搜索股票/基金代码或名称…"/>
+    <select id="searchKind" class="sb-input" style="width:90px;"><option value="stock">股票</option><option value="fund">基金</option></select>
+    <button class="settings-btn" onclick="doSearch()" style="height:38px;font-size:13px;">搜索</button>
+  </div>
+  <div style="display:flex;gap:0;">
+    <div class="sb-tab active" id="tab-stock" onclick="switchKind('stock')">股票</div>
+    <div class="sb-tab" id="tab-fund" onclick="switchKind('fund')">基金</div>
+  </div>
+  <div style="display:flex;gap:0;">
+    <div class="sb-tab active" id="sort-up" onclick="switchSort('up')">涨幅榜</div>
+    <div class="sb-tab" id="sort-down" onclick="switchSort('down')">跌幅榜</div>
+  </div>
+</div>
+
+{% if any_stale %}
+<div class="sb-alert">
+  ⚠ 部分行情为缓存/模拟数据（非交易时段或数据源暂不可用）。
+  {% if not market_open %}当前非 A 股交易时段（平日 9:30–15:00）。{% endif %}
+</div>
+{% endif %}
+
+<!-- 搜索结果区 -->
+<div id="searchResult" style="display:none;margin-bottom:12px;">
+  <div class="sb-card" style="padding:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <b style="color:var(--sb-text);">搜索结果</b>
+      <button class="settings-btn-ghost" style="padding:4px 12px;font-size:12px;height:30px;" onclick="closeSearch()">关闭</button>
+    </div>
+    <div id="searchList"></div>
+  </div>
+</div>
+
+<!-- 股票列表 -->
+<div id="stockPanel">
+  <div class="sb-card" style="padding:8px 14px;">
+    <div id="stockList" style="display:none;">
+      {% for s in stocks %}
+      <div class="sb-row" data-pct="{{ s.pct_chg }}" onclick="location.href='/sandbox/market/stock/{{ s.code }}'">
+        <div>
+          <div style="font-weight:600;">{{ s.name }} <span style="color:var(--sb-text-light);font-size:12px;">{{ s.code }}</span></div>
+          <div style="font-size:12px;color:var(--sb-text-light);">更新 {{ s.updated }}{% if s.stale %}<span style="font-size:11px;color:#a16207;background:rgba(240,185,11,.12);padding:1px 6px;border-radius:8px;margin-left:6px;">缓存</span>{% endif %}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;font-size:16px;color:{{ 'var(--sb-up)' if s.pct_chg >= 0 else 'var(--sb-down)' }}">{{ "%.2f"|format(s.price) }}</div>
+          <span class="{{ 'sb-up' if s.pct_chg >= 0 else 'sb-down' }}">{{ "%+.2f"|format(s.pct_chg) }}%</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="stockVisible"></div>
+    <div id="stockPager" class="sb-pager"></div>
+  </div>
+</div>
+
+<!-- 基金列表 -->
+<div id="fundPanel" style="display:none;">
+  <div class="sb-card" style="padding:8px 14px;">
+    <div id="fundList" style="display:none;">
+      {% for f in funds %}
+      <div class="sb-row" data-pct="{{ f.est_pct }}" onclick="location.href='/sandbox/market/fund/{{ f.code }}'">
+        <div>
+          <div style="font-weight:600;">{{ f.name }} <span style="color:var(--sb-text-light);font-size:12px;">{{ f.code }}</span></div>
+          <div style="font-size:12px;color:var(--sb-text-light);">{{ f.fund_type }} · 更新 {{ f.updated }}{% if f.stale %}<span style="font-size:11px;color:#a16207;background:rgba(240,185,11,.12);padding:1px 6px;border-radius:8px;margin-left:6px;">缓存</span>{% endif %}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;font-size:16px;">单位净值 {{ "%.4f"|format(f.unit_nav) }}</div>
+          <span class="{{ 'sb-up' if f.est_pct >= 0 else 'sb-down' }}">估算 {{ "%+.2f"|format(f.est_pct) }}%</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="fundVisible"></div>
+    <div id="fundPager" class="sb-pager"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block sandbox_script %}
+<script>
+let curKind='stock', curSort='up';
+const PAGE_SIZE = 50;
+let stockPage = 1, fundPage = 1;
+
+function getRows(kind){ return [...(kind==='stock'?document.getElementById('stockList'):document.getElementById('fundList')).querySelectorAll('.sb-row')]; }
+
+function resort(){
+  const kind = curKind;
+  const container = kind==='stock'?document.getElementById('stockList'):document.getElementById('fundList');
+  const rows = [...container.querySelectorAll('.sb-row')];
+  rows.sort((a,b)=>{
+    const va=parseFloat(a.dataset.pct||0), vb=parseFloat(b.dataset.pct||0);
+    return curSort==='up'? vb-va : va-vb;
+  });
+  rows.forEach(r=>container.appendChild(r));
+}
+
+function renderPage(kind, page){
+  const rows = getRows(kind);
+  const total = rows.length;
+  const pages = Math.ceil(total / PAGE_SIZE) || 1;
+  if(page < 1) page = 1;
+  if(page > pages) page = pages;
+  if(kind==='stock') stockPage = page; else fundPage = page;
+
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const vis = kind==='stock'?document.getElementById('stockVisible'):document.getElementById('fundVisible');
+  vis.innerHTML = '';
+  for(let i = start; i < end && i < total; i++){
+    vis.appendChild(rows[i].cloneNode(true));
+  }
+
+  const pager = kind==='stock'?document.getElementById('stockPager'):document.getElementById('fundPager');
+  let html = '';
+  html += '<button class="sb-pager-btn" onclick="renderPage(\''+kind+'\','+(page-1)+')" '+(page<=1?'disabled':'')+'>‹</button>';
+  let pStart = Math.max(1, page - 2);
+  let pEnd = Math.min(pages, page + 2);
+  if(pStart > 1) html += '<span class="sb-pager-info">…</span>';
+  for(let p = pStart; p <= pEnd; p++){
+    html += '<button class="sb-pager-btn'+(p===page?' active':'')+'" onclick="renderPage(\''+kind+'\','+p+')">'+p+'</button>';
+  }
+  if(pEnd < pages) html += '<span class="sb-pager-info">…</span>';
+  html += '<button class="sb-pager-btn" onclick="renderPage(\''+kind+'\','+(page+1)+')" '+(page>=pages?'disabled':'')+'>›</button>';
+  html += '<span class="sb-pager-info">共 '+total+' 条 · 第 '+page+'/'+pages+' 页</span>';
+  pager.innerHTML = html;
+}
+
+function switchKind(k){
+  curKind=k;
+  document.getElementById('tab-stock').classList.toggle('active',k==='stock');
+  document.getElementById('tab-fund').classList.toggle('active',k==='fund');
+  document.getElementById('stockPanel').style.display = k==='stock'?'block':'none';
+  document.getElementById('fundPanel').style.display = k==='fund'?'block':'none';
+}
+
+function switchSort(s){
+  curSort=s;
+  document.getElementById('sort-up').classList.toggle('active',s==='up');
+  document.getElementById('sort-down').classList.toggle('active',s==='down');
+  resort();
+  renderPage(curKind, 1);
+}
+
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  const kind=document.getElementById('searchKind').value;
+  if(!q) return;
+  fetch('/sandbox/market/search?q='+encodeURIComponent(q)+'&kind='+kind)
+    .then(r=>r.json()).then(res=>{
+      if(!res.success) return;
+      const box=document.getElementById('searchList');
+      box.innerHTML='';
+      if(res.data.length===0){ box.innerHTML='<div style="color:var(--sb-text-light);padding:8px;">无结果</div>'; }
+      res.data.forEach(function(d){
+        const url='/sandbox/market/'+kind+'/'+d.code;
+        const div=document.createElement('div');
+        div.className='sb-row';
+        div.onclick=function(){location.href=url;};
+        let extra = kind==='stock' ? ('¥'+(d.price?d.price.toFixed(2):'--')+' <span class="'+((d.pct_chg||0)>=0?'sb-up':'sb-down')+'">'+((d.pct_chg||0)>=0?'+':'')+(d.pct_chg||0).toFixed(2)+'%</span>') : (d.type||'');
+        div.innerHTML='<div><b>'+d.name+'</b> <span style="color:var(--sb-text-light);font-size:12px;">'+d.code+'</span></div><div style="text-align:right;">'+extra+'</div>';
+        box.appendChild(div);
+      });
+      document.getElementById('searchResult').style.display='block';
+    });
+}
+document.getElementById('searchInput').addEventListener('keydown',function(e){ if(e.key==='Enter') doSearch(); });
+function closeSearch(){ document.getElementById('searchResult').style.display='none'; }
+
+document.getElementById('sort-up').onclick=function(){switchSort('up');};
+document.getElementById('sort-down').onclick=function(){switchSort('down');};
+resort();
+renderPage('stock', 1);
+renderPage('fund', 1);
+</script>
+{% endblock %}
