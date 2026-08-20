@@ -33,8 +33,8 @@ def index():
             "var origin=window.location.origin;"
             "try{localStorage.setItem('flutter-web-auth-2',href);}catch(e){}"
             "if(window.opener){try{window.opener.postMessage(payload,origin);}catch(e){}"
-            "try{window.close();}catch(e){}}"
-            f"window.location.replace({dest_js});"
+            "try{window.close();}catch(e){}}else{"
+            f"window.location.replace({dest_js});" "}"
             "})();"
             "</script></body></html>",
             200,

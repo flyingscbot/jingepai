@@ -23,7 +23,8 @@
   <script>
     (function () {
       var href = window.location.href;
-      if (!/(?:^|[?&])loginToken=/.test(window.location.search || "")) {
+      var search = window.location.search || "";
+      if (!/(?:^|[?&])loginToken=/.test(search)) {
         document.getElementById("msg").textContent =
           "未收到登录凭证，请关闭此页后重试。";
         return;
@@ -31,44 +32,34 @@
 
       var payload = { "flutter-web-auth-2": href };
       var origin = window.location.origin;
-      var done = false;
 
-      function finish() {
-        if (done) return;
-        done = true;
-        try {
-          window.close();
-        } catch (e) {}
-      }
-
+      // 1) 存入 localStorage，FluffyChat 加载时读取
       try {
         localStorage.setItem("flutter-web-auth-2", href);
       } catch (e) {}
 
+      // 2) 通知主窗口（弹窗 / iframe 场景）
       if (window.opener && window.opener !== window) {
         try {
           window.opener.postMessage(payload, origin);
-          finish();
-          return;
         } catch (e) {}
       }
 
-      if (window.parent && window.parent !== window) {
-        try {
-          window.parent.postMessage(payload, origin);
-          finish();
-          return;
-        } catch (e) {}
-      }
+      // 3) 关闭本窗口
+      window.close();
 
-      /* 非弹窗：回到 FluffyChat 主路径，由 lab 脚本或应用读取 loginToken */
-      var qs = window.location.search || "";
-      var dest = origin + "/fluffychat/" + qs;
+      // 4) 如果 close 失败（浏览器限制），用空白页 + close 兜底
       setTimeout(function () {
-        if (!done) {
-          window.location.replace(dest);
-        }
-      }, 300);
+        try {
+          window.open("", "_self", "");
+          window.close();
+        } catch (e) {}
+      }, 100);
+
+      // 5) 最终兜底：2 秒后仍开着则跳回 /chat
+      setTimeout(function () {
+        window.location.replace(origin + "/chat" + search);
+      }, 2000);
     })();
   </script>
 </body>

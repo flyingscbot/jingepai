@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urljoin
 
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response, redirect, request
 
 import auth_config
 
@@ -374,7 +374,7 @@ def _inject_preloads(body: bytes) -> bytes:
 
 
 def _rewrite_config_json(body: bytes) -> bytes:
-    """按当前访问根改写 defaultHomeserver，避免 domain.txt 变更后仍读旧缓存。"""
+    """按当前访问根改写 defaultHomeserver / homeserverList，避免 domain.txt 变更后仍读旧缓存。"""
     try:
         data = json.loads(body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
@@ -383,6 +383,7 @@ def _rewrite_config_json(body: bytes) -> bytes:
         return body
     base = auth_config.client_facing_base_url(request).rstrip("/")
     data["defaultHomeserver"] = base
+    data["homeserverList"] = [base]
     return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
@@ -678,6 +679,10 @@ def proxy_fluffy_root_redirect():
     "/fluffychat/<path:subpath>", methods=["GET", "HEAD", "POST"]
 )
 def proxy_fluffy(subpath: str):
+    # SSO 回调：带 loginToken 的请求统一重定向到 auth.html 处理关闭
+    if request.args.get("loginToken"):
+        qs = request.query_string.decode("latin-1")
+        return redirect(f"/auth.html?{qs}")
     return _proxy(subpath, rewrite_base=True)
 
 

@@ -42,6 +42,48 @@
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", syncChatHeaderHeight);
   }
+
+  // 处理 SSO 登录 token：收到 token 后重新加载 iframe
+  // token 已由 auth.html 存入 localStorage，FluffyChat 加载时自动读取
+  function setChatToken() {
+    var frame = document.getElementById("chatFrame");
+    if (frame) {
+      frame.src = "/fluffychat/";
+    }
+  }
+
+  // 1) 从 URL 参数读取（新标签页 SSO 完成后回跳 /chat?loginToken=xxx）
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get("loginToken");
+    if (token) {
+      setChatToken();
+      // 清除 URL 中的 token，避免刷新时重复登录
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, "", "/chat");
+      }
+    }
+  })();
+
+  // 2) 从 postMessage 接收（弹窗/iframe 内 SSO 完成后 postMessage 到父页面）
+  window.addEventListener("message", function (ev) {
+    var data = ev.data;
+    if (data && data["flutter-web-auth-2"]) {
+      try {
+        var url = new URL(data["flutter-web-auth-2"]);
+        var loginToken = url.searchParams.get("loginToken");
+        if (loginToken) {
+          setChatToken();
+        }
+      } catch (e) {
+        // 解析失败，直接转发给 iframe
+        var frame = document.getElementById("chatFrame");
+        try {
+          frame && frame.contentWindow && frame.contentWindow.postMessage(data, ev.origin);
+        } catch (e2) {}
+      }
+    }
+  });
 })();
 </script>
 {% endblock %}

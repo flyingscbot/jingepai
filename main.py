@@ -606,7 +606,6 @@ def api_trade_import_sandbox():
 @app.route("/chat")
 @login_required
 def chat():
-    # 嵌入 FluffyChat（同源 /fluffychat/）
     chat_url = auth_config.chat_embed_path()
     return render_template(
         "chat.html",

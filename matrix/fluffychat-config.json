@@ -1,6 +1,7 @@
 {
   "applicationName": "金格Pi聊天室",
   "defaultHomeserver": "https://43.226.61.35:35635",
+  "homeserverList": ["https://43.226.61.35:35635"],
   "welcomeText": "金格Pi · FluffyChat",
   "privacyUrl": "",
   "colorSchemeSeedInt": 4293966091
