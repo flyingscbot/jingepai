@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}金格Pi - 股票风险体验{% endblock %}
+{% block body_class %}panel-page risk-page{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='home/css/risk_education.css') }}">{% endblock %}
+{% block content %}
+<main class="panel-main risk-main">
+    <div class="page-title">
+        <span class="risk-tag">警示教育 · 纯虚拟体验</span>
+        <h2>追涨杀跌，体验一次就够了</h2>
+        <p>用 10 分钟感受价格急涨急跌时的冲动。这里没有真实股票，也不使用真实资金。</p>
+    </div>
+    <div class="risk-layout">
+        <section class="panel-card risk-market" aria-label="虚拟股票行情">
+            <div class="risk-heading"><div><h3>风暴科技 <small>虚拟股票 · PI0001</small></h3><p>人为构造的极端行情，不代表真实市场</p></div><div class="risk-clock"><span>体验倒计时</span><strong id="riskTimer">10:00</strong></div></div>
+            <div class="risk-quote"><strong id="riskPrice">¥100.00</strong><span id="riskChange">0.00%</span><span class="risk-tag">每 5 秒一根 K 线</span></div>
+            <div class="risk-chart"><svg id="riskChart" viewBox="0 0 800 340" role="img" aria-label="风暴科技实时模拟 K 线"></svg></div>
+            <div class="risk-chart-caption"><span>开场 00:00</span><span>红涨绿跌 · 行情每秒更新</span><span>结束 10:00</span></div>
+            <p class="risk-market-note" id="riskMarketNote">行情正在展开。急涨之后，也可能突然急跌。</p>
+        </section>
+        <section class="panel-card risk-account" aria-label="模拟交易账户">
+            <span class="risk-tag">你的虚拟账户</span><h3>¥100,000 起步</h3>
+            <dl><div><dt>总资产</dt><dd id="riskEquity">¥100,000.00</dd></div><div><dt>可用资金</dt><dd id="riskCash">¥100,000.00</dd></div><div><dt>持有股数</dt><dd id="riskShares">0 股</dd></div><div><dt>累计盈亏</dt><dd id="riskProfit">¥0.00</dd></div></dl>
+            <div class="risk-actions"><button type="button" class="settings-btn" id="riskBuy">全仓买入</button><button type="button" class="settings-btn-ghost" id="riskSell" disabled>全部卖出</button></div>
+            <p class="risk-feedback" id="riskFeedback" role="status" aria-live="polite">随时买入或卖出，观察自己的情绪变化。</p>
+            <p class="risk-rules">仅模拟即时成交，按整数股交易；不设手续费、涨跌停或 T+1。刷新页面会重新开始，不保存记录。</p>
+        </section>
+    </div>
+    <section class="panel-card risk-warning" id="riskWarning" hidden tabindex="-1" aria-labelledby="riskWarningTitle">
+        <span class="risk-tag">体验结束 · 风险警示</span><h3 id="riskWarningTitle">即使这次赚了钱，也不代表你能在真实市场获利。</h3>
+        <p id="riskResult"></p><p>一次盈利可能只是运气。追涨杀跌容易让你在情绪驱动下高买低卖；剧烈波动也可能迅速吞噬本金。</p>
+        <p>本体验刻意放大波动并简化成交规则，不能用于预测市场、验证策略或评估投资能力。真实交易还有流动性、手续费和交易制度等限制。</p>
+        <strong>股票投资存在本金损失风险。先了解风险与规则，切勿借钱投资或投入无法承受损失的资金。</strong>
+    </section>
+    <p class="risk-footer">本页面仅用于入门风险教育，不构成投资建议。</p>
+</main>
+<script src="{{ url_for('static', filename='home/js/risk_education.js') }}" defer></script>
+{% endblock %}

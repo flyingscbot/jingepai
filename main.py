@@ -73,6 +73,7 @@ _NO_TAB_ENDPOINTS = (
     "account_settings",
     "account_security",
     "jingepi_console",
+    "risk_education",
 )
 
 
@@ -402,6 +403,11 @@ def my_mbti():
         mbti_level=mbti_log.MBTI_LEVEL,
         mbti_icons=icon_urls,
     )
+
+
+@app.route("/risk-education")
+def risk_education():
+    return render_template("risk_education.html")
 
 
 @app.route("/trade")
