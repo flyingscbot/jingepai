@@ -5,33 +5,41 @@
 {% block content %}
 <main class="panel-main risk-main">
     <div class="page-title">
-        <span class="risk-tag">警示教育 · 纯虚拟体验</span>
+        <span class="risk-tag">警示教育 · 真实历史 / 虚拟资金</span>
         <h2>追涨杀跌，体验一次就够了</h2>
-        <p>用 10 分钟感受价格急涨急跌时的冲动。这里没有真实股票，也不使用真实资金。</p>
+        <p>选一段真实发生过的股票行情，用 10 分钟感受追涨杀跌的冲动。所有买卖均使用虚拟资金。</p>
     </div>
+    <section class="panel-card risk-case-panel" aria-labelledby="riskCaseTitle">
+        <div class="risk-case-heading"><div><h3 id="riskCaseTitle">选择一段历史行情</h3><p>每次只交易一支股票，开始后不能切换案例。</p></div><button type="button" class="settings-btn" id="riskStart" disabled>开始 10 分钟体验</button></div>
+        <div class="risk-cases" id="riskCases" role="group" aria-label="历史行情案例"></div>
+        <p id="riskCaseDescription">正在载入历史行情…</p>
+    </section>
     <div class="risk-layout">
-        <section class="panel-card risk-market" aria-label="虚拟股票行情">
-            <div class="risk-heading"><div><h3>风暴科技 <small>虚拟股票 · PI0001</small></h3><p>人为构造的极端行情，不代表真实市场</p></div><div class="risk-clock"><span>体验倒计时</span><strong id="riskTimer">10:00</strong></div></div>
-            <div class="risk-quote"><strong id="riskPrice">¥100.00</strong><span id="riskChange">0.00%</span><span class="risk-tag">每 5 秒一根 K 线</span></div>
-            <div class="risk-chart"><svg id="riskChart" viewBox="0 0 800 340" role="img" aria-label="风暴科技实时模拟 K 线"></svg></div>
-            <div class="risk-chart-caption"><span>开场 00:00</span><span>红涨绿跌 · 行情每秒更新</span><span>结束 10:00</span></div>
-            <p class="risk-market-note" id="riskMarketNote">行情正在展开。急涨之后，也可能突然急跌。</p>
+        <section class="panel-card risk-market" aria-label="历史股票行情回放">
+            <div class="risk-heading"><div><h3><span id="riskStockName">历史行情</span><small id="riskStockMeta">请选择案例</small></h3><p id="riskReplayDate">等待开始</p></div><div class="risk-clock"><span id="riskState">准备体验</span><strong id="riskTimer">10:00</strong></div></div>
+            <div class="risk-quote"><strong id="riskPrice">¥100.00</strong><span id="riskChange">0.00%</span><span class="risk-tag" id="riskCandleSpeed">一根 K 线 = 一个历史交易日</span></div>
+            <div class="risk-chart"><svg id="riskChart" viewBox="0 0 800 340" role="img" aria-label="历史行情 K 线回放"></svg></div>
+            <div class="risk-chart-caption"><span id="riskRangeStart">开场</span><span>红涨绿跌 · 价格按历史比例缩放</span><span id="riskRangeEnd">结束</span></div>
+            <p class="risk-market-note" id="riskMarketNote">起始价格统一为 ¥100，仅用于虚拟记账，不是原始股票报价。真实日 K 线压缩至 10 分钟，日内过渡为教学插值，不是历史逐笔成交。</p>
+            <details class="risk-source"><summary>查看历史数据来源与回放说明</summary><p>历史日线来自 Yahoo Finance 的固定数据快照，采用供应商的历史 OHLC 口径（包含拆股等处理），不等同于当年屏幕上的原始报价。开、高、低、收统一按首日开盘价缩放，保留比例与交易日之间的跳空，不额外放大涨跌幅。</p><p>日线无法确定当天先到最高价还是最低价。本体验用固定的开盘—极值—另一极值—收盘顺序插值；过程中只展示已回放的部分，不提前展示当日完整高低点。停牌与非交易日不补线。</p><p><a id="riskDataSource" target="_blank" rel="noopener noreferrer">历史行情来源</a> · <a id="riskEventSource" target="_blank" rel="noopener noreferrer">事件资料</a></p><p id="riskDataSnapshot"></p></details>
         </section>
         <section class="panel-card risk-account" aria-label="模拟交易账户">
             <span class="risk-tag">你的虚拟账户</span><h3>¥100,000 起步</h3>
             <dl><div><dt>总资产</dt><dd id="riskEquity">¥100,000.00</dd></div><div><dt>可用资金</dt><dd id="riskCash">¥100,000.00</dd></div><div><dt>持有股数</dt><dd id="riskShares">0 股</dd></div><div><dt>累计盈亏</dt><dd id="riskProfit">¥0.00</dd></div></dl>
-            <div class="risk-actions"><button type="button" class="settings-btn" id="riskBuy">全仓买入</button><button type="button" class="settings-btn-ghost" id="riskSell" disabled>全部卖出</button></div>
-            <p class="risk-feedback" id="riskFeedback" role="status" aria-live="polite">随时买入或卖出，观察自己的情绪变化。</p>
-            <p class="risk-rules">仅模拟即时成交，按整数股交易；不设手续费、涨跌停或 T+1。刷新页面会重新开始，不保存记录。</p>
+            <div class="risk-actions"><button type="button" class="settings-btn" id="riskBuy" disabled>全仓买入</button><button type="button" class="settings-btn-ghost" id="riskSell" disabled>全部卖出</button></div>
+            <p class="risk-feedback" id="riskFeedback" role="status" aria-live="polite">选择案例并开始，观察自己的情绪变化。</p>
+            <p class="risk-rules">仅模拟整数股即时成交，不设手续费或 T+1，也不模拟涨跌停封单、停牌等待或券商交易限制。真实行情中的这些限制可能让你无法成交。刷新会重置，不保存记录。</p>
         </section>
     </div>
     <section class="panel-card risk-warning" id="riskWarning" hidden tabindex="-1" aria-labelledby="riskWarningTitle">
         <span class="risk-tag">体验结束 · 风险警示</span><h3 id="riskWarningTitle">即使这次赚了钱，也不代表你能在真实市场获利。</h3>
-        <p id="riskResult"></p><p>一次盈利可能只是运气。追涨杀跌容易让你在情绪驱动下高买低卖；剧烈波动也可能迅速吞噬本金。</p>
-        <p>本体验刻意放大波动并简化成交规则，不能用于预测市场、验证策略或评估投资能力。真实交易还有流动性、手续费和交易制度等限制。</p>
+        <p id="riskResult"></p><p id="riskCaseLesson"></p><p>一次盈利可能只是运气。追涨杀跌容易让你在情绪驱动下高买低卖；剧烈波动也可能迅速吞噬本金。</p>
+        <p>这是一段已知历史的压缩体验，日内路径和成交均经过简化。它不能用于预测市场、验证策略或评估投资能力。真实交易还有流动性、手续费和交易制度等限制。</p>
         <strong>股票投资存在本金损失风险。先了解风险与规则，切勿借钱投资或投入无法承受损失的资金。</strong>
     </section>
     <p class="risk-footer">本页面仅用于入门风险教育，不构成投资建议。</p>
 </main>
+<script src="{{ url_for('static', filename='home/js/risk_history_data.js') }}" defer></script>
+<script src="{{ url_for('static', filename='home/js/risk_replay_engine.js') }}" defer></script>
 <script src="{{ url_for('static', filename='home/js/risk_education.js') }}" defer></script>
 {% endblock %}
