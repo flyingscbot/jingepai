@@ -1,3 +1,32 @@
+.risk-experience-float{
+    position:fixed;
+    right: max(28px, env(safe-area-inset-right));
+    bottom: max(28px, env(safe-area-inset-bottom));
+    z-index:90;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:16px 22px;
+    border:1px solid rgba(240,185,11,.45);
+    border-radius:var(--radius-pill);
+    background:linear-gradient(135deg, rgba(240,185,11,.16), rgba(36,36,40,.92));
+    backdrop-filter:var(--glass-blur-sm);
+    -webkit-backdrop-filter:var(--glass-blur-sm);
+    box-shadow:var(--glass-rim), 0 8px 28px rgba(0,0,0,.35);
+    color:var(--gold-light);
+    font-size:14px;
+    font-weight:600;
+    text-decoration:none;
+    transition:transform .2s, border-color .2s;
+}
+.risk-experience-float svg{width:22px;height:22px;flex-shrink:0;}
+.risk-experience-float:hover{transform:translateY(-3px);border-color:var(--gold-light);}
+.risk-experience-float:focus-visible{outline:2px solid var(--gold-light);outline-offset:4px;}
+@media(max-width:600px){
+    .risk-experience-float{right:max(16px, env(safe-area-inset-right));bottom:max(16px, env(safe-area-inset-bottom));padding:13px 17px;font-size:13px;}
+}
+@media(prefers-reduced-motion:reduce){.risk-experience-float{transition:none;}}
+
 *{
     margin:0;
     padding:0;
